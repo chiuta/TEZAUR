@@ -170,3 +170,11 @@ APK instalat și lansat pe emulator Android (API 33, KVM); aplicația iOS instal
 imaginile publicate în ghcr trase și rulate; `fdroid readmeta/lint`; clienți LSP reali (Neovim, Emacs eglot cu flymake, Helix `--health`) contra `tezaur_lsp.py`.
 Găsit prin rulare: metadatele F-Droid aveau id-ul greșit (`org.tezaur.app` în loc de `ro.trom.tezaur`); pachetele ghcr nu erau legate de depozit (lipsea eticheta OCI `source`).
 Încă nerulate (aplicații lipsă sau fără mod de a le automatiza): TeXstudio, Kate, Zed, Sublime Text (doar configuri valide), dictarea cu microfon real (SpeechRecognition cere serviciul Google), instalare din magazine (App Store, Google Play, F-Droid, Flathub, Snap Store, AUR, winget, Scoop, Homebrew core).
+
+## Runda 0.4.4 — dictare locală, editoare GUI reale
+
+- Dictare locală (nouă): butonul 🎙️ rulează Whisper (transformers.js) în pagină; sunetul nu pleacă din calculator (modelul ~40 MB se descarcă o dată). Testat în Chromium real cu un microfon fals alimentat cu o propoziție vorbită (espeak): `variants/tests/test_whisper.py`. Cu o voce robotică, transcrierea prinde majoritatea cuvintelor, nu pe toate.
+- Kate real (plugin LSP Client), Sublime Text 4 real (pachetul LSP) și Zed real pornesc procesele configurate.
+- Bug găsit: Zed pornește servere de limbaj doar prin extensii, deci vechea configurare LSP nu făcea nimic; configurarea livrată e acum un server MCP (`tezaur mcp`), verificat că Zed îl pornește.
+- TeXstudio și Geany pornesc, dar comanda utilizator din TeXstudio nu poate fi configurată automat; instrucțiunile rămân pentru configurare manuală.
+- Rămân în afara CI: publicarea în magazine (App Store, Google Play, Flathub, Snap Store, F-Droid, winget, Homebrew core), recunoașterea vocală cloud din browser.
