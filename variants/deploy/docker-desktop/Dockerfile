@@ -1,4 +1,5 @@
-FROM ghcr.io/OWNER/tezaur:latest AS server
+ARG SERVER_IMAGE=ghcr.io/OWNER/tezaur:latest
+FROM ${SERVER_IMAGE} AS server
 FROM alpine:3.20
 LABEL org.opencontainers.image.title="TEZAUR" \
       org.opencontainers.image.description="Local citation-grounded research assistant" \

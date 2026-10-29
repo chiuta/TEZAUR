@@ -95,7 +95,7 @@ jobs:
           sleep 3; bash .github/annotate.sh curl -sf http://127.0.0.1:8080/index.html -o /dev/null
           docker compose -f variants/docker/docker-compose.yml config -q
       - name: Docker Desktop extension image builds
-        run: bash .github/annotate.sh docker build -t tezaur-ext:ci -f variants/deploy/docker-desktop/Dockerfile .
+        run: bash .github/annotate.sh bash -c 'docker build -t tezaur:ci . && docker build --build-arg SERVER_IMAGE=tezaur:ci -t tezaur-ext:ci -f variants/deploy/docker-desktop/Dockerfile .'
 
   quadlet:
     runs-on: ubuntu-24.04
@@ -190,12 +190,23 @@ jobs:
       - name: winget manifests validated
         shell: pwsh
         run: bash .github/annotate.sh winget validate --manifest variants/packaging/winget
-      - name: Scoop manifest installs
+      - name: Scoop manifest installs with real Scoop (zip served from localhost, same manifest otherwise)
         shell: pwsh
         run: |
-          iwr -useb get.scoop.sh -outfile i.ps1; .\i.ps1 -RunAsAdmin
-          scoop bucket list
-          scoop-check 2>$null; Get-Content variants/packaging/scoop/tezaur.json | ConvertFrom-Json | Out-Null
+          Invoke-RestMethod get.scoop.sh -outfile i.ps1; .\i.ps1 -RunAsAdmin
+          $env:PATH += ";$HOME\scoop\shims"
+          New-Item -ItemType Directory pz | Out-Null
+          Copy-Item target/release/tezaur.exe pz/tezaur.exe; Copy-Item target/release/tezaur.exe pz/TezaurPortable.exe
+          Compress-Archive -Path pz/* -DestinationPath tezaur-windows.zip
+          $h = (Get-FileHash tezaur-windows.zip -Algorithm SHA256).Hash.ToLower()
+          $j = Get-Content variants/packaging/scoop/tezaur.json | ConvertFrom-Json
+          $j.version = "0.4.0"; $j.url = "http://127.0.0.1:8099/tezaur-windows.zip"; $j.hash = $h
+          $j.PSObject.Properties.Remove("autoupdate"); $j.PSObject.Properties.Remove("checkver")
+          $j | ConvertTo-Json -Depth 5 | Set-Content tezaur-ci.json
+          $srv = Start-Process python -ArgumentList "-m","http.server","8099" -PassThru; Start-Sleep 3
+          scoop install ./tezaur-ci.json
+          tezaur --version
+          Stop-Process $srv
 
   macos:
     runs-on: macos-latest
