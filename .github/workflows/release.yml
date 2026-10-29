@@ -4,7 +4,33 @@ on:
   workflow_dispatch:
   push:
     tags: ['v*']
+permissions: { contents: write }
 jobs:
+  assets:
+    # Attach CLI binaries (and the .deb) to the GitHub Release of the tag.
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux-x86_64 }
+          - { os: macos-latest, name: macos-arm64 }
+          - { os: windows-latest, name: windows-x86_64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p out/tezaur-${{ matrix.name }}
+          cp LICENSE README.md out/tezaur-${{ matrix.name }}/
+          if [ "${{ runner.os }}" = Windows ]; then cp target/release/tezaur.exe out/tezaur-${{ matrix.name }}/; (cd out && 7z a tezaur-${{ github.ref_name }}-${{ matrix.name }}.zip tezaur-${{ matrix.name }}); else cp target/release/tezaur out/tezaur-${{ matrix.name }}/; tar -C out -czf out/tezaur-${{ github.ref_name }}-${{ matrix.name }}.tar.gz tezaur-${{ matrix.name }}; fi
+          if [ "${{ runner.os }}" = Linux ]; then ./variants/build-deb.sh && cp dist/*.deb out/; fi
+          cd out && (sha256sum tezaur-* *.deb 2>/dev/null || shasum -a 256 tezaur-*.tar.gz) | grep -v '/$' > SHA256SUMS-${{ matrix.name }}.txt || true
+      - name: Upload to the release
+        shell: bash
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release upload "${{ github.ref_name }}" out/*.tar.gz out/*.zip out/*.deb out/SHA256SUMS-*.txt --clobber -R "${{ github.repository }}" 2>&1 | grep -v 'no matches' || true
   cli:
     strategy:
       matrix:

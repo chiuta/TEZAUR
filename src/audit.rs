@@ -306,11 +306,57 @@ const NUMBER_WORDS: &[&str] = &[
 /// Numbers (digits or number words) that the sentence states but the cited passage does not contain. A swapped figure keeps almost every other
 /// word the same, so plain overlap cannot see it.
 fn missing_numbers(sentence: &str, passage: &str) -> Vec<String> {
-    let is_num = |w: &str| w.chars().all(|c| c.is_ascii_digit()) || NUMBER_WORDS.contains(&w);
-    let have: std::collections::HashSet<String> = norm(passage).split(' ').map(|w| w.to_string()).collect();
-    let mut miss: Vec<String> = norm(sentence).split(' ').filter(|w| !w.is_empty() && is_num(w) && !have.contains(*w)).map(|w| w.to_string()).collect();
+    // Digit figures are compared as written ("71.3" is one number, not "71" and "3"), so a swapped or re-ordered figure cannot hide
+    // behind digits that appear elsewhere in the passage.
+    let have: std::collections::HashSet<String> = figures(passage).into_iter().collect();
+    let have_words: std::collections::HashSet<String> = norm(passage).split(' ').map(|w| w.to_string()).collect();
+    let mut miss: Vec<String> = figures(sentence).into_iter().filter(|n| !have.contains(n)).collect();
+    miss.extend(norm(sentence).split(' ').filter(|w| NUMBER_WORDS.contains(w) && !have_words.contains(*w)).map(|w| w.to_string()));
     miss.dedup();
     miss
+}
+
+/// Digit figures in `s`, normalised: thousands separators removed ("1,240" = "1240" = "1 240"), decimal comma read as a point.
+fn figures(s: &str) -> Vec<String> {
+    let cs: Vec<char> = s.chars().collect();
+    let digit = |k: usize| k < cs.len() && cs[k].is_ascii_digit();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < cs.len() {
+        if !cs[i].is_ascii_digit() {
+            i += 1;
+            continue;
+        }
+        let mut j = i;
+        let mut groups: Vec<String> = vec![String::new()];
+        let mut seps: Vec<char> = Vec::new();
+        while j < cs.len() {
+            if digit(j) {
+                groups.last_mut().unwrap().push(cs[j]);
+                j += 1;
+            } else if matches!(cs[j], '.' | ',') && digit(j + 1) {
+                seps.push(cs[j]);
+                groups.push(String::new());
+                j += 1;
+            } else if matches!(cs[j], ' ' | '\u{a0}' | '\u{202f}') && digit(j + 1) && digit(j + 2) && digit(j + 3) && !digit(j + 4) && groups[0].len() <= 3 && groups.iter().skip(1).all(|g| g.len() == 3) {
+                seps.push(' ');
+                groups.push(String::new());
+                j += 1;
+            } else {
+                break;
+            }
+        }
+        let triples = groups.len() > 1 && groups[0].len() <= 3 && groups[1..].iter().all(|g| g.len() == 3) && seps.iter().all(|c| *c == seps[0]);
+        let thousands = triples && (seps[0] == ' ' || seps[0] == ',' || groups.len() > 2);
+        let n = if thousands || groups.len() == 1 {
+            groups.concat()
+        } else {
+            format!("{}.{}", groups[..groups.len() - 1].concat(), groups[groups.len() - 1])
+        };
+        out.push(n);
+        i = j.max(i + 1);
+    }
+    out
 }
 
 pub const SUPPORTED: f32 = 0.6;
@@ -907,5 +953,22 @@ mod tests {
         assert_eq!(parse_sem("Contradicts."), Sem::Contradicts);
         assert_eq!(parse_sem("SUPPORTS because"), Sem::Supports);
         assert_eq!(parse_sem("hmm"), Sem::Unclear);
+    }
+}
+
+#[cfg(test)]
+mod figure_tests {
+    use super::*;
+    #[test]
+    fn figures_keep_decimals_and_ignore_thousands_separators() {
+        assert_eq!(figures("took 71.3 days"), vec!["71.3"]);
+        assert_eq!(figures("1,240 and 1240 and 1 240"), vec!["1240", "1240", "1240"]);
+        assert_eq!(figures("a rate of 0,91 in 2024."), vec!["0.91", "2024"]);
+    }
+    #[test]
+    fn reordered_digits_are_a_mismatch() {
+        assert_eq!(missing_numbers("The time was 3.71 days", "The time was 71.3 days"), vec!["3.71"]);
+        assert!(missing_numbers("The time was 71.3 days.", "mean time 71.3 days").is_empty());
+        assert!(missing_numbers("There were 1,240 cases", "1240 applications").is_empty());
     }
 }

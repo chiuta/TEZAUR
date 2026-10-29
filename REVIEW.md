@@ -182,3 +182,22 @@ Găsit prin rulare: metadatele F-Droid aveau id-ul greșit (`org.tezaur.app` în
 ## Runda 0.4.5 — depozite proprii de pachete
 
 Pages găzduiește acum depozite reale APT, RPM, Flatpak și F-Droid, reconstruite la fiecare push. Fiecare e instalat în CI întâi dintr-o copie locală (container curat), apoi de pe URL-ul public (`verify-live`): `apt install tezaur` pe Debian, `dnf install tezaur` pe Fedora, `flatpak install` și indexul F-Droid. Limite: depozitele APT/RPM nu sunt semnate GPG (nu păstrăm cheie în CI); cheia F-Droid e generată la fiecare build, deci nu e stabilă. Magazinele publice (App Store, Google Play, Flathub, Snap Store, winget, Homebrew core) cer conturi și revizuire; rămân neautomatizate. TeXstudio: cheile `User/ToolNames` și `User/Tools` există în binar, dar meniul „User" a rămas gol în test; comanda se adaugă manual.
+
+## Runda 0.4.6 — analiză adversarială (înainte de release)
+
+Găsit și reparat (cu teste de regresie în `variants/tests/test_security.py` și teste unitare):
+- **CSRF pe serverul local fără token**: o pagină web deschisă în același browser putea trimite POST „simple” (fără preflight) către `127.0.0.1:PORT` (ex. `/api/ingest`, `/api/mesh/peers`, `/api/mesh/pull`, `/mcp`); antetul Host arăta corect. Acum orice cerere care modifică ceva și are `Origin` străin (sau `null`) primește 403; clienții fără Origin (CLI, editoare, curl) și originile loopback merg ca înainte.
+- **Zip-bomb** în `.docx`/`.epub` și în pachetele Mesh `.tzb`: un membru de arhivă era citit integral în memorie. Plafon 256 MB per membru; răspunsurile peerilor sunt plafonate la 64 MB.
+- **`pdftotext` fără timeout**: un PDF patologic bloca ingestia. Acum 180 s, apoi se omite fișierul.
+- **Un panic într-un handler** oprea tot serverul. Acum cererea primește 500, serverul rămâne în picioare.
+- **Verificarea cifrelor în `audit`**: `71.3` era spart în `71` și `3`, deci o cifră reordonată (`3.71`) trecea nedetectată. Acum cifrele se compară ca numere întregi (cu separatori de mii și virgulă zecimală normalizate).
+- **Salvarea indexului**: același nume `.tmp` pentru toți scriitorii și fără `fsync`; acum nume unic per proces și `sync_all` înainte de redenumire.
+
+Verificat fără defecte: XSS în interfața web (titluri, text, `</textarea>`, `<svg onload>` în documente), path traversal în Mesh și workspace-uri (deja acoperit de teste), argumente absurde în CLI (fără panic), fișiere corupte ca pdf/docx/epub, linii de 3 MB.
+
+Limite rămase, spuse deschis:
+- Serverul gestionează cererile pe rând: o generare lungă de la model blochează celelalte cereri.
+- `audit` nu poate verifica numere de pagină pentru surse nepaginate (`.md`, `.txt`): un `p. 7` greșit trece.
+- Fără `--token`, orice proces local al aceluiași utilizator are acces complet la API.
+- Depozitele APT/RPM nu sunt semnate GPG; cheia F-Droid e efemeră; traducerile subtitrărilor video nu au fost revizuite de vorbitori nativi.
+- `pdf-extract` rulează în același proces: un PDF care provoacă depășire de stivă ar opri procesul (nu e prins de `catch_unwind`).

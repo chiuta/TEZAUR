@@ -45,10 +45,18 @@ impl Store {
     }
 
     pub fn save(&self, path: &Path) -> Result<()> {
-        let tmp = path.with_extension("tmp");
+        // Unique temp name per process, flushed to disk before the rename: a crash or a second writer can never leave a half-written index.
+        let tmp = path.with_extension(format!("tmp{}", std::process::id()));
         let bytes = bincode::serialize(self)?;
-        std::fs::write(&tmp, bytes)?;
-        std::fs::rename(&tmp, path)?;
+        {
+            let mut f = std::fs::File::create(&tmp)?;
+            std::io::Write::write_all(&mut f, &bytes)?;
+            f.sync_all()?;
+        }
+        if let Err(e) = std::fs::rename(&tmp, path) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e.into());
+        }
         Ok(())
     }
 

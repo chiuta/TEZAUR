@@ -133,6 +133,25 @@ fn host_ok(req: &Request, o: &Opts) -> bool {
     name == "localhost" || name.parse::<std::net::IpAddr>().is_ok() || name == o.bind.to_lowercase()
 }
 
+/// Cross-site request forgery: a web page open in the same browser can POST to http://127.0.0.1:PORT with a "simple" request
+/// (no preflight) and the Host header looks fine. Browsers always send Origin on such requests, so refuse any state-changing
+/// request whose Origin is not this server itself. Needs no token; with a token the secret already protects.
+fn origin_ok(req: &Request, o: &Opts) -> bool {
+    if o.token.is_some() || matches!(req.method(), Method::Get | Method::Head | Method::Options) {
+        return true;
+    }
+    let Some(origin) = req.headers().iter().find(|h| h.field.equiv("Origin")).map(|h| h.value.as_str().to_string()) else { return true };
+    let host = req.headers().iter().find(|h| h.field.equiv("Host")).map(|h| h.value.as_str().to_lowercase()).unwrap_or_default();
+    let name = |hp: &str| -> String {
+        let hp = hp.trim_end_matches('/');
+        if let Some(r) = hp.strip_prefix('[') { r.split(']').next().unwrap_or("").to_string() } else { hp.split(':').next().unwrap_or("").to_string() }
+    };
+    let oh = name(origin.split("://").nth(1).unwrap_or("").split('/').next().unwrap_or(""));
+    // Origin "null" (sandboxed frames, file://) is refused: an attacker can produce it too. Loopback origins (the desktop shells) pass.
+    let loopback = oh == "localhost" || oh.parse::<std::net::IpAddr>().map(|ip| ip.is_loopback()).unwrap_or(false);
+    !oh.is_empty() && (loopback || oh == name(&host))
+}
+
 fn bib_for(ctx: &Ctx, base: &Path) -> BibMap {
     BibMap::load(&[base.to_path_buf()], &ctx.bib_files, if ctx.data.is_some() { 3 } else { 1 })
 }
@@ -437,6 +456,10 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
             let _ = req.respond(json_resp(403, json!({"error": "unexpected Host header (DNS-rebinding protection); use 127.0.0.1 or localhost, or start the server with --token"})));
             continue;
         }
+        if !origin_ok(&req, o) {
+            let _ = req.respond(json_resp(403, json!({"error": "cross-site request refused (Origin does not match this server); use --token for remote clients"})));
+            continue;
+        }
         if !authorised(&req, o, &params) {
             let _ = req.respond(json_resp(401, json!({"error": "token required"})));
             continue;
@@ -502,9 +525,11 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
                 }
             }
         }
-        let mut resp = match api(ctx, o, &method, &path, &params, &mut req) {
-            Ok(r) => r,
-            Err(e) => json_resp(400, json!({"error": format!("{e:#}")})),
+        // A bug in one request handler must not take the whole server (and everyone's session) down.
+        let mut resp = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| api(ctx, o, &method, &path, &params, &mut req))) {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => json_resp(400, json!({"error": format!("{e:#}")})),
+            Err(_) => json_resp(500, json!({"error": "internal error (the request was dropped; the server is still running)"})),
         };
         if path.starts_with("/api/mesh/") {
             resp = resp.with_header(hdr("Access-Control-Allow-Origin", "*"));

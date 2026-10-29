@@ -51,8 +51,8 @@ fn pdf_pages(path: &Path) -> Result<Vec<String>> {
         Ok(Ok(v)) => Ok(v),
         other => {
             // Fallback: poppler's pdftotext, if installed (pages split by form feed).
-            let out = std::process::Command::new("pdftotext").arg(path).arg("-").output();
-            if let Ok(o) = out {
+            let out = run_timeout(std::process::Command::new("pdftotext").arg(path).arg("-"), 180);
+            if let Some(o) = out {
                 if o.status.success() {
                     let t = String::from_utf8_lossy(&o.stdout).to_string();
                     return Ok(t.split('\x0c').map(str::to_string).collect());
@@ -200,6 +200,45 @@ fn decode_entities(s: &str) -> String {
     out
 }
 
+/// Largest text a single archive member may expand to: a hostile .docx/.epub/bundle must not be able to exhaust memory (zip bombs).
+pub const MAX_MEMBER: u64 = 256 << 20;
+
+pub fn read_capped(r: &mut impl std::io::Read, out: &mut String) -> Result<()> {
+    let mut buf = Vec::new();
+    std::io::Read::read_to_end(&mut std::io::Read::take(r, MAX_MEMBER + 1), &mut buf)?;
+    if buf.len() as u64 > MAX_MEMBER {
+        bail!("archive member expands to more than {} MB — refusing (possible zip bomb)", MAX_MEMBER >> 20);
+    }
+    out.push_str(&String::from_utf8(buf).map_err(|_| anyhow::anyhow!("archive member is not valid UTF-8"))?);
+    Ok(())
+}
+
+/// Run an external converter with a deadline, so one pathological file cannot hang an ingest.
+pub fn run_timeout(cmd: &mut std::process::Command, secs: u64) -> Option<std::process::Output> {
+    use std::process::Stdio;
+    let mut child = cmd.stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let mut out = child.stdout.take()?;
+    let reader = std::thread::spawn(move || {
+        let mut b = Vec::new();
+        let _ = std::io::Read::read_to_end(&mut out, &mut b);
+        b
+    });
+    let start = std::time::Instant::now();
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(s)) => break s,
+            Ok(None) if start.elapsed().as_secs() >= secs => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(20)),
+            Err(_) => return None,
+        }
+    };
+    Some(std::process::Output { status, stdout: reader.join().unwrap_or_default(), stderr: Vec::new() })
+}
+
 fn zip_text(path: &Path, want: impl Fn(&str) -> bool) -> Result<Vec<(String, String)>> {
     let f = std::fs::File::open(path)?;
     let mut z = zip::ZipArchive::new(f).context("not a valid zip container")?;
@@ -208,7 +247,7 @@ fn zip_text(path: &Path, want: impl Fn(&str) -> bool) -> Result<Vec<(String, Str
     let mut out = Vec::new();
     for n in names {
         let mut s = String::new();
-        std::io::Read::read_to_string(&mut z.by_name(&n)?, &mut s)?;
+        read_capped(&mut z.by_name(&n)?, &mut s)?;
         out.push((n, s));
     }
     Ok(out)
@@ -294,7 +333,7 @@ fn resolve_href(dir: &str, href: &str) -> String {
 
 fn zip_read(z: &mut zip::ZipArchive<std::fs::File>, name: &str) -> Option<String> {
     let mut s = String::new();
-    std::io::Read::read_to_string(&mut z.by_name(name).ok()?, &mut s).ok()?;
+    read_capped(&mut z.by_name(name).ok()?, &mut s).ok()?;
     Some(s)
 }
 

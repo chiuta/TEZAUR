@@ -182,7 +182,7 @@ pub fn bundle_import(store: &mut Store, base: &Path, data: &[u8]) -> Result<(usi
     let mut z = zip::ZipArchive::new(std::io::Cursor::new(data)).context("not a TEZAUR bundle (zip expected)")?;
     let man: Value = {
         let mut s = String::new();
-        z.by_name("manifest.json").context("no manifest.json — not a TEZAUR bundle")?.read_to_string(&mut s)?;
+        crate::ingest::read_capped(&mut z.by_name("manifest.json").context("no manifest.json — not a TEZAUR bundle")?, &mut s)?;
         serde_json::from_str(&s)?
     };
     if man["format"] != "tezaur-bundle/1" {
@@ -193,7 +193,7 @@ pub fn bundle_import(store: &mut Store, base: &Path, data: &[u8]) -> Result<(usi
     let (mut added, mut skipped) = (0, 0);
     for n in names {
         let mut s = String::new();
-        z.by_name(&n)?.read_to_string(&mut s)?;
+        crate::ingest::read_capped(&mut z.by_name(&n)?, &mut s)?;
         match merge_doc(store, &origin, &serde_json::from_str(&s)?) {
             Ok(true) => added += 1,
             Ok(false) => skipped += 1,
@@ -202,7 +202,7 @@ pub fn bundle_import(store: &mut Store, base: &Path, data: &[u8]) -> Result<(usi
     }
     if let Ok(mut f) = z.by_name("refs.bib") {
         let mut s = String::new();
-        f.read_to_string(&mut s)?;
+        crate::ingest::read_capped(&mut f, &mut s)?;
         std::fs::write(base.join(format!("mesh-{origin}.bib")), s)?;
     }
     Ok((added, skipped, origin))
@@ -234,6 +234,16 @@ fn call(p: &Peer, path: &str) -> Result<ureq::Response> {
     })
 }
 
+/// A peer is untrusted: never read more than 64 MB of its answer.
+fn json_capped(r: ureq::Response) -> Result<Value> {
+    let mut b = Vec::new();
+    std::io::Read::take(r.into_reader(), (64 << 20) + 1).read_to_end(&mut b)?;
+    if b.len() > 64 << 20 {
+        bail!("peer answer larger than 64 MB — refusing");
+    }
+    Ok(serde_json::from_slice(&b)?)
+}
+
 pub fn pct(s: &str) -> String {
     let mut o = String::new();
     for b in s.bytes() {
@@ -248,7 +258,7 @@ pub fn pct(s: &str) -> String {
 
 /// Copy a peer's shared documents into `store`. Returns (added, already_held).
 pub fn pull(store: &mut Store, p: &Peer) -> Result<(usize, usize)> {
-    let man: Value = call(p, "/api/mesh/manifest")?.into_json()?;
+    let man: Value = json_capped(call(p, "/api/mesh/manifest")?)?;
     let origin = man["node"]["name"].as_str().unwrap_or(&p.name).to_string();
     let (mut added, mut held) = (0, 0);
     for d in man["docs"].as_array().context("bad manifest")? {
@@ -258,7 +268,7 @@ pub fn pull(store: &mut Store, p: &Peer) -> Result<(usize, usize)> {
             continue;
         }
         let path = d["path"].as_str().unwrap_or("");
-        let payload: Value = call(p, &format!("/api/mesh/doc?path={}", pct(path)))?.into_json()?;
+        let payload: Value = json_capped(call(p, &format!("/api/mesh/doc?path={}", pct(path)))?)?;
         if merge_doc(store, &origin, &payload)? { added += 1 } else { held += 1 }
     }
     Ok((added, held))
@@ -274,7 +284,7 @@ pub fn federated_search(peers: &[Peer], q: &str, k: usize) -> (Vec<Value>, Vec<S
         .map(|p| {
             let q = q.to_string();
             std::thread::spawn(move || -> Result<Vec<Value>> {
-                let v: Value = call(&p, &format!("/api/mesh/search?q={}&k={k}", pct(&q)))?.into_json()?;
+                let v: Value = json_capped(call(&p, &format!("/api/mesh/search?q={}&k={k}", pct(&q)))?)?;
                 let mut hits = v["hits"].as_array().cloned().unwrap_or_default();
                 for h in &mut hits {
                     h["peer"] = json!(p.name);

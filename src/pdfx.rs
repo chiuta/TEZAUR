@@ -12,7 +12,7 @@ pub fn enabled() -> bool {
 }
 
 fn pdftotext(args: &[String]) -> Option<String> {
-    let o = std::process::Command::new("pdftotext").args(args).output().ok()?;
+    let o = crate::ingest::run_timeout(std::process::Command::new("pdftotext").args(args), 180)?;
     o.status.success().then(|| String::from_utf8_lossy(&o.stdout).to_string())
 }
 

@@ -22,6 +22,7 @@ step "Audit, coverage, novelty, receipts (CLI, API, MCP)"; TEZAUR_BIN="$BIN" pyt
 step "Round 6: BM25 cache, eval, refs, semantic audit, OpenAlex/Crossref (mock services)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_round6.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "Advanced PDF: tables and equations (real PDFs from pdflatex)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_pdfx.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "Written variants against the REAL tools (Emacs, Neovim, LyX, Streamlit, Gradio, Marimo, nginx, Tor, rpm, web-ext, ...)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_written.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
+step "Security regression tests (CSRF, rebinding, zip bomb, figure swaps)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_security.py" | grep -v ^ok; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "HTML audit panel in a real browser"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_panel.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "Jupyter: magics executed in a real kernel"; python3 "$ROOT/variants/notebooks/test_notebook.py" 2>&1 | grep -E "^(PASS|FAIL)" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "Meta-installer (fake home with fake applications)"; [ -f "$ROOT/dist/plugins/tezaur-setup.py" ] || bash "$ROOT/variants/build-plugins.sh" >/dev/null 2>&1; python3 "$ROOT/variants/installer/test_installer.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
