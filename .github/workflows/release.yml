@@ -41,11 +41,15 @@ jobs:
           cp LICENSE README.md out/tezaur-${{ matrix.name }}/
           if [ "${{ runner.os }}" = Windows ]; then cp target/release/tezaur.exe out/tezaur-${{ matrix.name }}/; (cd out && 7z a tezaur-${{ needs.release.outputs.tag }}-${{ matrix.name }}.zip tezaur-${{ matrix.name }}); else cp target/release/tezaur out/tezaur-${{ matrix.name }}/; tar -C out -czf out/tezaur-${{ needs.release.outputs.tag }}-${{ matrix.name }}.tar.gz tezaur-${{ matrix.name }}; fi
           if [ "${{ runner.os }}" = Linux ]; then ./variants/build-deb.sh && cp dist/*.deb out/; fi
-          cd out && (sha256sum tezaur-* *.deb 2>/dev/null || shasum -a 256 tezaur-*.tar.gz) | grep -v '/$' > SHA256SUMS-${{ matrix.name }}.txt || true
+          cd out && : > SHA256SUMS-${{ matrix.name }}.txt && for f in *.tar.gz *.zip *.deb; do [ -f "$f" ] && { sha256sum "$f" 2>/dev/null || shasum -a 256 "$f"; } >> SHA256SUMS-${{ matrix.name }}.txt; done; true
       - name: Upload to the release
         shell: bash
         env: { GH_TOKEN: '${{ github.token }}' }
-        run: gh release upload "${{ needs.release.outputs.tag }}" out/*.tar.gz out/*.zip out/*.deb out/SHA256SUMS-*.txt --clobber -R "${{ github.repository }}" 2>&1 | grep -v 'no matches' || true
+        run: |
+          shopt -s nullglob
+          files=(out/*.tar.gz out/*.zip out/*.deb out/SHA256SUMS-*.txt)
+          ls -la "${files[@]}"
+          gh release upload "${{ needs.release.outputs.tag }}" "${files[@]}" --clobber -R "${{ github.repository }}"
   cli:
     strategy:
       matrix:
