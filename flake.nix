@@ -1,6 +1,6 @@
 {
   description = "TEZAUR — local, citation-grounded research assistant";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   outputs = { self, nixpkgs }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
@@ -9,7 +9,7 @@
       packages = forAll (pkgs: rec {
         tezaur = pkgs.rustPlatform.buildRustPackage {
           pname = "tezaur";
-          version = "0.1.0";
+          version = "0.4.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           cargoBuildFlags = [ "--bin" "tezaur" ];

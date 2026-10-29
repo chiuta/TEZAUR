@@ -66,15 +66,17 @@ jobs:
       - uses: helm/kind-action@v1
       - name: lint + template
         run: bash .github/annotate.sh bash -c 'helm lint variants/deploy/helm/tezaur --set token=x && helm template t variants/deploy/helm/tezaur --set token=x >/dev/null'
-      - name: build the image, load it into kind, install the chart, wait for the pod, call the API
+      - name: build the image, load it into kind
         run: |
-          docker build -t tezaur:ci .
+          bash .github/annotate.sh docker build -t tezaur:ci .
           kind load docker-image tezaur:ci --name chart-testing
-          bash .github/annotate.sh bash -c '
-            helm install t variants/deploy/helm/tezaur --set token=x --set image.repository=tezaur --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 150s &&
-            kubectl get pods -o wide &&
-            kubectl port-forward svc/t-tezaur 8787:8787 & sleep 6;
-            curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health'
+      - name: install the chart and wait for the pod
+        run: bash .github/annotate.sh bash -c 'helm install t variants/deploy/helm/tezaur --set token=x --set image.repository=tezaur --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 150s || { kubectl get pods -o wide; kubectl describe pods | tail -30; kubectl logs -l app.kubernetes.io/name=tezaur --tail=20; exit 1; }'
+      - name: call the API through a port-forward
+        run: |
+          kubectl port-forward svc/t-tezaur 8787:8787 &
+          sleep 6
+          bash .github/annotate.sh curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health
 
   docker:
     runs-on: ubuntu-latest
@@ -82,9 +84,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: main image
         run: |
-          docker build -t tezaur:ci .
-          docker run -d --name t -p 8787:8787 -e TEZAUR_TOKEN=x tezaur:ci
-          sleep 5; bash .github/annotate.sh curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health
+          bash .github/annotate.sh docker build -t tezaur:ci .
+          docker run -d --name t -p 8787:8787 -e TEZAUR_TOKEN=x tezaur:ci || { docker ps -a; exit 1; }
+          sleep 5; docker logs t; bash .github/annotate.sh curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health
           docker rm -f t
       - name: static web image (nginx) + compose file
         run: |
@@ -100,7 +102,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -t localhost/tezaur:ci .
+      - run: bash .github/annotate.sh docker build -t localhost/tezaur:ci .
       - name: Quadlet dry-run with the real generator, then run the generated unit
         run: |
           sudo apt-get update && sudo apt-get install -y podman
@@ -119,14 +121,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: real MediaWiki (sqlite) with the extension loaded and the parser tag exercised
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - name: a real tezaur server over a tiny library, with a fake model
         run: |
-          docker run -d --name mw -p 8081:80 -v $PWD/variants/cms/mediawiki/Tezaur:/var/www/html/extensions/Tezaur mediawiki:1.42
-          sleep 10
-          docker exec mw php maintenance/run.php install --dbtype sqlite --dbpath /var/www/data --pass 'Aa1!aaaaaaaa1' --server http://127.0.0.1:8081 --scriptpath "" TezaurWiki Admin
-          docker exec mw bash -c 'echo "wfLoadExtension( \"Tezaur\" );" >> LocalSettings.php'
-          docker cp mw:/var/www/html/LocalSettings.php ./LocalSettings.php
-          bash .github/annotate.sh bash -c 'docker exec mw php maintenance/run.php version && curl -s "http://127.0.0.1:8081/index.php?title=Special:Version" | grep -i tezaur'
+          mkdir lib && echo "The burden of proof lies with the body assessing the qualification." > lib/lisbon_convention.txt
+          (cd lib && python3 ../variants/tests/mock_ollama.py 11434 >/dev/null 2>&1 &)
+          cd lib && export TEZAUR_INDEX=$PWD/t.idx TEZAUR_HOST=http://127.0.0.1:11434 TEZAUR_MODEL=m && ../target/release/tezaur ingest . >/dev/null
+          (nohup ../target/release/tezaur serve --port 8787 >/dev/null 2>&1 &); sleep 2; curl -sf http://127.0.0.1:8787/api/health
+      - name: real MediaWiki (sqlite, host network) with the extension; render the tag through the parse API
+        run: |
+          docker run -d --name mw --network host -v $PWD/variants/cms/mediawiki/Tezaur:/var/www/html/extensions/Tezaur mediawiki:1.42
+          sleep 12
+          docker exec mw php maintenance/run.php install --dbtype sqlite --dbpath /var/www/data --pass 'Aa1!aaaaaaaa1' --server http://127.0.0.1 --scriptpath "" TezaurWiki Admin
+          docker exec mw bash -c 'echo "wfLoadExtension( \"Tezaur\" ); \$wgTezaurServer = \"http://127.0.0.1:8787\";" >> LocalSettings.php'
+          bash .github/annotate.sh bash -c 'curl -s --get "http://127.0.0.1/api.php" --data-urlencode "action=parse" --data-urlencode "text=<tezaur>burden of proof</tezaur>" --data-urlencode "contentmodel=wikitext" --data-urlencode "prop=text" --data-urlencode "format=json" | tee /tmp/mw.json; grep -qi "burden of proof lies" /tmp/mw.json'
 
   zotero:
     runs-on: ubuntu-latest
@@ -165,7 +175,7 @@ jobs:
         run: |
           mkdir -p dist && cp target/release/tezaur.exe dist/ && cp tezaur.html dist/ || true
           choco install innosetup -y --no-progress
-          curl -sSLo "/c/Program Files (x86)/Inno Setup 6/Languages/Romanian.isl" https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Romanian.isl || true
+          curl -sSLo variants/windows/Romanian.isl https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Romanian.isl
           bash .github/annotate.sh "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" variants/windows/tezaur.iss
           ls variants/windows
       - name: MSIX package built with makeappx
@@ -213,6 +223,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: makepkg with the PKGBUILD against the local tarball
         run: |
+          git config --global --add safe.directory '*'
           useradd b && mkdir /b && cp variants/packaging/aur/PKGBUILD /b/ && chown -R b /b
           git archive --prefix=tezaur-0.4.0/ HEAD | gzip > /b/tezaur-0.4.0.tar.gz
           cd /b && sed -i 's#^source=.*#source=("$pkgname-$pkgver.tar.gz")#; s#^pkgver=.*#pkgver=0.4.0#' PKGBUILD

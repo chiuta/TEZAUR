@@ -4,7 +4,7 @@
 # Build: flatpak-builder --user --install --force-clean build tf.trom.Tezaur.yml
 app-id: tf.trom.Tezaur
 runtime: org.freedesktop.Platform
-runtime-version: '23.08'
+runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions: [org.freedesktop.Sdk.Extension.rust-stable]
 command: tezaur

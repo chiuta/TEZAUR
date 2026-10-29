@@ -15,7 +15,11 @@ try:
     aid = d.install_addon(os.path.join(ROOT, "dist", "tezaur-firefox.zip"), temporary=True)
     print("installed add-on id:", aid); ok &= aid == "tezaur@trom.tf"
     time.sleep(2)
-    d.get("moz-extension://%s/app/index.html" % UUID); time.sleep(2)
+    url = "moz-extension://%s/app/index.html" % UUID
+    d.set_context("chrome")  # marionette cannot navigate to moz-extension: URLs; the browser UI can open them
+    d.execute_script("gBrowser.selectedTab = gBrowser.addTab(arguments[0], {triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal()});", url)
+    d.set_context("content"); time.sleep(3)
+    d.switch_to.window(d.window_handles[-1]); time.sleep(2)
     title = d.title; body = d.find_element(By.TAG_NAME, "body").text
     print("title:", title, "| body chars:", len(body))
     ok &= "TEZAUR" in title and len(body) > 20
