@@ -1,2 +1,6 @@
-{ "lsp": { "tezaur": { "binary": { "path": "python3", "arguments": ["TEZAUR_TOOLS/tezaur_lsp.py"] } } },
-  "languages": { "Markdown": { "language_servers": ["tezaur", "..."] }, "LaTeX": { "language_servers": ["tezaur", "..."] } } }
+{
+  "_note": "Zed starts language servers only through extensions, so an LSP entry in settings.json does nothing. TEZAUR is offered to Zed's assistant as an MCP server instead (tools: search, ask, audit...). Replace the path with the full path of the tezaur binary.",
+  "context_servers": {
+    "tezaur": { "source": "custom", "command": "TEZAUR_BIN", "args": ["mcp"], "env": { "TEZAUR_INDEX": "/path/to/tezaur.idx" } }
+  }
+}

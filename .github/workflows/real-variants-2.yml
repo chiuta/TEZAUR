@@ -225,10 +225,14 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
       - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick tesseract-ocr mesa-vulkan-drivers libvulkan1 dbus-x11 libxkbcommon-x11-0
       - name: wrapper that records that the editor launched the language server
         run: |
-          mkdir -p tools && cat > tools/tezaur_lsp.py <<PY
+          mkdir -p tools && printf '#!/bin/sh\necho "zed spawned tezaur mcp" >> /tmp/lsp-spawn.log\nexec %s/target/release/tezaur mcp\n' "$PWD" > tools/tezaur-mcp.sh && chmod +x tools/tezaur-mcp.sh
+          cat > tools/tezaur_lsp.py <<PY
           import os, sys
           open("/tmp/lsp-spawn.log", "a").write(os.environ.get("EDITOR_NAME", "?") + " spawned tezaur_lsp\n")
           os.execv(sys.executable, [sys.executable, "$PWD/variants/editors/lsp/tezaur_lsp.py"])
@@ -249,17 +253,17 @@ jobs:
           names = sorted({n for v in d.get('*', {}).values() for n in v})
           print('LSP deps:', names)
           for n in names:
-              subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--python-version', '3.8', '--only-binary=:all:', '--implementation', 'py', '--target', os.path.expanduser('~/.config/sublime-text/Lib/python38'), n.replace('_', '-')])
+              subprocess.run([sys.executable, '-m', 'pip', 'install', '--python-version', '3.8', '--only-binary=:all:', '--implementation', 'py', '--target', os.path.expanduser('~/.config/sublime-text/Lib/python38'), n.replace('_', '-')], stdout=open('deps.log', 'a'), stderr=subprocess.STDOUT)
           PY
           export EDITOR_NAME=sublime
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'subl doc.md & sleep 30; xdotool key ctrl+grave; sleep 3; import -window root subl-shot.png; pkill sublime_text' || true
-          bash .github/annotate.sh bash -c 'echo OCR; tesseract subl-shot.png - 2>/dev/null | grep -v "^$" | head -15; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "sublime spawned" /tmp/lsp-spawn.log'
+          bash .github/annotate.sh bash -c 'echo DEPS; tail -12 deps.log | cut -c1-200; ls ~/.config/sublime-text/Lib/python38 | head -20 | tr "\n" " "; echo OCR; tesseract subl-shot.png - 2>/dev/null | grep -v "^$" | head -15; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "sublime spawned" /tmp/lsp-spawn.log'
       - name: Zed (software Vulkan)
         continue-on-error: true
         run: |
           rm -f /tmp/lsp-spawn.log
           curl -sSL https://zed.dev/api/releases/stable/latest/zed-linux-x86_64.tar.gz -o zed.tgz && mkdir zed && tar -xzf zed.tgz -C zed --strip-components=1
-          mkdir -p ~/.config/zed && sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/zed-settings.json > ~/.config/zed/settings.json
+          mkdir -p ~/.config/zed && sed "s#TEZAUR_BIN#$PWD/tools/tezaur-mcp.sh#; s#/path/to/tezaur.idx#$PWD/t.idx#" variants/editors/latex/lsp-configs/zed-settings.json > ~/.config/zed/settings.json
           ls -la zed.tgz zed/bin 2>&1 | head -5; file zed.tgz | cut -c1-120
           export EDITOR_NAME=zed
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'export ZED_ALLOW_EMULATED_GPU=1 WGPU_BACKEND=vulkan RUST_LOG=info; zed/bin/zed --version >zed.log 2>&1; zed/bin/zed --foreground doc.md >>zed.log 2>&1 & sleep 40; pgrep -a zed >>zed.log; import -window root zed-shot.png; pkill zed' || true
