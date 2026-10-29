@@ -150,7 +150,7 @@ jobs:
           file z.tar.xz; mkdir z && tar -xf z.tar.xz -C z --strip-components=1 || tar -xjf z.tar.xz -C z --strip-components=1
           ID=$(python3 -c "import json;print(json.load(open('variants/editors/zotero/manifest.json'))['applications']['zotero']['id'])")
           (cd variants/editors/zotero && zip -qr ../../../p.xpi .)
-          mkdir -p prof/extensions && printf 'user_pref("extensions.autoDisableScopes", 0);\nuser_pref("extensions.enabledScopes", 15);\nuser_pref("extensions.startupScanScopes", 15);\nuser_pref("extensions.experiments.enabled", true);\n' > prof/user.js && cp p.xpi "prof/extensions/$ID.xpi"
+          mkdir -p prof/extensions && printf 'user_pref("extensions.autoDisableScopes", 0);\nuser_pref("extensions.enabledScopes", 15);\nuser_pref("extensions.startupScanScopes", 15);\nuser_pref("extensions.experiments.enabled", true);\nuser_pref("xpinstall.signatures.required", false);\n' > prof/user.js && cp p.xpi "prof/extensions/$ID.xpi"
           xvfb-run -a timeout 60 z/zotero -profile "$PWD/prof" -no-remote -ZoteroDebugText > z.log 2>&1 || true
           echo "::notice::zotero log: $(grep -i 'TEZAUR:' z.log | head -8 | cut -c1-200 | tr '\n' '|')"
           echo "::notice::addon lines: $(grep -iE 'addon|extension|xpi|bootstrap|plugin|manifest' z.log | head -15 | cut -c1-220 | tr '\n' '|')"
