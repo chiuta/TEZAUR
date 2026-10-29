@@ -155,7 +155,7 @@ jobs:
           echo "::notice::zotero log: $(grep -i 'TEZAUR:' z.log | head -8 | cut -c1-200 | tr '\n' '|')"
           echo "::notice::addon lines: $(grep -iE 'addon|extension|xpi|bootstrap|plugin|manifest' z.log | head -15 | cut -c1-220 | tr '\n' '|')"
           echo "::notice::tail: $(tail -8 z.log | cut -c1-200 | tr '\n' '|')"
-          echo "::notice::extjson: $(python3 -c "import json;d=json.load(open('prof/extensions.json'));print([(a['id'],a.get('active'),a.get('userDisabled'),a.get('appDisabled'),a.get('location'),a.get('signedState')) for a in d['addons']])" 2>&1 | cut -c1-900)"
+          echo "::notice::extjson: $(python3 -c "import json;d=json.load(open('prof/extensions.json'));print([{k:v for k,v in a.items() if k not in ('defaultLocale','locales','icons','descriptor','path')} for a in d['addons']])" 2>&1 | cut -c1-900)"
           echo "::notice::xpi: $(unzip -l p.xpi | tail -6 | tr '\n' '|')"
           echo "::notice::files: $(ls prof prof/extensions | tr '\n' ' ')"
           bash .github/annotate.sh bash -c 'grep -q "TEZAUR: plugin started" z.log'
