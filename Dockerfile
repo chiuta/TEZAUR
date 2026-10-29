@@ -7,6 +7,7 @@ COPY . .
 RUN cargo build --release --bin tezaur
 
 FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/chiuta/TEZAUR" org.opencontainers.image.licenses="MIT"
 RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-ron ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/target/release/tezaur /usr/local/bin/tezaur

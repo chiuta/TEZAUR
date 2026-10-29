@@ -88,7 +88,7 @@ jobs:
       - name: pull the published images and run them
         run: |
           OWNER=$(echo "${{ github.repository_owner }}" | tr A-Z a-z)
-          bash .github/annotate.sh bash -c "docker pull ghcr.io/$OWNER/tezaur-server:latest && docker pull ghcr.io/$OWNER/tezaur-web:latest" || { echo '::error::images not published yet: run the docker-images workflow'; exit 1; }
+          bash .github/annotate.sh bash -c "docker pull ghcr.io/$OWNER/tezaur-server:latest && docker pull ghcr.io/$OWNER/tezaur-web:latest"
           docker run -d --name srv -p 8787:8787 -e TEZAUR_TOKEN=x ghcr.io/$OWNER/tezaur-server:latest
           docker run -d --name web -p 8080:80 ghcr.io/$OWNER/tezaur-web:latest
           sleep 6
@@ -149,8 +149,7 @@ jobs:
           (setq eglot-sync-connect t eglot-connect-timeout 30)
           (add-to-list 'eglot-server-programs '(text-mode . ("python3" "$PWD/variants/editors/lsp/tezaur_lsp.py")))
           (find-file "$PWD/doc.md") (text-mode)
-          (let ((s (eglot--connect '(text-mode) 'text-mode (project-current nil default-directory) '(eglot-lsp-server) '("python3" "$PWD/variants/editors/lsp/tezaur_lsp.py") "text-mode")))
-            (eglot--maybe-activate-editing-mode)
+          (let ((s (eglot '(text-mode) (project-current nil default-directory) 'eglot-lsp-server '("python3" "$PWD/variants/editors/lsp/tezaur_lsp.py") "text-mode")))
             (message "connected: %s" s))
           (flymake-mode 1) (flymake-start)
           (let ((n 0)) (while (and (< n 150) (null (flymake-diagnostics))) (accept-process-output nil 0.2) (setq n (1+ n))))
