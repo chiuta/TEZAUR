@@ -220,3 +220,37 @@ jobs:
             tex-menu.png
             kate.log
           if-no-files-found: warn
+
+  sublime-zed:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick tesseract-ocr mesa-vulkan-drivers libvulkan1 dbus-x11 libxkbcommon-x11-0
+      - name: wrapper that records that the editor launched the language server
+        run: |
+          mkdir -p tools && cat > tools/tezaur_lsp.py <<PY
+          import os, sys
+          open("/tmp/lsp-spawn.log", "a").write(os.environ.get("EDITOR_NAME", "?") + " spawned tezaur_lsp\n")
+          os.execv(sys.executable, [sys.executable, "$PWD/variants/editors/lsp/tezaur_lsp.py"])
+          PY
+          printf '# Notes\n\nSee [@ghost2020] and [@lisbon_convention].\n' > doc.md
+      - name: Sublime Text 4 + the LSP package
+        run: |
+          wget -qO - https://download.sublimetext.com/sublimehq-pub.gpg | sudo gpg --dearmor -o /usr/share/keyrings/sublimehq.gpg
+          echo "deb [signed-by=/usr/share/keyrings/sublimehq.gpg] https://download.sublimetext.com/ apt/stable/" | sudo tee /etc/apt/sources.list.d/sublime-text.list
+          sudo apt-get update && sudo apt-get install -y sublime-text
+          P=~/.config/sublime-text/Packages; mkdir -p $P/User
+          git clone --depth 1 https://github.com/sublimelsp/LSP $P/LSP
+          sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/sublime-LSP.sublime-settings > $P/User/LSP.sublime-settings
+          export EDITOR_NAME=sublime
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'subl doc.md & sleep 30; import -window root subl-shot.png; pkill sublime_text' || true
+          bash .github/annotate.sh bash -c 'echo OCR; tesseract subl-shot.png - 2>/dev/null | grep -v "^$" | head -15; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "sublime spawned" /tmp/lsp-spawn.log'
+      - name: Zed (software Vulkan)
+        continue-on-error: true
+        run: |
+          rm -f /tmp/lsp-spawn.log
+          curl -sSL https://zed.dev/api/releases/stable/latest/zed-linux-x86_64.tar.gz -o zed.tgz && mkdir zed && tar -xzf zed.tgz -C zed --strip-components=1
+          mkdir -p ~/.config/zed && sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/zed-settings.json > ~/.config/zed/settings.json
+          export EDITOR_NAME=zed
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'zed/bin/zed --foreground doc.md >zed.log 2>&1 & sleep 40; import -window root zed-shot.png; pkill zed' || true
+          bash .github/annotate.sh bash -c 'echo ZEDLOG; tail -15 zed.log | cut -c1-200; echo OCR; tesseract zed-shot.png - 2>/dev/null | grep -v "^$" | head -15; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "zed spawned" /tmp/lsp-spawn.log'
