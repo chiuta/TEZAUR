@@ -105,6 +105,8 @@ jobs:
   deploy:
     needs: [apt, rpm, flatpak, fdroid]
     runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.dep.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.dep.outputs.page_url }}
@@ -122,3 +124,24 @@ jobs:
         with: { path: site }
       - id: dep
         uses: actions/deploy-pages@v4
+  verify-live:
+    # the published URLs, not a local copy: install from the real Pages site in clean containers
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: apt (Debian), dnf (Fedora)
+        run: |
+          URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"; echo "base: $URL"
+          sleep 20
+          bash .github/annotate.sh docker run --rm debian:stable-slim bash -c "apt-get update -qq && apt-get install -y -qq ca-certificates >/dev/null && echo 'deb [trusted=yes] $URL/apt ./' > /etc/apt/sources.list.d/t.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version"
+          bash .github/annotate.sh docker run --rm fedora:latest bash -c "printf '[t]\nname=t\nbaseurl=$URL/rpm/\ngpgcheck=0\n' > /etc/yum.repos.d/t.repo && dnf install -y tezaur && tezaur --version"
+      - name: flatpak
+        run: |
+          URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"
+          sudo apt-get update -qq && sudo apt-get install -y -qq flatpak
+          flatpak remote-add --user --no-gpg-verify tezaur "$URL/flatpak/repo"
+          bash .github/annotate.sh flatpak install --user -y --noninteractive tezaur tf.trom.Tezaur
+      - name: f-droid index reachable
+        run: |
+          URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"
+          bash .github/annotate.sh bash -c "curl -sf $URL/fdroid/repo/index-v1.json | python3 -c 'import sys,json;j=json.load(sys.stdin);print([a[\"packageName\"] for a in j[\"apps\"]])' | grep ro.trom.tezaur"
