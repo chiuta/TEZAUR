@@ -16,12 +16,12 @@
           nativeBuildInputs = [ pkgs.makeWrapper ];
           # poppler (text fallback + page images) and tesseract (OCR of scanned PDFs) on PATH
           postInstall = ''
-            wrapProgram $out/bin/tezaur --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.poppler_utils pkgs.tesseract ]}
+            wrapProgram $out/bin/tezaur --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.poppler-utils pkgs.tesseract ]}
           '';
           meta = { description = "Local, citation-grounded research assistant for writing a thesis"; mainProgram = "tezaur"; };
         };
         default = tezaur;
       });
-      devShells = forAll (pkgs: { default = pkgs.mkShell { packages = [ pkgs.cargo pkgs.rustc pkgs.poppler_utils pkgs.tesseract pkgs.nodejs ]; }; });
+      devShells = forAll (pkgs: { default = pkgs.mkShell { packages = [ pkgs.cargo pkgs.rustc pkgs.poppler-utils pkgs.tesseract pkgs.nodejs ]; }; });
     };
 }

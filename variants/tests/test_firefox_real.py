@@ -10,6 +10,7 @@ UUID = "5b0e2b2a-4c0f-4a53-9f10-0c6e6c1f0001"
 o = Options(); o.add_argument("-headless")
 o.set_preference("extensions.webextensions.uuids", json.dumps({"tezaur@trom.tf": UUID}))
 o.set_preference("xpinstall.signatures.required", False)
+os.environ["MOZ_REMOTE_ALLOW_SYSTEM_ACCESS"] = "1"
 d = webdriver.Firefox(options=o); ok = True
 try:
     aid = d.install_addon(os.path.join(ROOT, "dist", "tezaur-firefox.zip"), temporary=True)

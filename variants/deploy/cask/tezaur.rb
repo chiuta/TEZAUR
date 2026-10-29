@@ -7,7 +7,7 @@ cask "tezaur" do
   desc "Local, citation-grounded research assistant"
   homepage "https://github.com/OWNER/tezaur"
 
-  depends_on macos: :catalina
+  depends_on :macos
 
   app "TEZAUR.app"
 

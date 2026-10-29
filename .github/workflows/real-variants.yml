@@ -71,7 +71,7 @@ jobs:
           bash .github/annotate.sh docker build -t tezaur:ci .
           kind load docker-image tezaur:ci --name chart-testing
       - name: install the chart and wait for the pod
-        run: bash .github/annotate.sh bash -c 'helm install t variants/deploy/helm/tezaur --set token=x --set image.repository=tezaur --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 150s || { kubectl get pods -o wide; kubectl describe pods | tail -30; kubectl logs -l app.kubernetes.io/name=tezaur --tail=20; exit 1; }'
+        run: bash .github/annotate.sh bash -c 'helm install t variants/deploy/helm/tezaur --set token=x --set image.repository=tezaur --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 150s || { kubectl get pods -o wide; kubectl logs deploy/t-tezaur --tail=20; kubectl logs deploy/t-tezaur --previous --tail=20; exit 1; }'
       - name: call the API through a port-forward
         run: |
           kubectl port-forward svc/t-tezaur 8787:8787 &
@@ -85,8 +85,7 @@ jobs:
       - name: main image
         run: |
           bash .github/annotate.sh docker build -t tezaur:ci .
-          docker run -d --name t -p 8787:8787 -e TEZAUR_TOKEN=x tezaur:ci || { docker ps -a; exit 1; }
-          sleep 5; docker logs t; bash .github/annotate.sh curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health
+          bash .github/annotate.sh bash -c 'docker run -d --name t -p 8787:8787 -e TEZAUR_TOKEN=x tezaur:ci; sleep 5; echo LOGS; docker logs t; docker ps -a; curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health'
           docker rm -f t
       - name: static web image (nginx) + compose file
         run: |
@@ -134,7 +133,9 @@ jobs:
         run: |
           docker run -d --name mw --network host -v $PWD/variants/cms/mediawiki/Tezaur:/var/www/html/extensions/Tezaur mediawiki:1.42
           sleep 12
+          docker exec mw bash -c 'mkdir -p /var/www/data && chown -R www-data:www-data /var/www/data'
           docker exec mw php maintenance/run.php install --dbtype sqlite --dbpath /var/www/data --pass 'Aa1!aaaaaaaa1' --server http://127.0.0.1 --scriptpath "" TezaurWiki Admin
+          docker exec mw bash -c 'chown -R www-data:www-data /var/www/data; chmod 644 LocalSettings.php'
           docker exec mw bash -c 'echo "wfLoadExtension( \"Tezaur\" ); \$wgTezaurServer = \"http://127.0.0.1:8787\";" >> LocalSettings.php'
           bash .github/annotate.sh bash -c 'curl -s --get "http://127.0.0.1/api.php" --data-urlencode "action=parse" --data-urlencode "text=<tezaur>burden of proof</tezaur>" --data-urlencode "contentmodel=wikitext" --data-urlencode "prop=text" --data-urlencode "format=json" | tee /tmp/mw.json; grep -qi "burden of proof lies" /tmp/mw.json'
 
@@ -173,7 +174,7 @@ jobs:
       - name: Inno Setup installer built, installed silently, binary run
         shell: bash
         run: |
-          mkdir -p dist && cp target/release/tezaur.exe dist/ && cp tezaur.html dist/ || true
+          mkdir -p dist/TezaurPortable && cp target/release/tezaur.exe tezaur.html dist/TezaurPortable/
           choco install innosetup -y --no-progress
           curl -sSLo variants/windows/Romanian.isl https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Romanian.isl
           bash .github/annotate.sh "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" variants/windows/tezaur.iss
@@ -206,7 +207,7 @@ jobs:
           cp variants/packaging/homebrew/tezaur.rb "$(brew --repository local/t)/Formula/tezaur.rb"
           mkdir -p "$(brew --repository local/t)/Casks" && cp variants/deploy/cask/tezaur.rb "$(brew --repository local/t)/Casks/tezaur.rb"
           sed -i '' "s#OWNER/tezaur#$REPO#g" "$(brew --repository local/t)/Formula/tezaur.rb"
-          bash .github/annotate.sh brew style local/t/tezaur
+          bash .github/annotate.sh brew style local/t/tezaur/tezaur
           bash .github/annotate.sh brew install --HEAD --build-from-source local/t/tezaur
           tezaur --version
       - name: iOS app (WKWebView) builds for the simulator with xcodebuild
@@ -227,5 +228,5 @@ jobs:
           useradd b && mkdir /b && cp variants/packaging/aur/PKGBUILD /b/ && chown -R b /b
           git archive --prefix=tezaur-0.4.0/ HEAD | gzip > /b/tezaur-0.4.0.tar.gz
           cd /b && sed -i 's#^source=.*#source=("$pkgname-$pkgver.tar.gz")#; s#^pkgver=.*#pkgver=0.4.0#' PKGBUILD
-          bash $GITHUB_WORKSPACE/.github/annotate.sh su b -c 'cd /b && makepkg --noconfirm --skipchecksums -f'
+          bash $GITHUB_WORKSPACE/.github/annotate.sh su b -c 'export CARGO_HOME=/tmp/cargo; cd /b && makepkg --noconfirm --skipchecksums -f'
           ls /b/*.pkg.tar.*

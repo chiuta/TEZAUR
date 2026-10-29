@@ -1,8 +1,8 @@
 class Tezaur < Formula
   desc "Local, citation-grounded research assistant for writing a thesis"
   homepage "https://trom.tf"
-  url "https://github.com/OWNER/tezaur/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "SHA256-OF-SOURCE-TARBALL"
+  url "https://github.com/OWNER/tezaur/archive/refs/tags/v0.4.0.tar.gz"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000" # replace with the tarball sum when tagging
   license "MIT"
   head "https://github.com/OWNER/tezaur.git", branch: "main"
 
