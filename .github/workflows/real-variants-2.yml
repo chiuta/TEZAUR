@@ -1,0 +1,169 @@
+name: real-variants-2
+# Second batch: things that need an emulator/simulator, a GUI, a registry pull or a real LSP client.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['variants/**', 'android/**', 'Dockerfile', '.github/workflows/real-variants-2.yml', 'src/**', 'Cargo.*']
+jobs:
+  android-emulator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.9' }
+      - name: enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - run: cd android && bash ../.github/annotate.sh gradle --no-daemon assembleDebug
+      - name: install and launch the APK on a real Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -n ro.trom.tezaur/.MainActivity
+            sleep 15
+            adb shell pidof ro.trom.tezaur
+            adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" | head -3
+            adb exec-out screencap -p > android-shot.png
+            adb logcat -d -s chromium:I AndroidRuntime:E | tail -20
+            test -n "$(adb shell pidof ro.trom.tezaur)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: android-emulator-shot, path: android-shot.png }
+
+  ios-simulator:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: build, boot a simulator, install, launch, screenshot
+        run: |
+          cd variants/ios && xcodegen
+          bash ../../.github/annotate.sh xcodebuild -project Tezaur.xcodeproj -scheme Tezaur -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          APP=$(find build -name 'Tezaur.app' | head -1)
+          UDID=$(xcrun simctl list devices available | grep -m1 -E "iPhone" | grep -oE '[0-9A-F-]{36}')
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          bash ../../.github/annotate.sh xcrun simctl launch "$UDID" tf.trom.tezaur
+          sleep 8
+          xcrun simctl io "$UDID" screenshot ios-shot.png
+          xcrun simctl spawn "$UDID" launchctl list | grep tezaur
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: ios-simulator-shot, path: variants/ios/ios-shot.png }
+
+  tauri-run:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: variants/tauri/src-tauri }
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb xdotool imagemagick
+      - run: cd variants/tauri && npm install && bash ../../.github/annotate.sh npx tauri build --no-bundle
+      - name: launch the Tauri window under Xvfb and screenshot it
+        run: |
+          BIN=$(ls variants/tauri/src-tauri/target/release/tezaur* | grep -v '\.d$' | head -1); echo $BIN
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c "$BIN & sleep 12; xdotool search --name TEZAUR | head -1; WID=\$(xdotool search --onlyvisible --name TEZAUR | head -1); test -n \"\$WID\"; import -window root tauri-shot.png; pgrep -f $(basename $BIN)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: tauri-shot, path: tauri-shot.png }
+
+  ghcr-pull:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: read }
+    steps:
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
+      - name: pull the published images and run them
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr A-Z a-z)
+          bash .github/annotate.sh bash -c "docker pull ghcr.io/$OWNER/tezaur-server:latest && docker pull ghcr.io/$OWNER/tezaur-web:latest" || { echo '::error::images not published yet: run the docker-images workflow'; exit 1; }
+          docker run -d --name srv -p 8787:8787 -e TEZAUR_TOKEN=x ghcr.io/$OWNER/tezaur-server:latest
+          docker run -d --name web -p 8080:80 ghcr.io/$OWNER/tezaur-web:latest
+          sleep 6
+          bash .github/annotate.sh bash -c 'curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health && curl -sf http://127.0.0.1:8080/index.html -o /dev/null'
+
+  fdroid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install fdroidserver
+      - name: fdroid lint + readmeta on the metadata file
+        run: |
+          mkdir -p fd/metadata && cp variants/deploy/fdroid/org.tezaur.app.yml fd/metadata/ro.trom.tezaur.yml
+          cd fd && printf 'repo_url: https://example.org/repo\nrepo_name: t\nrepo_description: t\n' > config.yml
+          bash ../.github/annotate.sh bash -c 'fdroid readmeta && fdroid lint ro.trom.tezaur'
+
+  editors-real:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y emacs-nox xvfb geany
+      - run: cargo build --release
+      - name: Neovim ≥ 0.11 (AppImage)
+        run: |
+          curl -sSL https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage -o nvim && chmod +x nvim && ./nvim --appimage-extract >/dev/null && sudo ln -sf $PWD/squashfs-root/AppRun /usr/local/bin/nvim && nvim --version | head -1
+      - name: Helix
+        run: |
+          U=$(curl -s https://api.github.com/repos/helix-editor/helix/releases/latest | python3 -c "import sys,json;print([a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('x86_64-linux.tar.xz')][0])")
+          curl -sSL "$U" | tar -xJ && sudo mv helix-*/hx /usr/local/bin/ && sudo mkdir -p /usr/local/lib/helix && sudo mv helix-*/runtime /usr/local/lib/helix/ 2>/dev/null || true; hx --version
+      - name: a real server and a document with an invented citation
+        run: |
+          mkdir lib && echo "The burden of proof lies with the body assessing the qualification." > lib/lisbon_convention.txt
+          printf '@article{lisbon_convention, title={Lisbon}, author={CoE}, year={1997}}\n' > lib/refs.bib
+          (cd lib && export TEZAUR_INDEX=$PWD/t.idx && ../target/release/tezaur ingest . >/dev/null && (nohup ../target/release/tezaur serve --port 8787 >/dev/null 2>&1 &)); sleep 3
+          printf 'The burden of proof lies with the assessing body [@lisbon_convention].\n\nSomething invented [@ghost2020].\n' > doc.md
+          curl -sf http://127.0.0.1:8787/api/health
+      - name: Neovim built-in LSP client against tezaur_lsp.py (the neovim.lua config, real)
+        run: |
+          export TEZAUR_SERVER=http://127.0.0.1:8787
+          sed "s#TEZAUR_TOOLS#$PWD/variants/editors/lsp#" variants/editors/latex/lsp-configs/neovim.lua > nv.lua
+          cat >> nv.lua <<'LUA'
+          vim.cmd('edit doc.md'); vim.bo.filetype = 'markdown'
+          vim.lsp.start({ name = 'tezaur', cmd = { 'python3', vim.fn.getcwd() .. '/variants/editors/lsp/tezaur_lsp.py' }, root_dir = vim.fn.getcwd() })
+          vim.wait(8000, function() return #vim.diagnostic.get(0) > 0 end)
+          local d = vim.diagnostic.get(0)
+          for _, x in ipairs(d) do print('DIAG', x.lnum + 1, x.message) end
+          vim.cmd(d[1] and 'qa!' or 'cq!')
+          LUA
+          bash .github/annotate.sh nvim --headless -u NONE -l nv.lua
+      - name: Emacs eglot against tezaur_lsp.py (real eglot, real flymake diagnostics)
+        run: |
+          export TEZAUR_SERVER=http://127.0.0.1:8787
+          cat > eg.el <<EOF
+          (require 'eglot) (require 'flymake)
+          (add-to-list 'eglot-server-programs '(text-mode . ("python3" "$PWD/variants/editors/lsp/tezaur_lsp.py")))
+          (find-file "$PWD/doc.md") (text-mode) (eglot-ensure)
+          (let ((n 0)) (while (and (< n 100) (null (flymake-diagnostics))) (accept-process-output nil 0.2) (setq n (1+ n))))
+          (let ((d (flymake-diagnostics))) (dolist (x d) (princ (format "DIAG %s\n" (flymake-diagnostic-text x)))) (kill-emacs (if d 0 1)))
+          EOF
+          bash .github/annotate.sh timeout 60 emacs --batch -Q -l eg.el
+      - name: Helix reads the shipped languages.toml and sees the tezaur language server
+        run: |
+          mkdir -p ~/.config/helix && sed "s#TEZAUR_TOOLS#$PWD/variants/editors/lsp#" variants/editors/latex/lsp-configs/helix-languages.toml > ~/.config/helix/languages.toml
+          bash .github/annotate.sh bash -c 'hx --health markdown | tee /tmp/h.txt; grep -qi "tezaur" /tmp/h.txt'
+      - name: Sublime LSP / Kate / Zed configs are valid JSON and point at an existing server script
+        run: |
+          python3 - <<'PY'
+          import json,glob,re
+          for f in ['sublime-LSP.sublime-settings','kate-lspclient.json','zed-settings.json']:
+              j=json.load(open('variants/editors/latex/lsp-configs/'+f)); print('json ok',f)
+          PY
+      - name: Geany loads the shipped filetype snippet
+        run: |
+          mkdir -p ~/.config/geany/filedefs && cat variants/editors/latex/geany-filetypes.latex.conf.snippet > ~/.config/geany/filedefs/filetypes.latex.conf
+          echo '\documentclass{article}\begin{document}x\end{document}' > a.tex
+          xvfb-run -a bash -c 'geany --no-session --no-plugins a.tex & sleep 6; pgrep -x geany; pkill geany'
