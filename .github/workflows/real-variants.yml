@@ -207,7 +207,9 @@ jobs:
             $j | ConvertTo-Json -Depth 5 | Set-Content tezaur-ci.json
             $srv = Start-Process python -ArgumentList "-m","http.server","8099" -PassThru; Start-Sleep 3
             scoop install ./tezaur-ci.json
-            tezaur --version
+            $pre = scoop prefix tezaur; Write-Host "installed at $pre"; Get-ChildItem $pre
+            & "$pre\tezaur.exe" --version
+            scoop list
             Stop-Process $srv
           } catch { $m = ($_ | Out-String) -replace "`r?`n", '%0A'; Write-Host "::error::$m"; exit 1 }
 
