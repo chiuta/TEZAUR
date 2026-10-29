@@ -15,7 +15,7 @@
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-snap-type:y mandatory;scroll-behavior:smooth;background:var(--bg)}
+html{scroll-snap-type:y proximity;scroll-behavior:smooth;background:var(--bg)}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 #bg{position:fixed;inset:0;z-index:0;width:100%;height:100%}
 .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,transparent 30%,rgba(5,8,15,.75) 100%)}
@@ -34,6 +34,7 @@ code,.mono{font-family:var(--mono)}
 .grid{display:grid;gap:16px}
 .g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
 @media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.g4.keep2{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:900px),(max-height:700px){html{scroll-snap-type:none}}
 /* reveal */
 .rv{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
 .in .rv{opacity:1;transform:none}
@@ -619,13 +620,24 @@ const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 const slides=$$('section.slide'), dots=$('#dots');
 slides.forEach((s,i)=>{const a=document.createElement('a');a.href='#'+s.id;a.title=s.dataset.title;a.setAttribute('aria-label',s.dataset.title);dots.appendChild(a)});
 let cur=0;
-const io=new IntersectionObserver(es=>es.forEach(e=>{
-  if(e.isIntersecting){e.target.classList.add('in');cur=slides.indexOf(e.target);
-    $$('#dots a').forEach((d,i)=>d.classList.toggle('on',i===cur));
-    $('#count').textContent=String(cur+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
-    $('#bar').style.width=((cur+1)/slides.length*100)+'%'}
-}),{threshold:.55});
+/* revelarea: o secțiune apare imediat ce o atinge ecranul (pragul nu depinde de înălțimea ei, deci merge și pe telefon, unde secțiunile sunt mai înalte decât ecranul) */
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:0,rootMargin:'0px 0px -8% 0px'});
 slides.forEach(s=>io.observe(s));
+/* slide-ul curent = cel care conține linia de mijloc a ecranului */
+function track(){
+  const mid=innerHeight/2;let k=cur;
+  slides.forEach((s,i)=>{const r=s.getBoundingClientRect();if(r.top<=mid&&r.bottom>mid)k=i});
+  if(scrollY+innerHeight>=document.documentElement.scrollHeight-4)k=slides.length-1;
+  cur=k;
+  $$('#dots a').forEach((d,i)=>d.classList.toggle('on',i===k));
+  $('#count').textContent=String(k+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+  $('#bar').style.width=((k+1)/slides.length*100)+'%';
+  slides[k].classList.add('in');
+}
+let tick=false;addEventListener('scroll',()=>{if(!tick){tick=true;requestAnimationFrame(()=>{tick=false;track()})}},{passive:true});
+addEventListener('resize',track);track();
+/* plasă de siguranță: dacă observatorul nu rulează (previzualizări), arată tot după 1,5 s */
+setTimeout(()=>slides.forEach(s=>{const r=s.getBoundingClientRect();if(r.top<innerHeight*1.2)s.classList.add('in')}),1500);
 function go(i){i=Math.max(0,Math.min(slides.length-1,i));slides[i].scrollIntoView({behavior:reduce?'auto':'smooth'})}
 addEventListener('keydown',e=>{
   if(/^(TEXTAREA|INPUT|BUTTON)$/.test(document.activeElement.tagName)&&e.key!=='Escape')return;
