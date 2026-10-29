@@ -22,7 +22,7 @@ jobs:
       - run: cargo test --release
       - run: bash variants/build-obsidian.sh && bash variants/build-vscode.sh && bash variants/build-extension.sh
       - run: bash variants/build-plugins.sh
-      - run: bash variants/tests/run-all.sh
+      - run: bash .github/annotate.sh bash variants/tests/run-all.sh
   cross-build:
     # the CLI must at least compile and pass unit tests on Windows and macOS (poppler absent there: PDF structure falls back to plain text)
     strategy:
