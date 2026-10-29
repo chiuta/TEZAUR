@@ -11,11 +11,11 @@ chk "^location: https://tezaur.chiuta.ro/x" -H 'Host: www.tezaur.chiuta.ro' loca
 caddy stop >/dev/null 2>&1
 openssl req -x509 -newkey rsa:2048 -nodes -keyout $T/k.pem -out $T/c.pem -subj /CN=t -days 1 2>/dev/null
 sed -e "s#listen 443 ssl http2;#listen 9443 ssl; ssl_certificate $T/c.pem; ssl_certificate_key $T/k.pem;#" -e 's#proxy_pass https://chiuta.github.io;#proxy_pass http://127.0.0.1:9001;#' -e '/proxy_ssl_server_name/d' "$D/nginx.conf" | { echo "events{}"; echo "http{"; cat; echo "}"; } > $T/nginx.conf
-nginx -t -c $T/nginx.conf 2>&1 | grep -q successful || { echo "::error::FAIL nginx -t"; fail=1; }
-nginx -c $T/nginx.conf -g "pid $T/n.pid; error_log $T/n.err;" || echo "::error::nginx start: $(cat $T/n.err 2>/dev/null | tail -2)"; sleep 1
+${SUDO:-} nginx -t -c $T/nginx.conf -g "pid $T/n.pid; error_log $T/n.err;" 2>&1 | tee $T/t.out | grep -q successful || { echo "::error::FAIL nginx -t: $(tail -3 $T/t.out | tr "\n" " ")"; fail=1; }
+${SUDO:-} nginx -c $T/nginx.conf -g "pid $T/n.pid; error_log $T/n.err;" || echo "::error::nginx start: $(cat $T/n.err 2>/dev/null | tail -2)"; sleep 1
 echo "== nginx"; for h in x-frame-options:\ DENY x-content-type-options:\ nosniff strict-transport-security permissions-policy referrer-policy content-security-policy:.*frame-ancestors; do chk "^$h" -k https://localhost:9443/; done
 chk "^location: https://tezaur.chiuta.ro/x" -k --resolve www.tezaur.chiuta.ro:9443:127.0.0.1 https://www.tezaur.chiuta.ro:9443/x
-kill "$(cat $T/n.pid)" 2>/dev/null
+${SUDO:-} kill "$(cat $T/n.pid)" 2>/dev/null
 if command -v npx >/dev/null; then echo "== cloudflare _headers (wrangler emulator)"; mkdir -p $T/cf/site/app && cp "$SITE/index.html" "$D/_headers" $T/cf/site/ && echo x > $T/cf/site/app/index.html
   (cd $T/cf && timeout 120 npx --yes wrangler@3 pages dev site --port 8788 --ip 127.0.0.1 >$T/wr.log 2>&1 &); for i in $(seq 60); do curl -s --noproxy '*' -o /dev/null http://127.0.0.1:8788/ && break; sleep 2; done
   chk "^x-frame-options: DENY" http://127.0.0.1:8788/; chk "^content-security-policy:.*frame-ancestors" http://127.0.0.1:8788/

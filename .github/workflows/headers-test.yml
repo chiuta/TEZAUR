@@ -9,4 +9,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq nginx-light caddy && sudo systemctl stop nginx caddy || true
-      - run: bash deploy/headers/test-local.sh .
+      - run: SUDO=sudo bash deploy/headers/test-local.sh .
