@@ -187,7 +187,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick kate texstudio mesa-vulkan-drivers libvulkan1 libxkbcommon-x11-0
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick tesseract-ocr kate texstudio mesa-vulkan-drivers libvulkan1 libxkbcommon-x11-0
       - name: wrapper that records that the editor launched the language server
         run: |
           mkdir -p tools && cat > tools/tezaur_lsp.py <<PY
@@ -202,14 +202,15 @@ jobs:
           sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/kate-lspclient.json > ~/.config/kate/lspclient/settings.json
           printf '[Kate Plugins]\nlspclientplugin=true\n' >> ~/.config/katerc
           export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'kate -n doc.md >kate.log 2>&1 & sleep 20; import -window root kate-shot.png; pkill kate' || true
-          tail -5 kate.log; cat /tmp/lsp-spawn.log; grep -q "kate spawned" /tmp/lsp-spawn.log
+          bash .github/annotate.sh bash -c 'echo KATELOG; tail -8 kate.log; echo OCR; tesseract kate-shot.png - 2>/dev/null | grep -v "^$" | head -25; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "kate spawned" /tmp/lsp-spawn.log'
       - name: TeXstudio (user command from the shipped instructions, run through its Tools menu)
         run: |
           mkdir -p ~/.config/texstudio
           printf '[texmaker]\nTools\\User\\Tool1=TEZAUR audit|python3 %s/variants/editors/latex/tezaur_tex.py audit %%.tex > %s/texstudio-out.txt\n' "$PWD" "$PWD" > ~/.config/texstudio/texstudio.ini
           printf '\\documentclass{article}\\begin{document}Penguins sing opera [\\cite{ghost2020}].\\end{document}\n' > a.tex
           export TEZAUR_SERVER=http://127.0.0.1:1
-          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; xdotool key Down Down Down; sleep 1; import -window root tex-menu.png; pkill texstudio' || true
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; import -window root tex-menu.png; pkill texstudio' || true
+          echo "::notice::TeXstudio menu OCR: $(tesseract tex-menu.png - 2>/dev/null | grep -v '^$' | head -40 | tr '\n' '|')"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
