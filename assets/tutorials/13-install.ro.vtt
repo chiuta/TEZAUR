@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:11.265
+Comenzile din acest tutorial sunt luate din README și nu sunt rulate în înregistrare; CI le rulează la fiecare push.
+
+00:00:11.315 --> 00:00:19.801
+Debian și Ubuntu: adaugă depozitul, apoi apt install tezaur. Nu e semnat, de aceea trusted=yes.
+
+00:00:19.851 --> 00:00:28.805
+Fedora și RHEL: descarcă fișierul .repo, apoi dnf install tezaur (gpgcheck e oprit din același motiv).
+
+00:00:28.855 --> 00:00:38.677
+Flatpak: adaugă remote-ul și instalează tf.trom.Tezaur. Pe Android, adaugă URL-ul depozitului F-Droid în aplicația F-Droid.
+
+00:00:38.727 --> 00:00:48.681
+Sau compilează din sursă cu cargo. Aceasta chiar e rulată aici: versiunea binarului folosit în toate tutorialele.

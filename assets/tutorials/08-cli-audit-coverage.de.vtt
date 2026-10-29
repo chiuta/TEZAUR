@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Hier ein Entwurf mit vier Sätzen. Drei zitieren eine Quelle; einer behauptet etwas ganz ohne Beleg.
+
+00:00:09.712 --> 00:00:19.268
+audit prüft jeden Beleg mechanisch: gestützt, falsche Seite, unbekannter Schlüssel, Zahlenabweichung. Ohne Modell.
+
+00:00:19.318 --> 00:00:27.005
+refs zeigt zitierte, aber fehlende Schlüssel und nie zitierte Literatureinträge.
+
+00:00:27.055 --> 00:00:35.810
+coverage kreuzt Gliederungspunkte mit Quellen: gut belegte, dünne oder leere Abschnitte auf einen Blick.
+
+00:00:35.860 --> 00:00:43.615
+novelty stellt noch eine Frage: Was sagt ein Entwurf, das deine Bibliothek nicht schon abdeckt?

@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.108 --> 00:00:11.936
+A tezaur mcp egy Model Context Protocol szerver stdio-n: a Claude Desktop, Claude Code vagy Cursor csak olvasásra elérheti a könyvtárad.
+
+00:00:11.986 --> 00:00:20.540
+Egy kliens JSON-RPC-n beszél. Itt mi játsszuk a klienst: inicializálás, majd az eszközök lekérdezése.
+
+00:00:20.590 --> 00:00:30.013
+Meghívjuk a tezaur_search-öt: a szövegrészek idézési címkékkel jönnek, ezek az asszisztens egyetlen bizonyítéka.
+
+00:00:30.063 --> 00:00:39.688
+Add a kliens konfigurációjához: parancs tezaur, argumentumok mcp és --index — a tárolóban kész minták vannak.

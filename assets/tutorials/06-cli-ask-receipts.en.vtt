@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.105 --> 00:00:10.726
+ask answers only from your library, with [n] citations. --receipt also writes a tamper-evident record.
+
+00:00:10.776 --> 00:00:18.465
+The demo model is a stand-in with a canned answer, so look at the numbers, not the prose.
+
+00:00:18.515 --> 00:00:26.339
+The warning is real: the model cited excerpt 9, which does not exist, and TEZAUR caught it.
+
+00:00:26.389 --> 00:00:34.008
+receipt verifies it later: untouched, answer matches, excerpts still in the index.
+
+00:00:34.058 --> 00:00:43.613
+declare turns receipts into an AI-use statement for your thesis front matter or a journal's disclosure form.

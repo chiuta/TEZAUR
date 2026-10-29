@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:02.088 --> 00:00:11.774
+The Search tab shows the best passages with no model at all: fast, offline, and it says how many query words each one covers.
+
+00:00:11.824 --> 00:00:20.575
+Compare: how do the sources treat the same question? Positions, agreements, disagreements.
+
+00:00:20.625 --> 00:00:28.315
+The demo model is a stand-in with a canned answer, so look at the numbers, not the prose.
+
+00:00:28.365 --> 00:00:37.450
+Gaps maps what the library establishes, what is weak, and what it leaves open — a to-do list for your reading.
+
+00:00:37.500 --> 00:00:45.589
+Note the yellow warning: TEZAUR spots the model's invented citation [9] instead of hiding it.

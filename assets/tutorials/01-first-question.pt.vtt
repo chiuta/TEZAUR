@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR: faça perguntas à sua própria biblioteca e receba respostas com citações verificáveis.
+
+00:00:10.535 --> 00:00:18.355
+À esquerda está a sua biblioteca: quatro documentos já indexados. Nada sai deste computador.
+
+00:00:18.405 --> 00:00:24.357
+Escolha a aba Întreabă (Perguntar) e escreva uma pergunta.
+
+00:00:24.407 --> 00:00:32.693
+Clique em Run. A resposta cita apenas passagens realmente encontradas nos seus documentos.
+
+00:00:32.743 --> 00:00:40.434
+O modelo da demo é um substituto com resposta fixa: olhe para os números, não para o texto.
+
+00:00:40.484 --> 00:00:48.641
+O TEZAUR sinaliza o que não consegue sustentar: aqui uma citação [9] inexistente, riscada a vermelho.
+
+00:00:48.691 --> 00:00:57.382
+Abaixo da resposta estão as passagens usadas, com fonte, ano e a parcela dos termos da consulta que cobrem.

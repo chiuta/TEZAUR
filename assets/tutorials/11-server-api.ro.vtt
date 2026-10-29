@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.136 --> 00:00:12.026
+tezaur serve pornește aplicația web, un API JSON peste index, spații de lucru numite și un proxy same-origin către serverul de model.
+
+00:00:12.076 --> 00:00:18.965
+Implicit ascultă doar pe 127.0.0.1. /api/health îți spune că e în viață.
+
+00:00:19.015 --> 00:00:25.634
+Aceeași căutare ca în CLI, prin HTTP: poți construi propriile unelte peste ea.
+
+00:00:25.684 --> 00:00:34.374
+Alte endpoint-uri: /api/sources, /api/audit, /api/refs, /api/coverage, /api/bib, /api/ingest și /api/mesh/*.

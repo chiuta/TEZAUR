@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.121 --> 00:00:10.676
+Os artigos guardam resultados em tabelas e equações. O TEZAUR extrai ambos da camada de texto de um PDF.
+
+00:00:10.726 --> 00:00:18.279
+tables imprime cada tabela como Markdown (ou CSV com -o, um arquivo por tabela).
+
+00:00:18.329 --> 00:00:25.349
+equations encontra as equações em destaque e seus números, como texto no estilo LaTeX.
+
+00:00:25.399 --> 00:00:35.357
+É uma heurística: equações de uma linha funcionam; frações empilhadas e matrizes não são reconstruídas. Confira na página.

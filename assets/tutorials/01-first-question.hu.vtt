@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR: tegyél fel kérdéseket a saját könyvtáradnak, és ellenőrizhető hivatkozásokkal kapsz választ.
+
+00:00:10.535 --> 00:00:18.355
+Balra a könyvtárad: négy már indexelt dokumentum. Semmi nem hagyja el a gépet.
+
+00:00:18.405 --> 00:00:24.357
+Válaszd az Întreabă (Kérdezz) fület, és írj be egy kérdést.
+
+00:00:24.407 --> 00:00:32.693
+Nyomd meg a Run gombot. A válasz csak olyan részeket idéz, amelyek tényleg benne vannak a dokumentumaidban.
+
+00:00:32.743 --> 00:00:40.434
+A demó modellje egy rögzített választ adó helyettesítő: a számokat nézd, ne a szöveget.
+
+00:00:40.484 --> 00:00:48.641
+A TEZAUR jelzi, amit nem tud alátámasztani: itt egy nem létező [9] hivatkozást, pirossal áthúzva.
+
+00:00:48.691 --> 00:00:57.382
+A válasz alatt a felhasznált szövegrészek láthatók forrással, évvel és a lekérdezés lefedett szavainak arányával.

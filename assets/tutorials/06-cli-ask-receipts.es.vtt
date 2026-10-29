@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.105 --> 00:00:10.726
+ask responde solo desde tu biblioteca, con citas [n]. --receipt escribe además un recibo a prueba de alteraciones.
+
+00:00:10.776 --> 00:00:18.465
+El modelo de la demo es un sustituto con respuesta fija: fíjate en los números, no en el texto.
+
+00:00:18.515 --> 00:00:26.339
+La advertencia es real: el modelo citó el extracto 9, que no existe, y TEZAUR lo detectó.
+
+00:00:26.389 --> 00:00:34.008
+receipt lo verifica después: intacto, la respuesta coincide, los extractos siguen en el índice.
+
+00:00:34.058 --> 00:00:43.613
+declare convierte los recibos en una declaración de uso de IA para el preliminar de la tesis o el formulario de una revista.

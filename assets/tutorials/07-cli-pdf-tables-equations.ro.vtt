@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.121 --> 00:00:10.676
+Lucrările își țin rezultatele în tabele și ecuații. TEZAUR le poate extrage din stratul de text al unui PDF.
+
+00:00:10.726 --> 00:00:18.279
+tables afișează fiecare tabel ca Markdown (sau CSV cu -o, un fișier pe tabel).
+
+00:00:18.329 --> 00:00:25.349
+equations găsește ecuațiile afișate și numerele lor, ca text în stil LaTeX.
+
+00:00:25.399 --> 00:00:35.357
+E o euristică: ecuațiile pe un rând merg, fracțiile suprapuse și matricele nu se reconstruiesc. Verifică pe pagină.

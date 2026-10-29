@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.095 --> 00:00:11.718
+Point tezaur ingest at a folder. PDF, DOCX, EPUB, TXT, MD, HTML and TeX are read; re-running only processes changes.
+
+00:00:11.768 --> 00:00:17.720
+Run it again: nothing changed, so nothing is reprocessed.
+
+00:00:17.770 --> 00:00:25.391
+sources lists what is indexed, with the BibTeX citation when a .bib entry matches.
+
+00:00:25.441 --> 00:00:33.394
+search needs no model: the best passages, with how many query terms each one covers.
+
+00:00:33.444 --> 00:00:43.338
+doctor checks the whole setup and says what to fix. Here the model server is the mock used for these demos.

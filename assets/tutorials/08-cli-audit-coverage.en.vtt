@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Here is a draft with four sentences. Three cite a source; one claims something with no citation at all.
+
+00:00:09.712 --> 00:00:19.268
+audit checks each citation mechanically: supported, wrong page, unknown key, figure mismatch. No model needed.
+
+00:00:19.318 --> 00:00:27.005
+refs shows keys cited but missing, and bibliography entries you never cited.
+
+00:00:27.055 --> 00:00:35.810
+coverage crosses your outline headings with your sources: well-covered, thin or empty sections at a glance.
+
+00:00:35.860 --> 00:00:43.615
+novelty adds one more question: what does a draft say that your library does not already cover?

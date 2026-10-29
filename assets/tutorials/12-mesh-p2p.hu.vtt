@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.089 --> 00:00:12.647
+A Mesh két kutatónak lehetővé teszi, hogy központi szerver nélkül közvetlenül cseréljenek szövegrészeket és dokumentumokat. Itt két csomópont fut egy gépen.
+
+00:00:12.697 --> 00:00:21.519
+Ana csak azt osztja meg, amit választott: a „lisbon” vagy „directive” szavú dokumentumokat. A többi privát marad.
+
+00:00:21.569 --> 00:00:30.923
+Bob hozzáadja Anát peerként, és keres a könyvtárában. Semmi sem másolódik: csak a találati részletek érkeznek.
+
+00:00:30.973 --> 00:00:43.134
+A mesh pull átmásolja Ana megosztott dokumentumait Bob indexébe; offline a mesh export és mesh import használható .tzb csomaggal USB-n.

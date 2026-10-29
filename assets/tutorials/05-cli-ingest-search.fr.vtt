@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.095 --> 00:00:11.718
+Pointez tezaur ingest vers un dossier. PDF, DOCX, EPUB, TXT, MD, HTML et TeX sont lus ; une relance ne traite que les changements.
+
+00:00:11.768 --> 00:00:17.720
+Relancez : rien n'a changé, donc rien n'est retraité.
+
+00:00:17.770 --> 00:00:25.391
+sources liste ce qui est indexé, avec la citation BibTeX quand une entrée .bib correspond.
+
+00:00:25.441 --> 00:00:33.394
+search n'a besoin d'aucun modèle : les meilleurs passages et la couverture des termes.
+
+00:00:33.444 --> 00:00:43.338
+doctor vérifie toute la configuration et dit quoi corriger. Ici le serveur de modèle est le simulateur utilisé pour ces démos.

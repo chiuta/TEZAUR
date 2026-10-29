@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:02.139 --> 00:00:10.790
+Az audit egy vázlatot ellenőriz: minden [@kulcs, p. N] valóban az állítást fedő szövegrészre mutat?
+
+00:00:10.840 --> 00:00:19.460
+Illeszd be a vázlatot. Ebben van helyes hivatkozás, hibás szám és forrás nélküli állítás.
+
+00:00:19.510 --> 00:00:29.329
+Futtasd: a 400 éves túlélési időt jelzi, mert az idézett rész sehol sem mond 400-at. Gépies ellenőrzés, modell nélkül.
+
+00:00:29.379 --> 00:00:37.331
+A Referințe fül felsorolja a hivatkozott, de hiányzó kulcsokat és a sosem hivatkozott forrásokat.

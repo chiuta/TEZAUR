@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:11.265
+I comandi di questo tutorial sono tratti dal README e non vengono eseguiti nella registrazione; la CI li esegue a ogni push.
+
+00:00:11.315 --> 00:00:19.801
+Debian e Ubuntu: aggiungi il repository e poi apt install tezaur. Non è firmato, da cui trusted=yes.
+
+00:00:19.851 --> 00:00:28.805
+Fedora e RHEL: scarica il file .repo e poi dnf install tezaur (gpgcheck è disattivato per lo stesso motivo).
+
+00:00:28.855 --> 00:00:38.677
+Flatpak: aggiungi il remote e installa tf.trom.Tezaur. Su Android aggiungi l'URL del repository F-Droid nell'app F-Droid.
+
+00:00:38.727 --> 00:00:48.681
+Oppure compila dai sorgenti con cargo. Questo è davvero eseguito qui: la versione del binario usato in tutti i tutorial.

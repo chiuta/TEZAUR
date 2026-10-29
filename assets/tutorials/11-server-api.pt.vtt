@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.136 --> 00:00:12.026
+tezaur serve inicia a app web, uma API JSON sobre o índice, espaços de trabalho nomeados e um proxy same-origin para o modelo.
+
+00:00:12.076 --> 00:00:18.965
+Por padrão só escuta em 127.0.0.1. /api/health diz que está vivo.
+
+00:00:19.015 --> 00:00:25.634
+A mesma pesquisa da CLI, via HTTP: construa as suas ferramentas por cima.
+
+00:00:25.684 --> 00:00:34.374
+Outros endpoints: /api/sources, /api/audit, /api/refs, /api/coverage, /api/bib, /api/ingest e /api/mesh/*.

@@ -1,0 +1,10 @@
+WEBVTT
+
+00:00:01.125 --> 00:00:10.013
+bib exports your .bib files as RIS, CSL JSON or BibTeX, ready for Zotero, Mendeley, pandoc or Word.
+
+00:00:10.063 --> 00:00:17.749
+The same entries as CSL JSON, the format pandoc and many reference managers read.
+
+00:00:17.799 --> 00:00:28.221
+export converts a Markdown draft: [@key] citations become \cite{key} in LaTeX, or a reference list in Word and HTML.

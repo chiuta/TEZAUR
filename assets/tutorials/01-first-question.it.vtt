@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR: fai domande alla tua biblioteca e ottieni risposte con citazioni verificabili.
+
+00:00:10.535 --> 00:00:18.355
+A sinistra c'è la tua biblioteca: quattro documenti già indicizzati. Nulla lascia questo computer.
+
+00:00:18.405 --> 00:00:24.357
+Scegli la scheda Întreabă (Chiedi) e scrivi una domanda.
+
+00:00:24.407 --> 00:00:32.693
+Premi Run. La risposta cita solo passaggi realmente trovati nei tuoi documenti.
+
+00:00:32.743 --> 00:00:40.434
+Il modello della demo è un sostituto con risposta fissa: guarda i numeri, non il testo.
+
+00:00:40.484 --> 00:00:48.641
+TEZAUR segnala ciò che non può sostenere: qui una citazione [9] inesistente, barrata in rosso.
+
+00:00:48.691 --> 00:00:57.382
+Sotto la risposta ci sono i passaggi usati, con fonte, anno e quota dei termini della richiesta coperti.

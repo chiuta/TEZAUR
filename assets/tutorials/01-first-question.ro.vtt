@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR: pune întrebări propriei biblioteci și primești răspunsuri cu citări verificabile.
+
+00:00:10.535 --> 00:00:18.355
+În stânga e biblioteca ta: patru documente, deja indexate. Nimic nu pleacă din calculator.
+
+00:00:18.405 --> 00:00:24.357
+Alege fila Întreabă și scrie o întrebare.
+
+00:00:24.407 --> 00:00:32.693
+Apasă Rulează. Răspunsul citează doar pasaje găsite cu adevărat în documentele tale.
+
+00:00:32.743 --> 00:00:40.434
+Modelul din demo e un înlocuitor cu răspuns fix: uită-te la numere, nu la text.
+
+00:00:40.484 --> 00:00:48.641
+TEZAUR marchează ce nu poate susține: aici o citare [9] care nu există, tăiată cu roșu.
+
+00:00:48.691 --> 00:00:57.382
+Sub răspuns sunt pasajele folosite, cu sursa, anul și cât din termenii interogării acoperă.

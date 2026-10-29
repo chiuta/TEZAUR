@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.095 --> 00:00:11.718
+Richte tezaur ingest auf einen Ordner. PDF, DOCX, EPUB, TXT, MD, HTML und TeX werden gelesen; erneutes Ausführen verarbeitet nur Änderungen.
+
+00:00:11.768 --> 00:00:17.720
+Noch einmal: nichts hat sich geändert, also wird nichts neu verarbeitet.
+
+00:00:17.770 --> 00:00:25.391
+sources listet das Indexierte, mit BibTeX-Zitat, wenn ein .bib-Eintrag passt.
+
+00:00:25.441 --> 00:00:33.394
+search braucht kein Modell: die besten Stellen und wie viele Suchwörter sie abdecken.
+
+00:00:33.444 --> 00:00:43.338
+doctor prüft das ganze Setup und sagt, was zu beheben ist. Hier ist der Modellserver der Mock aus diesen Demos.

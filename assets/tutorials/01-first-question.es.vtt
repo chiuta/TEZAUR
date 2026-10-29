@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR: haz preguntas a tu propia biblioteca y obtén respuestas con citas verificables.
+
+00:00:10.535 --> 00:00:18.355
+A la izquierda está tu biblioteca: cuatro documentos ya indexados. Nada sale de este equipo.
+
+00:00:18.405 --> 00:00:24.357
+Elige la pestaña Întreabă (Preguntar) y escribe una pregunta.
+
+00:00:24.407 --> 00:00:32.693
+Pulsa Run. La respuesta cita solo pasajes encontrados de verdad en tus documentos.
+
+00:00:32.743 --> 00:00:40.434
+El modelo de la demo es un sustituto con respuesta fija: fíjate en los números, no en el texto.
+
+00:00:40.484 --> 00:00:48.641
+TEZAUR señala lo que no puede respaldar: aquí una cita [9] inexistente, tachada en rojo.
+
+00:00:48.691 --> 00:00:57.382
+Debajo de la respuesta están los pasajes usados, con fuente, año y proporción de términos cubiertos.

@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.121 --> 00:00:10.676
+A cikkek az eredményeiket táblázatokban és egyenletekben tartják. A TEZAUR mindkettőt kiveszi a PDF szövegrétegéből.
+
+00:00:10.726 --> 00:00:18.279
+A tables minden táblázatot Markdownként ír ki (vagy CSV-ként -o-val, táblázatonként egy fájl).
+
+00:00:18.329 --> 00:00:25.349
+Az equations megkeresi a kiemelt egyenleteket és számaikat, LaTeX-szerű szövegként.
+
+00:00:25.399 --> 00:00:35.357
+Heurisztika: az egysoros egyenletek működnek, az egymásra rakott törtek és mátrixok nem. Ellenőrizd az oldalon.

@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.095 --> 00:00:11.718
+Indică tezaur ingest către un folder. Se citesc PDF, DOCX, EPUB, TXT, MD, HTML și TeX; la rulări repetate se procesează doar schimbările.
+
+00:00:11.768 --> 00:00:17.720
+Rulează din nou: nimic nu s-a schimbat, deci nu se reprocesează nimic.
+
+00:00:17.770 --> 00:00:25.391
+sources listează ce e indexat, cu citarea BibTeX atunci când o intrare .bib se potrivește.
+
+00:00:25.441 --> 00:00:33.394
+search nu are nevoie de model: cele mai bune pasaje, cu câți termeni din interogare acoperă fiecare.
+
+00:00:33.444 --> 00:00:43.338
+doctor verifică toată configurarea și spune ce trebuie reparat. Aici serverul de model e simulatorul folosit în aceste demo-uri.

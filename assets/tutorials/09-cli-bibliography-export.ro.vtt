@@ -1,0 +1,10 @@
+WEBVTT
+
+00:00:01.125 --> 00:00:10.013
+bib exportă fișierele .bib ca RIS, CSL JSON sau BibTeX, gata pentru Zotero, Mendeley, pandoc sau Word.
+
+00:00:10.063 --> 00:00:17.749
+Aceleași intrări ca CSL JSON, formatul citit de pandoc și de mulți manageri de referințe.
+
+00:00:17.799 --> 00:00:28.221
+export convertește un draft Markdown: citările [@cheie] devin \cite{cheie} în LaTeX sau listă de referințe în Word și HTML.

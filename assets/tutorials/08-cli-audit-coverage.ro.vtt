@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Iată un draft cu patru propoziții. Trei citează o sursă; una afirmă ceva fără nicio citare.
+
+00:00:09.712 --> 00:00:19.268
+audit verifică mecanic fiecare citare: susținută, pagină greșită, cheie necunoscută, număr diferit. Fără model.
+
+00:00:19.318 --> 00:00:27.005
+refs arată cheile citate dar lipsă și intrările bibliografice pe care nu le-ai citat.
+
+00:00:27.055 --> 00:00:35.810
+coverage încrucișează titlurile schiței cu sursele: secțiuni bine acoperite, slabe sau goale dintr-o privire.
+
+00:00:35.860 --> 00:00:43.615
+novelty adaugă încă o întrebare: ce spune un draft ce nu acoperă deja biblioteca ta?

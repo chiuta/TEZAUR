@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR : posez des questions à votre propre bibliothèque et obtenez des réponses aux citations vérifiables.
+
+00:00:10.535 --> 00:00:18.355
+À gauche, votre bibliothèque : quatre documents déjà indexés. Rien ne quitte cet ordinateur.
+
+00:00:18.405 --> 00:00:24.357
+Choisissez l'onglet Întreabă (Poser une question) et tapez une question.
+
+00:00:24.407 --> 00:00:32.693
+Appuyez sur Run. La réponse ne cite que des passages réellement trouvés dans vos documents.
+
+00:00:32.743 --> 00:00:40.434
+Le modèle de la démo est un substitut à réponse fixe : regardez les numéros, pas le texte.
+
+00:00:40.484 --> 00:00:48.641
+TEZAUR signale ce qu'il ne peut étayer : ici une citation [9] inexistante, barrée en rouge.
+
+00:00:48.691 --> 00:00:57.382
+Sous la réponse : les passages utilisés, avec source, année et part des termes de la requête couverts.

@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Aquí hay un borrador de cuatro frases. Tres citan una fuente; una afirma algo sin ninguna cita.
+
+00:00:09.712 --> 00:00:19.268
+audit revisa cada cita mecánicamente: respaldada, página errónea, clave desconocida, cifra distinta. Sin modelo.
+
+00:00:19.318 --> 00:00:27.005
+refs muestra las claves citadas que faltan y las entradas bibliográficas nunca citadas.
+
+00:00:27.055 --> 00:00:35.810
+coverage cruza los títulos del esquema con las fuentes: secciones bien cubiertas, flojas o vacías de un vistazo.
+
+00:00:35.860 --> 00:00:43.615
+novelty añade una pregunta más: ¿qué dice un borrador que tu biblioteca aún no cubre?

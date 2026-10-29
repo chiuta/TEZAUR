@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:02.139 --> 00:00:10.790
+Audit checks a draft: does each [@key, p. N] point to a passage that really covers the sentence?
+
+00:00:10.840 --> 00:00:19.460
+Paste your draft. This one has a correct citation, a wrong number, and an uncited claim.
+
+00:00:19.510 --> 00:00:29.329
+Run it: the 400-year survival time is flagged because the cited passage never says 400. It is a mechanical check, no model needed.
+
+00:00:29.379 --> 00:00:37.331
+The Refs tab lists keys cited but missing from your sources, and sources you never cited.

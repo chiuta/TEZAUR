@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.089 --> 00:00:12.647
+Mesh permite a dos investigadores intercambiar pasajes y documentos directamente, sin servidor central. Aquí dos nodos en una máquina.
+
+00:00:12.697 --> 00:00:21.519
+Ana comparte solo lo que eligió: documentos con «lisbon» o «directive». Lo demás sigue privado.
+
+00:00:21.569 --> 00:00:30.923
+Bob añade a Ana como peer y busca en su biblioteca. No se copia nada: solo vuelven los fragmentos coincidentes.
+
+00:00:30.973 --> 00:00:43.134
+mesh pull copia los documentos compartidos de Ana al índice de Bob; sin conexión usa mesh export y mesh import con un paquete .tzb en USB.

@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR: Stelle Fragen an deine eigene Bibliothek und erhalte Antworten mit prüfbaren Belegen.
+
+00:00:10.535 --> 00:00:18.355
+Links siehst du deine Bibliothek: vier Dokumente, bereits indexiert. Nichts verlässt diesen Rechner.
+
+00:00:18.405 --> 00:00:24.357
+Wähle den Reiter Întreabă (Fragen) und tippe eine Frage.
+
+00:00:24.407 --> 00:00:32.693
+Klicke auf Run. Die Antwort zitiert nur Stellen, die wirklich in deinen Dokumenten stehen.
+
+00:00:32.743 --> 00:00:40.434
+Das Demo-Modell ist ein Platzhalter mit fester Antwort: Achte auf die Nummern, nicht auf den Text.
+
+00:00:40.484 --> 00:00:48.641
+TEZAUR markiert, was es nicht belegen kann: hier einen Beleg [9], den es nicht gibt, rot durchgestrichen.
+
+00:00:48.691 --> 00:00:57.382
+Unter der Antwort stehen die verwendeten Stellen mit Quelle, Jahr und Anteil der abgedeckten Suchbegriffe.

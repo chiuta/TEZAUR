@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.121 --> 00:00:10.676
+Aufsätze halten Ergebnisse in Tabellen und Gleichungen. TEZAUR kann beides aus der Textebene eines PDFs holen.
+
+00:00:10.726 --> 00:00:18.279
+tables gibt jede Tabelle als Markdown aus (oder CSV mit -o, eine Datei je Tabelle).
+
+00:00:18.329 --> 00:00:25.349
+equations findet abgesetzte Gleichungen samt Nummern, als Text im LaTeX-Stil.
+
+00:00:25.399 --> 00:00:35.357
+Das ist eine Heuristik: einzeilige Gleichungen klappen, gestapelte Brüche und Matrizen nicht. Prüfe an der Seite.

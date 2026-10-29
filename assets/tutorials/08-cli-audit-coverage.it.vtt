@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Ecco una bozza di quattro frasi. Tre citano una fonte; una afferma qualcosa senza alcuna citazione.
+
+00:00:09.712 --> 00:00:19.268
+audit controlla meccanicamente ogni citazione: supportata, pagina errata, chiave sconosciuta, cifra diversa. Senza modello.
+
+00:00:19.318 --> 00:00:27.005
+refs mostra le chiavi citate ma assenti e le voci bibliografiche mai citate.
+
+00:00:27.055 --> 00:00:35.810
+coverage incrocia i titoli dell'indice con le fonti: sezioni ben coperte, scarse o vuote a colpo d'occhio.
+
+00:00:35.860 --> 00:00:43.615
+novelty aggiunge una domanda: cosa dice una bozza che la tua biblioteca non copre già?

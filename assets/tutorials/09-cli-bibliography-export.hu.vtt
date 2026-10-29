@@ -1,0 +1,10 @@
+WEBVTT
+
+00:00:01.125 --> 00:00:10.013
+A bib RIS, CSL JSON vagy BibTeX formátumban exportálja a .bib fájlokat Zotero, Mendeley, pandoc vagy Word számára.
+
+00:00:10.063 --> 00:00:17.749
+Ugyanezek CSL JSON-ként, amit a pandoc és sok referenciakezelő olvas.
+
+00:00:17.799 --> 00:00:28.221
+Az export Markdown vázlatot alakít át: a [@kulcs] hivatkozásból LaTeX-ben \cite{kulcs}, Wordben és HTML-ben irodalomjegyzék lesz.

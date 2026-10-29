@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.108 --> 00:00:11.936
+tezaur mcp e un server Model Context Protocol pe stdio: Claude Desktop, Claude Code sau Cursor îți pot citi biblioteca, doar în citire.
+
+00:00:11.986 --> 00:00:20.540
+Un client vorbește JSON-RPC. Aici jucăm noi clientul: inițializăm, apoi întrebăm ce unelte există.
+
+00:00:20.590 --> 00:00:30.013
+Apelăm tezaur_search: pasajele revin cu etichete de citare pe care asistentul trebuie să le folosească drept unică dovadă.
+
+00:00:30.063 --> 00:00:39.688
+Adaug-o în configurarea clientului ca comandă tezaur, argumente mcp și --index — depozitul are fragmente gata făcute.

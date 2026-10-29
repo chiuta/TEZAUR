@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Íme egy négymondatos vázlat. Három forrásra hivatkozik, egy állít valamit hivatkozás nélkül.
+
+00:00:09.712 --> 00:00:19.268
+Az audit gépiesen ellenőrzi az összes hivatkozást: alátámasztott, rossz oldal, ismeretlen kulcs, eltérő szám. Modell nélkül.
+
+00:00:19.318 --> 00:00:27.005
+A refs megmutatja a hivatkozott, de hiányzó kulcsokat és a sosem hivatkozott irodalmi tételeket.
+
+00:00:27.055 --> 00:00:35.810
+A coverage összeveti a vázlatpontokat a forrásokkal: jól fedett, gyenge vagy üres szakaszok egy pillantással.
+
+00:00:35.860 --> 00:00:43.615
+A novelty még egy kérdést tesz fel: mit mond a vázlat, amit a könyvtárad még nem fed le?

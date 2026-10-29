@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.095 --> 00:00:11.718
+Apunta tezaur ingest a una carpeta. Se leen PDF, DOCX, EPUB, TXT, MD, HTML y TeX; al repetirlo solo se procesan los cambios.
+
+00:00:11.768 --> 00:00:17.720
+Vuelve a ejecutarlo: nada cambió, así que nada se reprocesa.
+
+00:00:17.770 --> 00:00:25.391
+sources lista lo indexado, con la cita BibTeX cuando coincide una entrada .bib.
+
+00:00:25.441 --> 00:00:33.394
+search no necesita modelo: los mejores pasajes y cuántos términos cubre cada uno.
+
+00:00:33.444 --> 00:00:43.338
+doctor revisa toda la configuración y dice qué arreglar. Aquí el servidor de modelo es el simulador usado en estas demos.

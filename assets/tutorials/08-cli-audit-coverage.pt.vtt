@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Eis um rascunho com quatro frases. Três citam uma fonte; uma afirma algo sem citação nenhuma.
+
+00:00:09.712 --> 00:00:19.268
+audit verifica cada citação mecanicamente: apoiada, página errada, chave desconhecida, número diferente. Sem modelo.
+
+00:00:19.318 --> 00:00:27.005
+refs mostra as chaves citadas em falta e as entradas bibliográficas nunca citadas.
+
+00:00:27.055 --> 00:00:35.810
+coverage cruza os títulos do esboço com as fontes: seções bem cobertas, fracas ou vazias num relance.
+
+00:00:35.860 --> 00:00:43.615
+novelty acrescenta mais uma pergunta: o que um rascunho diz que a sua biblioteca ainda não cobre?

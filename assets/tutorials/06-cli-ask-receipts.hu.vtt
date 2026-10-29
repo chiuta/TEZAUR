@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.105 --> 00:00:10.726
+Az ask csak a könyvtáradból válaszol, [n] hivatkozásokkal. A --receipt manipulációt jelző nyugtát is ír.
+
+00:00:10.776 --> 00:00:18.465
+A demó modellje egy rögzített választ adó helyettesítő: a számokat nézd, ne a szöveget.
+
+00:00:18.515 --> 00:00:26.339
+A figyelmeztetés valódi: a modell a nem létező 9. részletre hivatkozott, és a TEZAUR ezt észrevette.
+
+00:00:26.389 --> 00:00:34.008
+A receipt később ellenőrzi: érintetlen, a válasz egyezik, a részletek még az indexben vannak.
+
+00:00:34.058 --> 00:00:43.613
+A declare a nyugtákból MI-használati nyilatkozatot készít a dolgozat elejére vagy egy folyóirat űrlapjához.

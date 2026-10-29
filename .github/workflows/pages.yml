@@ -112,7 +112,8 @@ jobs:
       url: ${{ steps.dep.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - run: python3 variants/build-pwa.py && mkdir site && cp -r pwa/. site/ && cp -r dist/office site/office 2>/dev/null || true
+      # site root = the presentation deck (index.html) with its video tutorials; the installable web app lives under /app/
+      - run: python3 variants/build-pwa.py && mkdir -p site/app && cp -r pwa/. site/app/ && cp index.html CNAME site/ && cp -r assets site/assets && cp -r dist/office site/office 2>/dev/null || true
       - uses: actions/download-artifact@v4
         with: { path: repos }
       - run: |

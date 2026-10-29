@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.095 --> 00:00:11.718
+Punta tezaur ingest su una cartella. Si leggono PDF, DOCX, EPUB, TXT, MD, HTML e TeX; rilanciandolo si elaborano solo le modifiche.
+
+00:00:11.768 --> 00:00:17.720
+Rilancia: nulla è cambiato, quindi nulla viene rielaborato.
+
+00:00:17.770 --> 00:00:25.391
+sources elenca ciò che è indicizzato, con la citazione BibTeX quando una voce .bib corrisponde.
+
+00:00:25.441 --> 00:00:33.394
+search non richiede modelli: i migliori passaggi e la copertura dei termini.
+
+00:00:33.444 --> 00:00:43.338
+doctor controlla l'intera configurazione e dice cosa correggere. Qui il server del modello è il simulatore usato per queste demo.

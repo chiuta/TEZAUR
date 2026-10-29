@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:02.138 --> 00:00:11.145
+A Schiță fejezetcímeket javasol egy témához, részenként a háttérforrásokkal.
+
+00:00:11.195 --> 00:00:18.884
+A demó modellje egy rögzített választ adó helyettesítő: a számokat nézd, ne a szöveget.
+
+00:00:18.934 --> 00:00:29.672
+A Redactare a könyvtárad alapján ír egy szakaszt. A jegyzetek terelik a tartalmat.
+
+00:00:29.722 --> 00:00:37.746
+A vázlat minden hivatkozását ugyanígy ellenőrzi, az eredmény Markdownként letölthető.

@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.136 --> 00:00:12.026
+tezaur serve lance l'appli web, une API JSON sur l'index, des espaces de travail nommés et un proxy same-origin vers le modèle.
+
+00:00:12.076 --> 00:00:18.965
+Par défaut il n'écoute que sur 127.0.0.1. /api/health indique qu'il est en vie.
+
+00:00:19.015 --> 00:00:25.634
+La même recherche que la CLI, en HTTP : construisez vos propres outils par-dessus.
+
+00:00:25.684 --> 00:00:34.374
+Autres points d'accès : /api/sources, /api/audit, /api/refs, /api/coverage, /api/bib, /api/ingest et /api/mesh/*.

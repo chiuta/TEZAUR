@@ -1,0 +1,22 @@
+WEBVTT
+
+00:00:02.198 --> 00:00:10.485
+TEZAUR: ask questions of your own library and get answers with checkable citations.
+
+00:00:10.535 --> 00:00:18.355
+On the left is your library: four documents, already indexed. Nothing leaves this computer.
+
+00:00:18.405 --> 00:00:24.357
+Pick the Ask tab and type a question.
+
+00:00:24.407 --> 00:00:32.693
+Press Run. The answer cites only passages actually found in your documents.
+
+00:00:32.743 --> 00:00:40.434
+The demo model is a stand-in with a canned answer, so look at the numbers, not the prose.
+
+00:00:40.484 --> 00:00:48.641
+TEZAUR flags what it cannot support: here a citation [9] that does not exist, struck through in red.
+
+00:00:48.691 --> 00:00:57.382
+Below the answer are the passages used, with source, year and the share of query terms they cover.

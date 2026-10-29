@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.136 --> 00:00:12.026
+A tezaur serve elindítja a webalkalmazást, a JSON API-t az index fölött, névvel ellátott munkaterületeket és egy same-origin proxyt a modellhez.
+
+00:00:12.076 --> 00:00:18.965
+Alapból csak a 127.0.0.1-en figyel. Az /api/health jelzi, hogy él.
+
+00:00:19.015 --> 00:00:25.634
+Ugyanaz a keresés, mint a CLI-ben, HTTP-n: építhetsz rá saját eszközöket.
+
+00:00:25.684 --> 00:00:34.374
+További végpontok: /api/sources, /api/audit, /api/refs, /api/coverage, /api/bib, /api/ingest és /api/mesh/*.

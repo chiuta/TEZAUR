@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:11.265
+A bemutató parancsai a README-ből valók, a felvételen nem futnak le; a CI minden push-nál lefuttatja őket.
+
+00:00:11.315 --> 00:00:19.801
+Debian és Ubuntu: add hozzá a tárolót, majd apt install tezaur. Nincs aláírva, ezért trusted=yes.
+
+00:00:19.851 --> 00:00:28.805
+Fedora és RHEL: töltsd le a .repo fájlt, majd dnf install tezaur (a gpgcheck ugyanezért ki van kapcsolva).
+
+00:00:28.855 --> 00:00:38.677
+Flatpak: add hozzá a távoli tárolót és telepítsd a tf.trom.Tezaur-t. Androidon az F-Droid alkalmazásban add meg a tároló URL-jét.
+
+00:00:38.727 --> 00:00:48.681
+Vagy fordítsd forrásból cargóval. Ez tényleg lefut itt: a bemutatókban használt program verziója.

@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.089 --> 00:00:12.647
+Mesh lets two researchers exchange passages and documents directly, with no central server. Here two nodes run on one machine.
+
+00:00:12.697 --> 00:00:21.519
+Ana shares only what she chose: documents matching 'lisbon' or 'directive'. The rest stays private.
+
+00:00:21.569 --> 00:00:30.923
+Bob adds Ana as a peer and searches her library. Nothing is copied: only matching snippets come back.
+
+00:00:30.973 --> 00:00:43.134
+mesh pull copies Ana's shared documents into Bob's index; for offline exchange use mesh export and mesh import with a .tzb bundle on a USB stick.

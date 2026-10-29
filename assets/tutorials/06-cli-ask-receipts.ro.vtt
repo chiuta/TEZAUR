@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.105 --> 00:00:10.726
+ask răspunde doar din biblioteca ta, cu citări [n]. --receipt scrie și o evidență care arată dacă a fost modificată.
+
+00:00:10.776 --> 00:00:18.465
+Modelul din demo e un înlocuitor cu răspuns fix: uită-te la numere, nu la text.
+
+00:00:18.515 --> 00:00:26.339
+Avertismentul e real: modelul a citat fragmentul 9, care nu există, iar TEZAUR a prins asta.
+
+00:00:26.389 --> 00:00:34.008
+receipt îl verifică ulterior: neatins, răspunsul se potrivește, fragmentele sunt încă în index.
+
+00:00:34.058 --> 00:00:43.613
+declare transformă chitanțele într-o declarație de folosire a AI pentru prefața tezei sau formularul unei reviste.

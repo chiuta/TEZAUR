@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.107 --> 00:00:09.662
+Voici un brouillon de quatre phrases. Trois citent une source ; une affirme quelque chose sans aucune citation.
+
+00:00:09.712 --> 00:00:19.268
+audit contrôle chaque citation mécaniquement : étayée, mauvaise page, clé inconnue, chiffre divergent. Sans modèle.
+
+00:00:19.318 --> 00:00:27.005
+refs montre les clés citées mais absentes, et les entrées bibliographiques jamais citées.
+
+00:00:27.055 --> 00:00:35.810
+coverage croise les titres du plan avec les sources : sections bien couvertes, minces ou vides d'un coup d'œil.
+
+00:00:35.860 --> 00:00:43.615
+novelty ajoute une question : que dit un brouillon que votre bibliothèque ne couvre pas déjà ?

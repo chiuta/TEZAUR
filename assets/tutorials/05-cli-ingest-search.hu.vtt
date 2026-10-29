@@ -1,0 +1,16 @@
+WEBVTT
+
+00:00:01.095 --> 00:00:11.718
+Irányítsd a tezaur ingest-et egy mappára. PDF, DOCX, EPUB, TXT, MD, HTML és TeX olvasható; újrafuttatáskor csak a változások kerülnek sorra.
+
+00:00:11.768 --> 00:00:17.720
+Futtasd újra: semmi sem változott, így semmit sem dolgoz fel újra.
+
+00:00:17.770 --> 00:00:25.391
+A sources kilistázza az indexeltet, BibTeX-hivatkozással, ha van egyező .bib bejegyzés.
+
+00:00:25.441 --> 00:00:33.394
+A search nem igényel modellt: a legjobb szövegrészek és a lefedett kifejezések aránya.
+
+00:00:33.444 --> 00:00:43.338
+A doctor az egész beállítást ellenőrzi, és megmondja, mit javíts. Itt a modellszerver a bemutatókhoz használt mock.

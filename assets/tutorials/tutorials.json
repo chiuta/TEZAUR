@@ -1,0 +1,210 @@
+[
+ {
+  "id": "01-first-question",
+  "title": {
+   "en": "Your first cited question (web app)",
+   "ro": "Prima ta întrebare cu citări (aplicația web)",
+   "fr": "Votre première question citée (appli web)",
+   "it": "La tua prima domanda con citazioni (app web)",
+   "es": "Tu primera pregunta con citas (app web)",
+   "pt": "A sua primeira pergunta com citações (app web)",
+   "de": "Deine erste Frage mit Belegen (Web-App)",
+   "hu": "Az első idézett kérdésed (webalkalmazás)"
+  },
+  "kind": "web",
+  "seconds": 60.5,
+  "scenes": 7
+ },
+ {
+  "id": "02-search-compare-gaps",
+  "title": {
+   "en": "Search, compare sources, find gaps (web app)",
+   "ro": "Căutare, compararea surselor, lacune (aplicația web)",
+   "fr": "Rechercher, comparer les sources, trouver les lacunes (appli web)",
+   "it": "Cercare, confrontare le fonti, trovare lacune (app web)",
+   "es": "Buscar, comparar fuentes, encontrar lagunas (app web)",
+   "pt": "Pesquisar, comparar fontes, encontrar lacunas (app web)",
+   "de": "Suchen, Quellen vergleichen, Lücken finden (Web-App)",
+   "hu": "Keresés, források összehasonlítása, hiányok (webalkalmazás)"
+  },
+  "kind": "web",
+  "seconds": 47.1,
+  "scenes": 5
+ },
+ {
+  "id": "03-audit-references",
+  "title": {
+   "en": "Audit citations and references (web app)",
+   "ro": "Auditul citărilor și al referințelor (aplicația web)",
+   "fr": "Auditer citations et références (appli web)",
+   "it": "Verificare di citazioni e riferimenti (app web)",
+   "es": "Auditar citas y referencias (app web)",
+   "pt": "Auditar citações e referências (app web)",
+   "de": "Zitate und Literaturverweise prüfen (Web-App)",
+   "hu": "Hivatkozások ellenőrzése (webalkalmazás)"
+  },
+  "kind": "web",
+  "seconds": 38.9,
+  "scenes": 4
+ },
+ {
+  "id": "04-outline-and-draft",
+  "title": {
+   "en": "From outline to draft (web app)",
+   "ro": "De la schiță la draft (aplicația web)",
+   "fr": "Du plan au brouillon (appli web)",
+   "it": "Dall'indice alla bozza (app web)",
+   "es": "Del esquema al borrador (app web)",
+   "pt": "Do esboço ao rascunho (app web)",
+   "de": "Von der Gliederung zum Entwurf (Web-App)",
+   "hu": "A vázlattól a szövegig (webalkalmazás)"
+  },
+  "kind": "web",
+  "seconds": 39.3,
+  "scenes": 4
+ },
+ {
+  "id": "05-cli-ingest-search",
+  "title": {
+   "en": "Command line: index your files and search",
+   "ro": "Linia de comandă: indexează fișierele și caută",
+   "fr": "Ligne de commande : indexer ses fichiers et chercher",
+   "it": "Riga di comando: indicizzare i file e cercare",
+   "es": "Línea de comandos: indexar archivos y buscar",
+   "pt": "Linha de comando: indexar arquivos e pesquisar",
+   "de": "Kommandozeile: Dateien indexieren und suchen",
+   "hu": "Parancssor: fájlok indexelése és keresés"
+  },
+  "kind": "term",
+  "seconds": 44.9,
+  "scenes": 5
+ },
+ {
+  "id": "06-cli-ask-receipts",
+  "title": {
+   "en": "Ask with citations, receipts and an AI-use statement",
+   "ro": "Întrebări cu citări, chitanțe și declarația de folosire a AI",
+   "fr": "Questions citées, reçus et déclaration d'usage de l'IA",
+   "it": "Domande con citazioni, ricevute e dichiarazione d'uso dell'IA",
+   "es": "Preguntas con citas, recibos y declaración de uso de IA",
+   "pt": "Perguntas com citações, recibos e declaração de uso de IA",
+   "de": "Fragen mit Belegen, Quittungen und KI-Nutzungserklärung",
+   "hu": "Kérdések hivatkozásokkal, nyugták és MI-használati nyilatkozat"
+  },
+  "kind": "term",
+  "seconds": 45.2,
+  "scenes": 5
+ },
+ {
+  "id": "07-cli-pdf-tables-equations",
+  "title": {
+   "en": "Tables and equations from PDFs",
+   "ro": "Tabele și ecuații din PDF-uri",
+   "fr": "Tableaux et équations des PDF",
+   "it": "Tabelle ed equazioni dai PDF",
+   "es": "Tablas y ecuaciones de PDF",
+   "pt": "Tabelas e equações de PDFs",
+   "de": "Tabellen und Gleichungen aus PDFs",
+   "hu": "Táblázatok és egyenletek PDF-ből"
+  },
+  "kind": "term",
+  "seconds": 36.9,
+  "scenes": 4
+ },
+ {
+  "id": "08-cli-audit-coverage",
+  "title": {
+   "en": "Audit a draft and check outline coverage",
+   "ro": "Auditează un draft și verifică acoperirea schiței",
+   "fr": "Auditer un brouillon et vérifier la couverture du plan",
+   "it": "Verificare di una bozza e copertura dell'indice",
+   "es": "Auditar un borrador y revisar la cobertura del esquema",
+   "pt": "Auditar um rascunho e verificar a cobertura do esboço",
+   "de": "Entwurf prüfen und Gliederungsabdeckung testen",
+   "hu": "Vázlat auditja és a vázlatpontok lefedettsége"
+  },
+  "kind": "term",
+  "seconds": 45.2,
+  "scenes": 5
+ },
+ {
+  "id": "09-cli-bibliography-export",
+  "title": {
+   "en": "Bibliography export and draft conversion",
+   "ro": "Exportul bibliografiei și conversia draftului",
+   "fr": "Export de la bibliographie et conversion du brouillon",
+   "it": "Esportare la bibliografia e convertire la bozza",
+   "es": "Exportar la bibliografía y convertir el borrador",
+   "pt": "Exportar a bibliografia e converter o rascunho",
+   "de": "Bibliographie exportieren und Entwurf konvertieren",
+   "hu": "Bibliográfia exportálása és a vázlat átalakítása"
+  },
+  "kind": "term",
+  "seconds": 29.8,
+  "scenes": 3
+ },
+ {
+  "id": "10-mcp-assistant",
+  "title": {
+   "en": "Use your library from an AI assistant (MCP)",
+   "ro": "Folosește biblioteca dintr-un asistent AI (MCP)",
+   "fr": "Utiliser votre bibliothèque depuis un assistant IA (MCP)",
+   "it": "Usare la tua biblioteca da un assistente IA (MCP)",
+   "es": "Usar tu biblioteca desde un asistente de IA (MCP)",
+   "pt": "Usar a sua biblioteca a partir de um assistente de IA (MCP)",
+   "de": "Deine Bibliothek aus einem KI-Assistenten nutzen (MCP)",
+   "hu": "A könyvtárad használata MI-asszisztensből (MCP)"
+  },
+  "kind": "term",
+  "seconds": 41.2,
+  "scenes": 4
+ },
+ {
+  "id": "11-server-api",
+  "title": {
+   "en": "Run the local web server and its JSON API",
+   "ro": "Rulează serverul web local și API-ul lui JSON",
+   "fr": "Lancer le serveur web local et son API JSON",
+   "it": "Avviare il server web locale e la sua API JSON",
+   "es": "Ejecutar el servidor web local y su API JSON",
+   "pt": "Executar o servidor web local e a sua API JSON",
+   "de": "Den lokalen Webserver und seine JSON-API starten",
+   "hu": "A helyi webszerver és JSON API indítása"
+  },
+  "kind": "term",
+  "seconds": 35.9,
+  "scenes": 4
+ },
+ {
+  "id": "12-mesh-p2p",
+  "title": {
+   "en": "Mesh: share libraries peer to peer",
+   "ro": "Mesh: partajează biblioteci între colegi (P2P)",
+   "fr": "Mesh : partager des bibliothèques de pair à pair",
+   "it": "Mesh: condividere biblioteche tra pari (P2P)",
+   "es": "Mesh: compartir bibliotecas de igual a igual",
+   "pt": "Mesh: compartilhar bibliotecas ponto a ponto",
+   "de": "Mesh: Bibliotheken von Peer zu Peer teilen",
+   "hu": "Mesh: könyvtárak megosztása peer-to-peer"
+  },
+  "kind": "term",
+  "seconds": 44.7,
+  "scenes": 4
+ },
+ {
+  "id": "13-install",
+  "title": {
+   "en": "Install TEZAUR",
+   "ro": "Instalează TEZAUR",
+   "fr": "Installer TEZAUR",
+   "it": "Installare TEZAUR",
+   "es": "Instalar TEZAUR",
+   "pt": "Instalar o TEZAUR",
+   "de": "TEZAUR installieren",
+   "hu": "A TEZAUR telepítése"
+  },
+  "kind": "term",
+  "seconds": 50.2,
+  "scenes": 5
+ }
+]

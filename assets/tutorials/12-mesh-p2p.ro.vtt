@@ -1,0 +1,13 @@
+WEBVTT
+
+00:00:01.089 --> 00:00:12.647
+Mesh permite a doi cercetători să schimbe pasaje și documente direct, fără server central. Aici două noduri rulează pe același calculator.
+
+00:00:12.697 --> 00:00:21.519
+Ana partajează doar ce a ales: documentele care conțin „lisbon” sau „directive”. Restul rămâne privat.
+
+00:00:21.569 --> 00:00:30.923
+Bob o adaugă pe Ana ca peer și îi caută biblioteca. Nu se copiază nimic: revin doar fragmentele potrivite.
+
+00:00:30.973 --> 00:00:43.134
+mesh pull copiază documentele partajate ale Anei în indexul lui Bob; pentru schimb offline folosește mesh export și mesh import cu un pachet .tzb pe stick USB.
