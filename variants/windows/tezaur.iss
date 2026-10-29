@@ -1,7 +1,7 @@
 ; Inno Setup script: a classic installer around the PortableApps folder (run build-portable.bat first).
 ; Per-user install into %LOCALAPPDATA%\Programs\TEZAUR so that Data\ (index, settings) stays writable without admin rights.
 #define AppName "TEZAUR"
-#define AppVer "0.1.0"
+#define AppVer "0.4.0"
 [Setup]
 AppId={{B2A5E5D0-4B7C-4F1E-9C61-7E0E3B2E7A11}
 AppName={#AppName}

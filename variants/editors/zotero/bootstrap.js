@@ -25,6 +25,7 @@ async function sendItems(items) {
 function install() {}
 function uninstall() {}
 function startup({ id }) {
+  Zotero.debug('TEZAUR: plugin started');
   Zotero.MenuManager?.registerMenu?.({ menuID: 'tezaur-send', pluginID: id, target: 'main/library/item',
     menus: [{ menuType: 'menuitem', l10nID: null, onCommand: () => sendItems(Zotero.getActiveZoteroPane().getSelectedItems()) }] });
 }
@@ -36,5 +37,6 @@ function onMainWindowLoad({ window }) {
   mi.id = 'tezaur-send-item'; mi.setAttribute('label', 'Send to TEZAUR');
   mi.addEventListener('command', () => sendItems(Zotero.getActiveZoteroPane().getSelectedItems()));
   menu.appendChild(mi);
+  Zotero.debug('TEZAUR: menu item added to the item context menu');
 }
 function onMainWindowUnload({ window }) { window.document.getElementById('tezaur-send-item')?.remove(); }
