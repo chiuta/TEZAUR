@@ -249,7 +249,7 @@ jobs:
           names = sorted({n for v in d.get('*', {}).values() for n in v})
           print('LSP deps:', names)
           for n in names:
-              subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--no-deps', '--target', os.path.expanduser('~/.config/sublime-text/Lib/python38'), n.replace('_', '-')])
+              subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--python-version', '3.8', '--only-binary=:all:', '--implementation', 'py', '--target', os.path.expanduser('~/.config/sublime-text/Lib/python38'), n.replace('_', '-')])
           PY
           export EDITOR_NAME=sublime
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'subl doc.md & sleep 30; xdotool key ctrl+grave; sleep 3; import -window root subl-shot.png; pkill sublime_text' || true
@@ -262,5 +262,5 @@ jobs:
           mkdir -p ~/.config/zed && sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/zed-settings.json > ~/.config/zed/settings.json
           ls -la zed.tgz zed/bin 2>&1 | head -5; file zed.tgz | cut -c1-120
           export EDITOR_NAME=zed
-          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'zed/bin/zed --foreground doc.md >zed.log 2>&1 & sleep 40; import -window root zed-shot.png; pkill zed' || true
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'export ZED_ALLOW_EMULATED_GPU=1 WGPU_BACKEND=vulkan RUST_LOG=info; zed/bin/zed --version >zed.log 2>&1; zed/bin/zed --foreground doc.md >>zed.log 2>&1 & sleep 40; pgrep -a zed >>zed.log; import -window root zed-shot.png; pkill zed' || true
           bash .github/annotate.sh bash -c 'echo ZEDLOG; ls zed/bin 2>&1 | head -3; file zed.tgz | cut -c1-100; tail -15 zed.log | cut -c1-200; echo OCR; tesseract zed-shot.png - 2>/dev/null | grep -v "^$" | head -15; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "zed spawned" /tmp/lsp-spawn.log'
