@@ -1,0 +1,17 @@
+name: audit-live
+# Adversarial audit of the live site tezaur.chiuta.ro from a GitHub runner (results are annotations). Run by hand.
+on: { workflow_dispatch: { inputs: { host: { default: tezaur.chiuta.ro } } } }
+permissions: { contents: read }
+jobs:
+  http:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/audit/live_audit.py "${{ inputs.host }}"
+  browsers:
+    strategy: { fail-fast: false, matrix: { browser: [chromium, firefox, webkit] } }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install playwright && python -m playwright install --with-deps ${{ matrix.browser }}
+      - run: python3 scripts/audit/live_browsers.py "${{ inputs.host }}" ${{ matrix.browser }}
