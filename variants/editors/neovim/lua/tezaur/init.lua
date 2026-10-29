@@ -39,12 +39,25 @@ function M.run(mode, q, on_done)
   local cmd = { "curl", "-s", "--max-time", "600", "-H", "Content-Type: application/json", "-d", "@-" }
   if M.cfg.token then vim.list_extend(cmd, { "-H", "Authorization: Bearer " .. M.cfg.token }) end
   table.insert(cmd, M.cfg.server:gsub("/$", "") .. (mode == "search" and "/api/search" or "/api/ask"))
-  vim.system(cmd, { text = true, stdin = vim.json.encode({ q = q, mode = mode, k = M.cfg.k }) }, vim.schedule_wrap(function(r)
-    local ok, d = pcall(vim.json.decode, r.stdout or "")
-    if r.code ~= 0 or not ok then d = { error = "cannot reach " .. M.cfg.server } end
+  local body = vim.json.encode({ q = q, mode = mode, k = M.cfg.k })
+  local function finish(code, out)
+    local ok, d = pcall(vim.json.decode, out or "")
+    if code ~= 0 or not ok then d = { error = "cannot reach " .. M.cfg.server } end
     M.last = M.format(mode, d)
     if on_done then on_done(M.last, d) else show(M.last) end
-  end))
+  end
+  if vim.system then -- Neovim 0.10+
+    vim.system(cmd, { text = true, stdin = body }, vim.schedule_wrap(function(r) finish(r.code, r.stdout) end))
+  else -- Neovim 0.7-0.9 (e.g. Ubuntu 24.04 ships 0.9.5)
+    local chunks = {}
+    local id = vim.fn.jobstart(cmd, {
+      stdout_buffered = true,
+      on_stdout = function(_, data) chunks = data end,
+      on_exit = function(_, code) vim.schedule(function() finish(code, table.concat(chunks, "\n")) end) end,
+    })
+    if id <= 0 then return finish(1, "") end
+    vim.fn.chansend(id, body); vim.fn.chanclose(id, "stdin")
+  end
 end
 
 function M.selection()

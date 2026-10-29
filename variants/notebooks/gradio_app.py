@@ -1,5 +1,5 @@
 """Gradio front-end (also what Hugging Face Spaces runs):  pip install gradio tezaur-client  &&  python gradio_app.py
-Not run in the build sandbox."""
+Tested with Gradio 6 (gradio_client against the launched app)."""
 import os
 import gradio as gr
 from tezaur_client import Client
@@ -13,11 +13,16 @@ def ask(q, mode):
 def audit(t):
     return c.audit(t)["markdown"]
 
-with gr.Blocks(title="TEZAUR") as demo:
+with gr.Blocks(title="TEZAUR") as demo:  # plain Blocks + click(): works across Gradio 3 to 6 (Interface(allow_flagging=...) was removed in 5)
     with gr.Tab("Ask"):
-        gr.Interface(ask, [gr.Textbox(label="Question"), gr.Radio(["ask", "compare", "gaps"], value="ask")], gr.Textbox(label="Answer"), allow_flagging="never")
+        q = gr.Textbox(label="Question")
+        mode = gr.Radio(["ask", "compare", "gaps"], value="ask", label="Mode")
+        out = gr.Textbox(label="Answer")
+        gr.Button("Ask").click(ask, [q, mode], out, api_name="ask")
     with gr.Tab("Audit"):
-        gr.Interface(audit, gr.Textbox(lines=10, label="Draft"), gr.Markdown(), allow_flagging="never")
+        t = gr.Textbox(lines=10, label="Draft")
+        rep = gr.Markdown()
+        gr.Button("Audit").click(audit, t, rep, api_name="audit")
 
 if __name__ == "__main__":
     demo.launch()

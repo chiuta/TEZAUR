@@ -129,3 +129,19 @@ nu am utilizatori și nu am rulat concurenții. Am închis lacunele din `COMPETI
 |---|---|---|
 | `tezaur tables` / `tezaur equations`; ingest păstrează tabelul ca un pasaj Markdown (legendă, antet repetat la împărțire) și ecuațiile ca `[equation] $$ … $$ (eq. N)` | 7 teste unitare + `test_pdfx.py` pe PDF-uri generate cu pdflatex: tabel 3 coloane, tabel cu 4 coloane, tabel împărțit pe pagini cu antet repetat (test unitar), `\sum_{i=1}^{N}` și `\int` cu limite și număr de ecuație, pagină pe două coloane (după reparația jgheabului); căutarea returnează tabelul întreg | **doar documente LaTeX proprii, de laborator.** Nu am încercat PDF-uri de editură, scanate, cu fonturi ne-standard sau în alte limbi. Euristică peste `pdftotext -layout`: coloane foarte strânse (spațiu de 1 caracter) se lipesc — l-am găsit în test și l-am documentat; celule pe mai multe rânduri, tabele-imagine, fracții suprapuse, matrici, indici/exponenți (aplatizați: `pi ti`) nu se reconstruiesc. Nu înlocuiește Nougat/MinerU și nu a fost comparat cu ele |
 | Randare tabele/ecuații în `tezaur.html` | verificată cu Chromium (captura din prezentare) | — |
+
+## Runda 0.4.1 — variantele „scrise", rulate cu unelte reale
+
+`variants/tests/test_written.py` rulează acum, în locul unui simplu „compilează", uneltele reale unde se pot instala în sandbox/CI:
+Emacs (batch + byte-compile), Neovim headless, LyX sub Xvfb (export, audit .lyx, inserare inset prin conducta serverului),
+Streamlit (AppTest), Gradio (gradio_client), Marimo (export), shellcheck, TOML/JSON/XML, validare OpenAPI, `node --check` Zotero,
+`systemd-analyze verify`, `web-ext lint`, nginx real (proxy same-origin către un model fals), Tor real (serviciu .onion + SOCKS5), rpm (build + inspecție), voce (motoare simulate).
+
+Bug-uri reale găsite și reparate prin rulare:
+- Neovim < 0.10: `vim.system` lipsește → fallback `jobstart`.
+- Gradio 5/6: `allow_flagging` eliminat → aplicație rescrisă cu Blocks (`api_name` explicit).
+- LyX: sintaxa conductei e `LYXCMD:client:funcție:argument`; inserarea se face cu `citation-insert:KEY` (nota de pagină nu poate fi transmisă).
+- Firefox: lipsea `data_collection_permissions` (necesită gecko ≥ 140 / Android ≥ 142).
+
+Încă nerulate (instrumente indisponibile aici): Nix, Snap/Flatpak, Helm, Quadlet, imaginile Docker Hub, Zotero, MediaWiki,
+Firefox/Windows/macOS/iOS/Android reale, microfon real.

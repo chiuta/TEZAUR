@@ -3,7 +3,7 @@
 
     tezaur_tex.py audit  FILE.(tex|lyx|md)   # citations vs the cited page, quotations word-for-word; report on stdout, exit 2 on problems
     tezaur_tex.py ask    "question"          # cited answer
-    tezaur_tex.py cite   "words" [--lyx]     # best passages as \\cite{key} lines; with --lyx, inserts the best \\cite into the open LyX document
+    tezaur_tex.py cite   "words" [--lyx]     # best passages as \\cite{key} lines; with --lyx, inserts a citation inset for the best one into the open LyX document
     tezaur_tex.py coverage OUTLINE.md        # which sections have sources
 
 Needs `tezaur serve` (TEZAUR_SERVER, TEZAUR_TOKEN). The server understands \\cite / \\parencite / \\textcite[p. 3]{key} and LyX citation insets itself."""
@@ -28,10 +28,11 @@ def lyx_pipe():
             return p
     sys.exit("LyX server pipe not found. In LyX: Tools → Preferences → Paths → Server pipe path, then restart LyX (or set LYXPIPE).")
 
-def lyx_send(text):
+def lyx_cite(key):
+    """Insert a real citation inset for KEY (LyX server syntax is LYXCMD:client:function:argument; checked against LyX 2.4)."""
     p = lyx_pipe()
     with open(p + ".in", "w") as f:
-        f.write("LYXCMD:tezaur:self-insert %s\n" % text.replace("\n", " "))
+        f.write("LYXCMD:tezaur:citation-insert:%s\n" % key)
 
 def cite_candidates(words):
     keys = call("/api/sources").get("keys", [])
@@ -66,7 +67,9 @@ def main(a):
             print("\\cite[p. %s]{%s}   %% %s: %s" % (p, k, label, text[:80].replace("\n", " ")) if p else "\\cite{%s}   %% %s" % (k, label))
         if "--lyx" in a:
             k, p, *_ = c[0]
-            lyx_send("\\cite[p. %s]{%s}" % (p, k) if p else "\\cite{%s}" % k)
+            lyx_cite(k)
+            if p:
+                print("inserted the citation inset for %s; LyX cannot take a page note from the pipe: add \"p. %s\" in the inset's After field" % (k, p), file=sys.stderr)
         return 0
     print(__doc__); return 1
 
