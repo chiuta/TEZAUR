@@ -91,7 +91,7 @@ jobs:
         run: |
           python3 variants/build-web.py variants/docker/site
           docker build -t tezaur-web:ci variants/docker
-          docker run -d --name w -p 8080:80 tezaur-web:ci
+          docker run -d --name wb -p 8080:80 tezaur-web:ci
           sleep 3; bash .github/annotate.sh curl -sf http://127.0.0.1:8080/index.html -o /dev/null
           docker compose -f variants/docker/docker-compose.yml config -q
       - name: Docker Desktop extension image builds
@@ -185,7 +185,7 @@ jobs:
           mkdir -p pk/Assets && cp variants/deploy/msix/AppxManifest.xml pk/ && cp target/release/tezaur.exe pk/TezaurPortable.exe
           for f in logo logo150 logo44; do cp variants/extension/icon-128.png pk/Assets/$f.png; done
           MK=$(find "/c/Program Files (x86)/Windows Kits/10/bin" -name makeappx.exe | grep x64 | head -1)
-          bash .github/annotate.sh "$MK" pack /d pk /p t.msix /nv
+          MSYS_NO_PATHCONV=1 bash .github/annotate.sh "$MK" pack /d pk /p t.msix /nv
           ls -l t.msix
       - name: winget manifests validated
         shell: pwsh

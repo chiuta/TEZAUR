@@ -28,10 +28,8 @@ spec:
                   key: token
           ports: [{ containerPort: {{ .Values.service.port }} }]
           readinessProbe:
-            httpGet:
-              path: /api/health
+            tcpSocket:   # /api/health needs the bearer token, which a probe cannot read from the Secret
               port: {{ .Values.service.port }}
-              httpHeaders: []
           volumeMounts: [{ name: data, mountPath: /data }]
           resources: {{ toYaml .Values.resources | nindent 12 }}
       volumes:
