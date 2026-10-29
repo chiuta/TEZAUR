@@ -206,10 +206,11 @@ jobs:
       - name: TeXstudio (user command from the shipped instructions, run through its Tools menu)
         run: |
           mkdir -p ~/.config/texstudio
-          printf '[texmaker]\nTools\\User\\Tool1=TEZAUR audit|python3 %s/variants/editors/latex/tezaur_tex.py audit %%.tex > %s/texstudio-out.txt\n' "$PWD" "$PWD" > ~/.config/texstudio/texstudio.ini
+          printf '[texmaker]\nUser\\ToolNames=TEZAUR audit\nUser\\Tools=python3 %s/variants/editors/latex/tezaur_tex.py audit %%.tex | txt\n' "$PWD" > ~/.config/texstudio/texstudio.ini
           printf '\\documentclass{article}\\begin{document}Penguins sing opera [\\cite{ghost2020}].\\end{document}\n' > a.tex
           export TEZAUR_SERVER=http://127.0.0.1:1
-          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; import -window root tex-menu.png; pkill texstudio' || true
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; import -window root tex-menu.png; xdotool key u; sleep 1; import -window root tex-menu2.png; pkill texstudio' || true
+          echo "::notice::TeXstudio User submenu OCR: $(tesseract tex-menu2.png - 2>/dev/null | grep -v '^$' | head -40 | tr '\n' '|')"
           echo "::notice::TeXstudio menu OCR: $(tesseract tex-menu.png - 2>/dev/null | grep -v '^$' | head -40 | tr '\n' '|')"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -264,14 +265,3 @@ jobs:
           export EDITOR_NAME=zed
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'export ZED_ALLOW_EMULATED_GPU=1 WGPU_BACKEND=vulkan RUST_LOG=info; zed/bin/zed --version >zed.log 2>&1; zed/bin/zed --foreground doc.md >>zed.log 2>&1 & sleep 40; pgrep -a zed >>zed.log; import -window root zed-shot.png; pkill zed' || true
           bash .github/annotate.sh bash -c 'echo ZEDLOG; ls zed/bin 2>&1 | head -3; file zed.tgz | cut -c1-100; tail -15 zed.log | cut -c1-200; echo OCR; tesseract zed-shot.png - 2>/dev/null | grep -v "^$" | head -15; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "zed spawned" /tmp/lsp-spawn.log'
-
-  texstudio-probe:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y texstudio binutils
-      - name: which settings keys does TeXstudio use for user commands?
-        run: |
-          B=$(which texstudio); strings -n 6 $B | grep -iE "Tools/User|User/Tool|usertool|User Order|userquick|Tools/Tools" | sort -u | head -30 > keys.txt || true
-          for f in /usr/lib/x86_64-linux-gnu/libtexstudio* /usr/share/texstudio/*; do [ -f "$f" ] && strings -n 6 "$f" | grep -iE "Tools/User|usertool|User Order" | sort -u | head -10 >> keys.txt; done
-          echo "::notice::keys: $(cat keys.txt | tr '\n' '|')"
