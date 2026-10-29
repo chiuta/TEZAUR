@@ -15,6 +15,22 @@ A laptop cannot fine-tune a model on a library, and a fine-tuned model would sti
 sources. Retrieval gives the opposite guarantee: every claim points to a passage (file + page) you
 can open and verify, and the model is forced to say what the library does *not* contain.
 
+## Install from the package repositories (built and published by CI on every push)
+
+Every push rebuilds these repositories on GitHub Pages and installs from them in clean containers before publishing (see `.github/workflows/pages.yml`).
+
+```bash
+BASE=https://chiuta.github.io/TEZAUR
+# Debian / Ubuntu  (unsigned repository: trusted=yes)
+echo "deb [trusted=yes] $BASE/apt ./" | sudo tee /etc/apt/sources.list.d/tezaur.list && sudo apt update && sudo apt install tezaur
+# Fedora / RHEL    (unsigned repository: gpgcheck=0)
+sudo curl -o /etc/yum.repos.d/tezaur.repo $BASE/rpm/tezaur.repo && sudo dnf install tezaur
+# Flatpak
+flatpak remote-add --user tezaur $BASE/flatpak/tezaur.flatpakrepo && flatpak install tezaur tf.trom.Tezaur
+# Android: add  $BASE/fdroid/repo  as a repository in the F-Droid app
+```
+The repositories are not GPG-signed (no key is kept in CI); the F-Droid index is signed with a throw-away key generated per build, so Android will ask you to re-install when it changes.
+
 ## Model backends
 
 TEZAUR needs a local model server for answers (not for `search`, `sources`, `ingest`).

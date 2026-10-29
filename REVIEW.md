@@ -178,3 +178,7 @@ Găsit prin rulare: metadatele F-Droid aveau id-ul greșit (`org.tezaur.app` în
 - Bug găsit: Zed pornește servere de limbaj doar prin extensii, deci vechea configurare LSP nu făcea nimic; configurarea livrată e acum un server MCP (`tezaur mcp`), verificat că Zed îl pornește.
 - TeXstudio și Geany pornesc, dar comanda utilizator din TeXstudio nu poate fi configurată automat; instrucțiunile rămân pentru configurare manuală.
 - Rămân în afara CI: publicarea în magazine (App Store, Google Play, Flathub, Snap Store, F-Droid, winget, Homebrew core), recunoașterea vocală cloud din browser.
+
+## Runda 0.4.5 — depozite proprii de pachete
+
+Pages găzduiește acum depozite reale APT, RPM, Flatpak și F-Droid, reconstruite la fiecare push. Fiecare e instalat în CI întâi dintr-o copie locală (container curat), apoi de pe URL-ul public (`verify-live`): `apt install tezaur` pe Debian, `dnf install tezaur` pe Fedora, `flatpak install` și indexul F-Droid. Limite: depozitele APT/RPM nu sunt semnate GPG (nu păstrăm cheie în CI); cheia F-Droid e generată la fiecare build, deci nu e stabilă. Magazinele publice (App Store, Google Play, Flathub, Snap Store, winget, Homebrew core) cer conturi și revizuire; rămân neautomatizate. TeXstudio: cheile `User/ToolNames` și `User/Tools` există în binar, dar meniul „User" a rămas gol în test; comanda se adaugă manual.
