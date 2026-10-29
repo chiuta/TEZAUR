@@ -187,7 +187,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick tesseract-ocr kate texstudio mesa-vulkan-drivers libvulkan1 libxkbcommon-x11-0
+      - run: sudo apt-get update && sudo apt-get install -y dbus-x11 xvfb xdotool imagemagick tesseract-ocr kate texstudio mesa-vulkan-drivers libvulkan1 libxkbcommon-x11-0
       - name: wrapper that records that the editor launched the language server
         run: |
           mkdir -p tools && cat > tools/tezaur_lsp.py <<PY
@@ -201,7 +201,7 @@ jobs:
           mkdir -p ~/.config/kate/lspclient
           sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/kate-lspclient.json > ~/.config/kate/lspclient/settings.json
           printf '[Kate Plugins]\nlspclientplugin=true\n' >> ~/.config/katerc
-          export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'kate -n doc.md >kate.log 2>&1 & sleep 20; import -window root kate-shot.png; pkill kate' || true
+          export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" dbus-run-session -- bash -c 'kate --version >kate.log 2>&1; kate -n doc.md >>kate.log 2>&1 & sleep 25; pgrep -a kate >>kate.log; import -window root kate-shot.png; pkill kate' || true
           bash .github/annotate.sh bash -c 'echo KATELOG; tail -8 kate.log; echo OCR; tesseract kate-shot.png - 2>/dev/null | grep -v "^$" | head -25; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "kate spawned" /tmp/lsp-spawn.log'
       - name: TeXstudio (user command from the shipped instructions, run through its Tools menu)
         run: |
