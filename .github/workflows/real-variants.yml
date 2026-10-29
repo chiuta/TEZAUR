@@ -204,10 +204,10 @@ jobs:
             $j = Get-Content variants/packaging/scoop/tezaur.json | ConvertFrom-Json
             $j.version = "0.4.0"; $j.url = "http://127.0.0.1:8099/tezaur-windows.zip"; $j.hash = $h
             $j.PSObject.Properties.Remove("autoupdate"); $j.PSObject.Properties.Remove("checkver")
-            $j | ConvertTo-Json -Depth 5 | Set-Content tezaur-ci.json
+            $j | ConvertTo-Json -Depth 5 | Set-Content tezaur.json
             $srv = Start-Process python -ArgumentList "-m","http.server","8099" -PassThru; Start-Sleep 3
-            $diag = (Get-Command scoop | Out-String) + (scoop --version | Out-String) + (Get-Content tezaur-ci.json | Out-String)
-            $out = (scoop install "$PWD\tezaur-ci.json" *>&1 | Out-String); Write-Host $out
+            $diag = (Get-Command scoop | Out-String) + (scoop --version | Out-String) + (Get-Content tezaur.json | Out-String)
+            $out = (scoop install "$PWD\tezaur.json" *>&1 | Out-String); Write-Host $out
             if (-not (scoop prefix tezaur)) { throw ($diag + "OUT:" + $out + (scoop list | Out-String)) }
             $pre = scoop prefix tezaur; Write-Host "installed at $pre"; Get-ChildItem $pre
             & "$pre\tezaur.exe" --version
