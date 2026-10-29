@@ -175,7 +175,7 @@ Raspberry Pi / Termux / NixOS recipes, and **Mesh** (peer-to-peer exchange betwe
   It is a **heuristic over poppler's text layer** (needs `pdftotext`; without it ingest falls back to plain text): columns are recovered from gaps of 2+ spaces, so very tight tables,
   merged/multi-line cells, tables that are images, stacked fractions, matrices and sub/superscripts (flattened: `pi ti`) are not reconstructed. It does not replace an OCR model such as Nougat or MinerU.
 - **`eval`** turns “the search seems fine” into numbers on your own questions.
-- The search index keeps a BM25 cache next to the index file (`<index>.bm25`, rebuilt automatically when the library changes): a CLI search over 6 M words went from ~4.3 s to ~0.14 s.
+- The search index keeps a BM25 cache next to the index file (`<index>.bm25`, rebuilt automatically when the library changes): a CLI search over 6 M words went from ~4.5 s to ~0.2 s (re-measured 2026-10-30 on 6 M synthetic words, this sandbox; the first search after an ingest pays the ~4.5 s cache build).
 - **`coverage`** and **`novelty`** compare an outline or a new text with what your library actually contains.
 - **Receipts** (`ask --receipt`): SHA-256 over the question, model, answer and every excerpt; `receipt` verifies it later and that those excerpts still exist unchanged
   in the index. With `TEZAUR_RECEIPT_KEY` set they also carry an HMAC. This is tamper evidence, not a signature of identity, and not proof that an answer is true.

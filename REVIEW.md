@@ -112,7 +112,7 @@ nu am utilizatori și nu am rulat concurenții. Am închis lacunele din `COMPETI
 
 | Adăugat | Ce arată testele | Ce NU arată |
 |---|---|---|
-| Cache BM25 pe disc | căutare CLI 4,3 s → 0,14 s pe 6 M de cuvinte; invalidat la `ingest` (test) | comportament cu index corupt/scris concurent (scriere atomică prin fișier temporar, dar nu am testat cursele) |
+| Cache BM25 pe disc | căutare CLI 4,5 s → ~0,2 s pe 6 M de cuvinte (remăsurat 30 oct. 2026, cuvinte sintetice; inițial notat 4,3 → 0,14 s); invalidat la `ingest` (test) | comportament cu index corupt/scris concurent (scriere atomică prin fișier temporar, dar nu am testat cursele) |
 | `audit --semantic` (+ API, MCP, panou HTML) | cu un „judecător” scriptat: parafraza e salvată, negația e prinsă, acordul rămâne; `--fail` numără `contradicted`; eșecul modelului oprește pasul fără a strica rezultatul mecanic | **calitatea cu un model real e necunoscută.** Judecătorul fals folosește reguli (negație + cuvinte comune); un model real poate greși în ambele sensuri. Nu am refăcut benchmarkul 0/6 parafraze cu un model adevărat |
 | `lit`, `refs --online` (OpenAlex, Crossref) | cu servere false: căutare, fallback Crossref, DOI inventat → `not-found`, retractare, an diferit, serviciu indisponibil → eroare curată | **n-am atins niciodată serviciile reale.** Forma răspunsurilor e cea din documentația/memoria mea despre OpenAlex și Crossref; câmpuri precum `is_retracted` sau `update-to` pot diferi. Limite de rată, paginare, titluri multilingve: neluate în calcul. Un DOI absent din aceste baze nu dovedește că lucrarea e falsă |
 | `refs` (chei lipsă, intrări necitate) | testat pe un caz cu patru categorii | doar bucătărie: nu spune nimic despre corectitudinea citărilor |

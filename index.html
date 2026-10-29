@@ -386,8 +386,8 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
       <div class="card rv">
         <h3>Căutare în CLI, 6 milioane de cuvinte</h3>
         <div class="bars">
-          <div class="bar"><span>înainte</span><div class="track"><div class="fill f1"></div></div><b>~4,3 s</b></div>
-          <div class="bar"><span>acum</span><div class="track"><div class="fill f2"></div></div><b style="color:var(--teal)">~0,14 s</b></div>
+          <div class="bar"><span>înainte</span><div class="track"><div class="fill f1"></div></div><b>~4,5 s</b></div>
+          <div class="bar"><span>acum</span><div class="track"><div class="fill f2"></div></div><b style="color:var(--teal)">~0,2 s</b></div>
         </div>
         <p class="small" style="margin-top:12px">Cache BM25 pe disc, reconstruit automat când se schimbă biblioteca.</p>
       </div>
@@ -664,7 +664,7 @@ g.after(more);sm.addEventListener('change',fold);fold();
         <li>Sursă greșită: <b>3/3</b> prinse · fără legătură: <b>4/4</b></li>
         <li>Contradicții: <b>4/6</b> semnalate (3 prin cifre; negațiile scapă)</li>
         <li>61 de teste Rust + teste cap-coadă (CLI, API, MCP, browser)</li>
-        <li>Căutare ~0,14 s pe 6 M de cuvinte</li></ul></div>
+        <li>Căutare ~0,2 s pe 6 M de cuvinte</li></ul></div>
       <div class="card col no rv"><h3>Neverificat sau slab</h3><ul>
         <li>Parafraze: <b>0/6</b> recunoscute de audit mecanic</li>
         <li>Negații: ratate (de aici <code>--semantic</code>)</li>
@@ -802,8 +802,13 @@ const FOLD={ă:'a',â:'a',î:'i',ș:'s',ş:'s',ț:'t',ţ:'t',é:'e',è:'e',ê:'e
 const tok=s=>{const out=[];let cur='';const fl=()=>{if([...cur].length>=2)out.push([...cur].slice(0,7).join(''));cur=''};
   for(const ch of s.toLowerCase()){const f=FOLD[ch]||ch;if(/[\p{L}\p{N}]/u.test(f))cur+=f;else fl()}fl();return out};
 const cov=(q,t)=>{const Q=new Set(tok(q));if(!Q.size)return 0;const T=new Set(tok(t));let n=0;Q.forEach(w=>{if(T.has(w))n++});return n/Q.size};
-const NUMW=new Set('doi doua trei patru cinci sase sapte opt noua zece douazeci treizeci suta mie milion'.split(' '));
-const isNum=w=>/^\d+$/.test(w)||NUMW.has(w);
+/* figures are compared by value, like the Rust audit: "4", "four" and "patru" are one number; "71.3" is one number, not 71 and 3 */
+const NUMV={one:1,unu:1,una:1,two:2,doi:2,doua:2,three:3,trei:3,four:4,patru:4,five:5,cinci:5,six:6,sase:6,seven:7,sapte:7,eight:8,opt:8,nine:9,noua:9,ten:10,zece:10,eleven:11,unsprezece:11,twelve:12,doisprezece:12,twenty:20,douazeci:20,thirty:30,treizeci:30,forty:40,patruzeci:40,fifty:50,cincizeci:50,sixty:60,saizeci:60,seventy:70,saptezeci:70,eighty:80,optzeci:80,ninety:90,nouazeci:90,hundred:100,suta:100,thousand:1000,mie:1000,million:1e6,milion:1e6,half:.5};
+const fold=s=>[...s.toLowerCase()].map(c=>FOLD[c]||c).join('');
+function figures(s){const out=new Set();
+  for(const m of s.matchAll(/\d{1,3}(?:[ ,.]\d{3})+(?![\d])|\d+(?:[.,]\d+)?/g)){let t=m[0];
+    if(/^\d{1,3}(?:[ ,.]\d{3})+$/.test(t))t=t.replace(/[ ,.]/g,'');else t=t.replace(',','.');out.add(String(parseFloat(t)))}
+  for(const w of fold(s).split(/[^\p{L}\p{N}]+/u))if(w in NUMV)out.add(String(NUMV[w]));return out}
 const SUP=.6,WEAK=.35;
 function audit(text){
   const m=text.match(/\[\s*p\.?\s*(\d+)\s*\]/i);const page=m?+m[1]:null;
@@ -819,8 +824,7 @@ function audit(text){
   else if(sup>=WEAK){v='weak';cls='b-weak';note=`Doar ${Math.round(sup*100)}% din termeni apar în pasajul citat.`}
   else{v='unsupported';cls='b-bad';note=`Doar ${Math.round(any*100)}% din termeni apar undeva în sursă.`}
   if(v==='supported'||v==='weak'){
-    const have=new Set(PAGES[page].toLowerCase().split(/[^\p{L}\p{N}]+/u).map(w=>[...w].map(c=>FOLD[c]||c).join('')));
-    const miss=claim.toLowerCase().split(/[^\p{L}\p{N}]+/u).map(w=>[...w].map(c=>FOLD[c]||c).join('')).filter(w=>w&&isNum(w)&&!have.has(w));
+    const have=figures(PAGES[page]);const miss=[...figures(claim)].filter(n=>!have.has(n));
     if(miss.length){v='number-mismatch';cls='b-bad';note=`Fraza afirmă „${[...new Set(miss)].join(', ')}”, dar pasajul citat nu conține această cifră.`}
   }
   return{v,cls,s:v==='wrong-page'?sup:sup,note,page,anyp};
