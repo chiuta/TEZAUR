@@ -66,6 +66,7 @@ jobs:
           s = re.sub(r'- type: git\n\s+url: [^\n]+\n(\s+tag: [^\n]+\n)?(\s+branch: [^\n]+\n)?', '- type: dir\n        path: .\n', s)
           open('flatpak-ci.yml', 'w').write(s)
           PY
+          mkdir -p repo/flatpak
           bash .github/annotate.sh flatpak-builder --user --force-clean --install-deps-from=flathub --repo=repo/flatpak/repo build flatpak-ci.yml
           flatpak build-update-repo repo/flatpak/repo
           printf '[Flatpak Repo]\nTitle=TEZAUR\nUrl=https://%s.github.io/%s/flatpak/repo\nHomepage=https://github.com/%s\nComment=Local, citation-grounded research assistant\nDescription=TEZAUR\nGPGKey=\n' "${{ github.repository_owner }}" "${{ github.event.repository.name }}" "${{ github.repository }}" > repo/flatpak/tezaur.flatpakrepo
