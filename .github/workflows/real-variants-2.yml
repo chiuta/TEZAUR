@@ -247,14 +247,10 @@ jobs:
           P=~/.config/sublime-text/Packages; mkdir -p $P/User
           git clone --depth 1 https://github.com/sublimelsp/LSP $P/LSP
           sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/sublime-LSP.sublime-settings > $P/User/LSP.sublime-settings
-          python3 - <<'PY'
-          import json, subprocess, sys, os
-          d = json.load(open(os.path.expanduser('~/.config/sublime-text/Packages/LSP/dependencies.json')))
-          names = sorted({n for v in d.get('*', {}).values() for n in v})
-          print('LSP deps:', names)
-          for n in names:
-              subprocess.run([sys.executable, '-m', 'pip', 'install', '--python-version', '3.8', '--only-binary=:all:', '--implementation', 'py', '--target', os.path.expanduser('~/.config/sublime-text/Lib/python38'), n.replace('_', '-')], stdout=open('deps.log', 'a'), stderr=subprocess.STDOUT)
-          PY
+          L=~/.config/sublime-text/Lib/python38; mkdir -p $L
+          git clone --depth 1 https://github.com/facelessuser/sublime-markdown-popups /tmp/mdp && cp -r /tmp/mdp/st3/mdpopups $L/ 2>/dev/null || cp -r /tmp/mdp/mdpopups $L/
+          pip install --python-version 3.8 --only-binary=:all: --implementation cp --abi cp38 --platform manylinux2014_x86_64 --platform manylinux_2_17_x86_64 --platform any --target $L markdown pygments pymdown-extensions wcmatch bracex typing_extensions orjson jinja2 markupsafe pyyaml >deps.log 2>&1 || true
+          ls $L | head -30 | tr '\n' ' ' >> deps.log
           export EDITOR_NAME=sublime
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'subl doc.md & sleep 30; xdotool key ctrl+grave; sleep 3; import -window root subl-shot.png; pkill sublime_text' || true
           bash .github/annotate.sh bash -c 'grep -q "sublime spawned" /tmp/lsp-spawn.log || { echo SPAWN-MISSING; grep -iE "error|no matching|could not|requires" deps.log | sort -u | head -8 | cut -c1-200; ls ~/.config/sublime-text/Lib/python38 | head -25 | tr "\n" " "; echo; exit 1; }'
