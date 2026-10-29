@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TEZAUR — fiecare afirmație, legată de o pagină</title>
+<meta name="description" content="TEZAUR: asistent local de cercetare pentru teze. Răspunde doar din biblioteca ta, citează pagina și își verifică singur citările. Open source, MIT.">
+<meta name="theme-color" content="#0b0f1a">
+<style>
+:root{
+  --bg:#0b0f1a;--bg2:#121a2b;--ink:#ece6d3;--mute:#9aa3b5;--line:#25314b;
+  --gold:#e8b53f;--gold2:#f6d77e;--teal:#3dd6c6;--red:#ff6b6b;--green:#5fd38d;--amber:#ffb454;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-snap-type:y mandatory;scroll-behavior:smooth;background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+#bg{position:fixed;inset:0;z-index:0;width:100%;height:100%}
+.vignette{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 40%,transparent 30%,rgba(5,8,15,.75) 100%)}
+section.slide{position:relative;z-index:2;min-height:100vh;min-height:100dvh;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;padding:clamp(56px,9vh,96px) clamp(20px,7vw,110px)}
+.wrap{max-width:1180px;width:100%;margin:0 auto}
+.kicker{font:600 12px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:18px;display:flex;align-items:center;gap:12px}
+.kicker::before{content:"";width:34px;height:1px;background:var(--gold)}
+h1,h2,h3{font-family:var(--serif);font-weight:600;letter-spacing:-.01em;line-height:1.08}
+h2{font-size:clamp(30px,5vw,60px);margin-bottom:22px;max-width:18em}
+h2 em,h1 em{font-style:normal;background:linear-gradient(100deg,var(--gold2),var(--gold) 45%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+h3{font-size:22px;margin-bottom:8px}
+p.lead{font-size:clamp(17px,2vw,22px);color:#cfd3dd;max-width:40em}
+.small{font-size:13px;color:var(--mute)}
+code,.mono{font-family:var(--mono)}
+.card{background:linear-gradient(180deg,rgba(24,34,56,.82),rgba(14,21,36,.82));border:1px solid var(--line);border-radius:16px;padding:22px;backdrop-filter:blur(8px)}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.g2,.g3,.g4{grid-template-columns:1fr}.g4.keep2{grid-template-columns:repeat(2,1fr)}}
+/* reveal */
+.rv{opacity:0;transform:translateY(26px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}
+.in .rv{opacity:1;transform:none}
+.in .rv:nth-child(2){transition-delay:.08s}.in .rv:nth-child(3){transition-delay:.16s}.in .rv:nth-child(4){transition-delay:.24s}
+.in .rv:nth-child(5){transition-delay:.32s}.in .rv:nth-child(6){transition-delay:.4s}.in .rv:nth-child(7){transition-delay:.48s}.in .rv:nth-child(8){transition-delay:.56s}
+/* hero */
+.hero h1{font-size:clamp(64px,15vw,190px);letter-spacing:.04em;font-weight:700;line-height:.95}
+.hero .tag{font-family:var(--serif);font-size:clamp(22px,3.6vw,44px);margin-top:18px;max-width:20em;color:var(--ink)}
+.cite{color:var(--teal);font-family:var(--mono);font-size:.62em;white-space:nowrap}
+.caret{display:inline-block;width:.08em;height:.9em;background:var(--gold);margin-left:4px;vertical-align:-.08em;animation:bl 1s steps(1) infinite}
+@keyframes bl{50%{opacity:0}}
+.pills{display:flex;flex-wrap:wrap;gap:10px;margin-top:34px}
+.pill{border:1px solid var(--line);background:rgba(18,26,43,.7);border-radius:999px;padding:7px 14px;font:500 13px var(--mono);color:#cfd3dd}
+.pill b{color:var(--gold)}
+.scrollhint{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font:12px var(--mono);letter-spacing:.2em;color:var(--mute);animation:float 2.2s ease-in-out infinite}
+@keyframes float{50%{transform:translate(-50%,8px)}}
+/* problem */
+.bad,.good{position:relative;overflow:hidden}
+.bad{border-color:rgba(255,107,107,.4)}.good{border-color:rgba(95,211,141,.45)}
+.bad h3{color:var(--red)}.good h3{color:var(--green)}
+.fake{font-family:var(--serif);font-style:italic;font-size:19px;color:#d8c9c9;margin:12px 0}
+.fake s{text-decoration-color:var(--red);text-decoration-thickness:2px}
+/* pipeline */
+.pipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin-top:20px}
+.node{flex:1 1 150px;min-width:150px;position:relative;padding:18px 16px;border:1px solid var(--line);background:rgba(18,26,43,.85);border-radius:14px;margin:8px 22px 8px 0}
+.node:not(:last-child)::after{content:"";position:absolute;right:-23px;top:50%;width:22px;height:2px;background:linear-gradient(90deg,var(--gold),transparent)}
+.node .n{font:700 12px var(--mono);color:var(--gold);letter-spacing:.14em}
+.node h3{font-size:18px;margin:6px 0 4px}
+.node p{font-size:13px;color:var(--mute)}
+.node.hot{border-color:var(--gold);box-shadow:0 0 0 1px rgba(232,181,63,.25),0 10px 40px -10px rgba(232,181,63,.35)}
+@media(max-width:700px){.node{margin-right:0;flex-basis:100%}.node:not(:last-child)::after{display:none}}
+.flowdot{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--gold);box-shadow:0 0 14px var(--gold);animation:fd 2.4s linear infinite}
+@keyframes fd{0%{left:0;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:calc(100% - 8px);opacity:0}}
+/* demo */
+.demo{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
+@media(max-width:900px){.demo{grid-template-columns:1fr}}
+.src p{font-family:var(--serif);font-size:16px;margin:8px 0 14px;color:#dcd6c4}
+.src .pg{display:inline-block;font:700 11px var(--mono);color:#0b0f1a;background:var(--gold);border-radius:4px;padding:2px 7px;margin-right:8px}
+.src p.hl{background:rgba(61,214,198,.12);outline:1px solid rgba(61,214,198,.5);outline-offset:6px;border-radius:3px}
+textarea#claim{width:100%;min-height:92px;background:#0a0f1c;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:14px;font:17px/1.45 var(--serif);resize:vertical}
+textarea#claim:focus{outline:2px solid var(--gold);border-color:transparent}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.chip{cursor:pointer;border:1px solid var(--line);background:rgba(18,26,43,.9);color:#cfd3dd;border-radius:999px;padding:7px 13px;font:500 12.5px var(--sans);transition:.2s}
+.chip:hover,.chip:focus-visible{border-color:var(--gold);color:var(--gold2);outline:none}
+.verdict{display:flex;align-items:center;gap:14px;margin-top:6px}
+.badge{font:700 13px var(--mono);letter-spacing:.06em;padding:7px 12px;border-radius:8px;text-transform:uppercase;transition:.3s}
+.b-ok{background:rgba(95,211,141,.15);color:var(--green);border:1px solid var(--green)}
+.b-weak{background:rgba(255,180,84,.14);color:var(--amber);border:1px solid var(--amber)}
+.b-bad{background:rgba(255,107,107,.14);color:var(--red);border:1px solid var(--red)}
+.meter{flex:1;height:10px;background:#0a0f1c;border-radius:6px;overflow:hidden;border:1px solid var(--line);position:relative}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--amber) 40%,var(--green));transition:width .5s cubic-bezier(.2,.7,.2,1)}
+.meter u{position:absolute;top:0;bottom:0;width:1px;background:#fff6}
+#vnote{margin-top:12px;font-size:14px;color:#cfd3dd;min-height:44px}
+#vnote .lim{display:block;margin-top:6px;color:var(--amber);font-size:13px}
+/* verdict cards */
+.vc{border-left:3px solid var(--gold)}
+.vc .t{font:700 12.5px var(--mono);letter-spacing:.06em;color:var(--gold);text-transform:uppercase}
+.vc p{font-size:14px;color:#c4c9d6;margin-top:4px}
+.vc.r{border-left-color:var(--red)}.vc.r .t{color:var(--red)}
+.vc.gr{border-left-color:var(--green)}.vc.gr .t{color:var(--green)}
+/* receipt */
+pre.recpt{font:12.5px/1.6 var(--mono);color:#cfe9e6;background:#0a0f1c;border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+pre .k{color:var(--gold2)}pre .h{color:var(--teal)}
+/* speed */
+.bars{display:grid;gap:14px;margin-top:10px}
+.bar{display:grid;grid-template-columns:130px 1fr 80px;gap:14px;align-items:center;font:13px var(--mono)}
+.bar .track{height:28px;background:#0a0f1c;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.bar .fill{height:100%;width:0;border-radius:7px;transition:width 1.6s cubic-bezier(.2,.7,.2,1)}
+.f1{background:linear-gradient(90deg,#6b4a1a,var(--amber))}.f2{background:linear-gradient(90deg,#1a6b63,var(--teal))}
+.in .f1{width:100%}.in .f2{width:3.3%;min-width:6px}
+@media(max-width:600px){.bar{grid-template-columns:1fr}}
+.bignum{font-family:var(--serif);font-size:clamp(46px,7vw,92px);font-weight:700;line-height:1;background:linear-gradient(100deg,var(--gold2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+/* surfaces */
+.surf{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}
+.surf span{border:1px solid var(--line);border-radius:10px;padding:7px 12px;font:500 13px var(--sans);background:rgba(18,26,43,.8);transition:.25s}
+.surf span:hover{border-color:var(--teal);color:var(--teal);transform:translateY(-2px)}
+.surf span.e{border-style:dashed;color:var(--mute)}
+.legend{display:flex;gap:18px;font-size:12.5px;color:var(--mute);margin-top:14px;flex-wrap:wrap}
+/* honest */
+.col h3{display:flex;align-items:center;gap:10px}
+.col ul{list-style:none;margin-top:8px}
+.col li{padding:9px 0 9px 26px;position:relative;border-top:1px solid rgba(37,49,75,.7);font-size:15px;color:#d3d7e1}
+.col li::before{position:absolute;left:0;top:9px;font:700 15px var(--mono)}
+.col.yes li::before{content:"✓";color:var(--green)}
+.col.no li::before{content:"✗";color:var(--red)}
+.col.no h3{color:var(--red)}.col.yes h3{color:var(--green)}
+/* compare */
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{font:600 12px var(--mono);letter-spacing:.1em;color:var(--gold);text-transform:uppercase}
+td.y{color:var(--green)}td.n{color:var(--red)}td.p{color:var(--amber)}
+.tw{overflow-x:auto}
+/* cta */
+.term{background:#070b14;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+.term .bar2{display:flex;gap:7px;padding:11px 14px;background:#0f1626;border-bottom:1px solid var(--line)}
+.term .bar2 i{width:11px;height:11px;border-radius:50%;background:#34415f}
+.term pre{padding:18px 20px;font:14px/1.75 var(--mono);color:#d9e2f2;overflow:auto}
+.term .c{color:#6e7b98}.term .p{color:var(--gold)}.term .o{color:var(--teal)}
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 24px;border-radius:12px;font:700 15px var(--sans);text-decoration:none;transition:.25s}
+.btn.pri{background:linear-gradient(100deg,var(--gold2),var(--gold));color:#201703}
+.btn.pri:hover{transform:translateY(-2px);box-shadow:0 14px 40px -10px rgba(232,181,63,.6)}
+.btn.sec{border:1px solid var(--line);color:var(--ink);background:rgba(18,26,43,.8)}
+.btn.sec:hover{border-color:var(--teal);color:var(--teal)}
+.cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px}
+/* chrome */
+#dots{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;gap:10px}
+#dots a{width:9px;height:9px;border-radius:50%;border:1px solid var(--mute);background:transparent;display:block;transition:.25s}
+#dots a.on{background:var(--gold);border-color:var(--gold);transform:scale(1.35)}
+#dots a:hover{border-color:var(--gold2)}
+@media(max-width:700px){#dots{display:none}}
+#bar{position:fixed;left:0;top:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--teal));z-index:30;width:0;transition:width .3s}
+#count{position:fixed;left:20px;bottom:16px;z-index:20;font:12px var(--mono);color:var(--mute);letter-spacing:.14em}
+#keys{position:fixed;right:20px;bottom:16px;z-index:20;font:12px var(--mono);color:var(--mute)}
+#keys kbd{border:1px solid var(--line);border-radius:4px;padding:1px 6px;margin:0 2px}
+@media(max-width:700px){#keys{display:none}}
+a.skip{position:absolute;left:-999px}
+a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;padding:8px 12px}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .rv{opacity:1;transform:none;transition:none}
+  .flowdot,.scrollhint,.caret{animation:none}
+  .bar .fill,.meter i{transition:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#s12">Sari la instalare</a>
+<canvas id="bg" aria-hidden="true"></canvas><div class="vignette"></div>
+<div id="bar"></div><div id="count" aria-live="polite">01 / 12</div>
+<div id="keys"><kbd>↑</kbd><kbd>↓</kbd> navighează · <kbd>F</kbd> ecran complet</div>
+<nav id="dots" aria-label="Slide-uri"></nav>
+
+<!-- 1 HERO -->
+<section class="slide hero in" id="s1" data-title="TEZAUR">
+  <div class="wrap">
+    <div class="kicker rv">asistent local de cercetare pentru teze</div>
+    <h1 class="rv"><em>TEZAUR</em></h1>
+    <p class="tag rv"><span id="typed"></span><span class="caret"></span></p>
+    <div class="pills rv">
+      <span class="pill"><b>100%</b> local</span>
+      <span class="pill"><b>0</b> cloud obligatoriu</span>
+      <span class="pill"><b>Rust</b> · un singur binar</span>
+      <span class="pill"><b>MIT</b> · open source</span>
+      <span class="pill"><b>0.3.0</b></span>
+    </div>
+  </div>
+  <div class="scrollhint">DERULEAZĂ ↓</div>
+</section>
+
+<!-- 2 PROBLEMA -->
+<section class="slide" id="s2" data-title="Problema">
+  <div class="wrap">
+    <div class="kicker rv">problema</div>
+    <h2 class="rv">Un model de limbaj scrie frumos. <em>Și poate inventa.</em></h2>
+    <p class="lead rv">O teză se apără pe pagini, nu pe verosimil. Un citat greșit, o cifră schimbată sau o sursă care nu există te costă mai mult decât orice frază bună.</p>
+    <div class="grid g2" style="margin-top:34px">
+      <div class="card bad rv">
+        <h3>Chat generic</h3>
+        <div class="fake">„Potrivit lui <s>Dumitrescu (2019, p. 214)</s>, perioada de adaptare este de <s>cinci ani</s>.”</div>
+        <p class="small">Autor, pagină și cifră — plauzibile, nevalidate. Nimeni nu știe de unde vin.</p>
+      </div>
+      <div class="card good rv">
+        <h3>TEZAUR</h3>
+        <div class="fake" style="font-style:normal">„Perioada de adaptare nu poate depăși trei ani <span class="cite">[1]</span>.”</div>
+        <p class="small"><span class="cite">[1]</span> → <b>sursa ta</b>, <b>pagina</b> și <b>pasajul exact</b>. Dacă nu găsește nimic, spune „nu am găsit”.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 CUM -->
+<section class="slide" id="s3" data-title="Cum funcționează">
+  <div class="wrap">
+    <div class="kicker rv">cum funcționează</div>
+    <h2 class="rv">Nu „antrenezi pe cărți”. <em>Legi fiecare frază de o pagină.</em></h2>
+    <p class="lead rv">Modelul nu învață nimic din biblioteca ta. O citește la fiecare întrebare — doar pasajele regăsite — și are voie să scrie numai din ele.</p>
+    <div class="pipe rv">
+      <div class="node"><span class="n">01</span><h3>Biblioteca ta</h3><p>PDF, DOCX, EPUB, MD, HTML, TeX. OCR. Zotero și .bib.</p></div>
+      <div class="node"><span class="n">02</span><h3>Index</h3><p>BM25 + embeddings opționale, fuziune RRF. Pasaje cu pagină.</p></div>
+      <div class="node"><span class="n">03</span><h3>Regăsire</h3><p>Cele mai relevante pasaje, cu % din termenii întrebării acoperiți.</p></div>
+      <div class="node hot"><span class="n">04</span><h3>Model local</h3><p>Ollama, Jan, LM Studio… scrie doar din pasaje, cu <span class="cite">[n]</span>.</p></div>
+      <div class="node hot"><span class="n">05</span><h3>Audit</h3><p>Verifică mecanic dacă pagina citată acoperă fraza.</p></div>
+    </div>
+    <p class="small rv" style="margin-top:12px">Interfețe: CLI · aplicație web · extensie de browser · MCP pentru asistenți AI · ~40 de integrări.</p>
+  </div>
+</section>
+
+<!-- 4 DEMO -->
+<section class="slide" id="s4" data-title="Demo: auditul">
+  <div class="wrap">
+    <div class="kicker rv">încearcă tu — rulează în pagina asta</div>
+    <h2 class="rv">Scrie o frază. Citează o pagină. <em>Vezi dacă rezistă.</em></h2>
+    <div class="demo rv">
+      <div class="card src" id="srcbox">
+        <div class="small" style="margin-bottom:6px">SURSĂ DE DEMONSTRAȚIE (text ilustrativ, cheie <code>demo_sursa</code>)</div>
+        <p data-p="12"><span class="pg">p. 12</span>Părțile recunosc calificările obținute în alt stat, cu excepția cazului în care se demonstrează o diferență substanțială. Sarcina probei revine autorității care evaluează calificarea.</p>
+        <p data-p="47"><span class="pg">p. 47</span>Perioada de adaptare nu poate depăși trei ani. Testul de aptitudini se organizează în termen de șase luni de la cerere.</p>
+        <p data-p="88"><span class="pg">p. 88</span>Autoritățile competente răspund în termen de patru luni de la depunerea dosarului complet.</p>
+      </div>
+      <div class="card">
+        <label class="small" for="claim">FRAZA TA, CU CITARE <code>[p. N]</code></label>
+        <textarea id="claim" spellcheck="false">Sarcina probei revine autorității care evaluează calificarea. [p. 12]</textarea>
+        <div class="chips" role="group" aria-label="Exemple">
+          <button class="chip" data-t="Sarcina probei revine autorității care evaluează calificarea. [p. 12]">✓ susținută</button>
+          <button class="chip" data-t="Perioada de adaptare poate dura cinci ani. [p. 47]">cifră schimbată</button>
+          <button class="chip" data-t="Autoritățile răspund în termen de patru luni. [p. 47]">pagină greșită</button>
+          <button class="chip" data-t="Frecvența optimă a pinguinilor imperiali la Polul Sud crește. [p. 12]">fără legătură</button>
+          <button class="chip" data-t="Dacă nu se arată o deosebire importantă, calificările străine trebuie acceptate. [p. 12]">parafrază ⚠</button>
+          <button class="chip" data-t="Sarcina probei nu revine autorității care evaluează calificarea. [p. 12]">negație ⚠</button>
+        </div>
+        <div class="verdict"><span class="badge b-ok" id="badge">—</span><div class="meter" title="prag susținut 60%, slab 35%"><i id="mfill"></i><u style="left:35%"></u><u style="left:60%"></u></div><b class="mono" id="pct">0%</b></div>
+        <div id="vnote"></div>
+      </div>
+    </div>
+    <p class="small rv" style="margin-top:12px">Aceeași euristică ca în <code>tezaur audit</code> (suprapunere de termeni + control al cifrelor + pagină probabilă), reimplementată aici în JavaScript. Ultimele două exemple sunt <b>limitele ei reale</b> — pentru ele există <code>--semantic</code>.</p>
+  </div>
+</section>
+
+<!-- 5 VERDICTE -->
+<section class="slide" id="s5" data-title="12 verdicte">
+  <div class="wrap">
+    <div class="kicker rv">auditul citărilor</div>
+    <h2 class="rv">12 verdicte. <em>Fără model, fără cont, fără cloud.</em></h2>
+    <p class="lead rv">Rulează în CI ca un linter pentru teza ta: <code>tezaur audit teza.md --fail</code>. Merge pe Markdown, LaTeX și LyX.</p>
+    <div class="grid g4 keep2" style="margin-top:28px">
+      <div class="card vc gr rv"><div class="t">supported</div><p>Pasajul de la pagina citată acoperă fraza.</p></div>
+      <div class="card vc rv"><div class="t">weak</div><p>Doar o parte din termeni se regăsesc.</p></div>
+      <div class="card vc r rv"><div class="t">unsupported</div><p>Sursa nu spune asta nicăieri.</p></div>
+      <div class="card vc rv"><div class="t">wrong-page</div><p>Fraza e în sursă, dar la <b>altă pagină</b> — o indică.</p></div>
+      <div class="card vc r rv"><div class="t">number-mismatch</div><p>Cifra din text lipsește din pasaj („cinci” vs „trei”).</p></div>
+      <div class="card vc r rv"><div class="t">unknown-source</div><p>Cheia citată nu există în bibliotecă.</p></div>
+      <div class="card vc rv"><div class="t">page-out-of-range</div><p>Pagina depășește numărul de pagini al documentului.</p></div>
+      <div class="card vc rv"><div class="t">uncited</div><p>Afirmație lungă fără nicio citare.</p></div>
+      <div class="card vc gr rv"><div class="t">quote-verbatim</div><p>Citatul din ghilimele e ad litteram în sursă.</p></div>
+      <div class="card vc rv"><div class="t">quote-elsewhere</div><p>Citatul e într-o <i>altă</i> sursă.</p></div>
+      <div class="card vc r rv"><div class="t">quote-not-found</div><p>Citatul nu există nicăieri în bibliotecă.</p></div>
+      <div class="card vc r rv"><div class="t">contradicted</div><p>Doar cu <code>--semantic</code>: modelul vede contrariul.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 PROVENIENTA -->
+<section class="slide" id="s6" data-title="Proveniență">
+  <div class="wrap">
+    <div class="kicker rv">proveniență</div>
+    <h2 class="rv">Chitanță pentru fiecare răspuns. <em>Declarație de utilizare AI, gata scrisă.</em></h2>
+    <div class="grid g2" style="margin-top:22px;align-items:start">
+      <div class="rv">
+        <p class="lead" style="margin-bottom:16px"><code>tezaur ask "…" --receipt r.json</code> leagă prin SHA-256 întrebarea, modelul, răspunsul și fiecare pasaj folosit. Mai târziu poți dovedi că nimic nu a fost modificat și că pasajele încă există în index.</p>
+        <p class="lead" style="margin-bottom:16px"><code>tezaur declare r.json --lang ro</code> scrie declarația pe care o cer tot mai multe universități și reviste.</p>
+        <p class="small">Dovadă de integritate, nu semnătură de identitate și nu dovadă că afirmația e adevărată. Opțional, HMAC cu cheia ta.</p>
+      </div>
+      <pre class="recpt rv"><span class="k">"question"</span>: "Cine poartă sarcina probei?",
+<span class="k">"model"</span>:    "llama3.1:8b",
+<span class="k">"answer_sha256"</span>:   <span class="h">9f2c…e41a</span>,
+<span class="k">"excerpts"</span>: [
+  { <span class="k">"doc"</span>: "demo_sursa", <span class="k">"page"</span>: 12,
+    <span class="k">"sha256"</span>: <span class="h">b77d…03c9</span> }
+],
+<span class="k">"index_fingerprint"</span>: <span class="h">4a1e…d2f0</span>,
+<span class="k">"seal"</span>: <span class="h">c80b…77fe</span>
+
+<span style="color:#6e7b98">$ tezaur receipt r.json
+✓ chitanța e neatinsă
+✓ răspunsul se potrivește
+✓ pasajele există în index</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- 7 V0.3 -->
+<section class="slide" id="s7" data-title="Nou în 0.3">
+  <div class="wrap">
+    <div class="kicker rv">nou în 0.3.0</div>
+    <h2 class="rv">Mai rapid. Mai atent. <em>Și, doar dacă vrei, conectat la lume.</em></h2>
+    <div class="grid g2" style="margin-top:22px">
+      <div class="card rv">
+        <h3>Căutare în CLI, 6 milioane de cuvinte</h3>
+        <div class="bars">
+          <div class="bar"><span>înainte</span><div class="track"><div class="fill f1"></div></div><b>~4,3 s</b></div>
+          <div class="bar"><span>acum</span><div class="track"><div class="fill f2"></div></div><b style="color:var(--teal)">~0,14 s</b></div>
+        </div>
+        <p class="small" style="margin-top:12px">Cache BM25 pe disc, reconstruit automat când se schimbă biblioteca.</p>
+      </div>
+      <div class="card rv">
+        <h3>Ce s-a mai adăugat</h3>
+        <ul class="mono" style="list-style:none;font-size:13.5px;line-height:2;color:#cfd3dd">
+          <li><span style="color:var(--gold)">audit --semantic</span> a doua opinie a modelului tău</li>
+          <li><span style="color:var(--gold)">refs</span> chei lipsă, intrări necitate</li>
+          <li><span style="color:var(--gold)">eval</span> recall@k și MRR pe întrebările tale</li>
+          <li><span style="color:var(--gold)">lit</span> căutare OpenAlex/Crossref → BibTeX</li>
+          <li><span style="color:var(--gold)">refs --online</span> DOI inexistent, lucrare retrasă</li>
+        </ul>
+        <p class="small" style="margin-top:8px">Ultimele două sunt <b>opt-in</b> și singurele care ies pe internet.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 PESTE TOT -->
+<section class="slide" id="s8" data-title="Peste tot">
+  <div class="wrap">
+    <div class="kicker rv">acolo unde scrii deja</div>
+    <h2 class="rv">Un singur nucleu. <em>~40 de suprafețe.</em></h2>
+    <div class="grid g2" style="margin-top:12px">
+      <div class="rv"><h3>Scrii și citești</h3>
+        <div class="surf"><span>Obsidian</span><span>VS Code</span><span>Zotero</span><span>LyX</span><span>TeXstudio</span><span>Neovim</span><span>Emacs</span><span>Helix</span><span>Zed</span><span>Notepad++</span><span>Joplin</span><span>Logseq</span><span>Jupyter</span><span>Pandoc/Quarto</span></div></div>
+      <div class="rv"><h3>Conectezi AI-ul</h3>
+        <div class="surf"><span>MCP (stdio + HTTP)</span><span>Claude Desktop / Code</span><span>Cursor</span><span>Windsurf</span><span>Cline</span><span>Continue</span><span>Gemini CLI</span><span>Codex</span><span>Open WebUI</span><span>Jan</span><span>LM Studio</span><span>Ollama</span></div></div>
+      <div class="rv"><h3>Îl porți cu tine</h3>
+        <div class="surf"><span>Binar unic Rust</span><span>PortableApps</span><span>Fișier HTML unic</span><span>PWA</span><span>Extensie Chrome / Firefox</span><span>.deb</span><span>Docker</span><span>Android</span></div></div>
+      <div class="rv"><h3>Echipă și colegi</h3>
+        <div class="surf"><span>Mesh P2P opt-in</span><span>DokuWiki</span><span>WordPress</span><span>MediaWiki</span><span>Slack</span><span>Discord</span><span>Google Docs</span><span>REST + OpenAPI</span></div></div>
+    </div>
+    <p class="small rv" style="margin-top:22px"><b style="color:var(--amber)">Onest:</b> integrările sunt verificate contra unor simulări, nu în aplicațiile reale. Un meta-installer le detectează și le instalează, cu dezinstalare completă.</p>
+  </div>
+</section>
+
+<!-- 9 PRIVACY -->
+<section class="slide" id="s9" data-title="Confidențialitate">
+  <div class="wrap">
+    <div class="kicker rv">trade-free</div>
+    <h2 class="rv">Cărțile tale rămân <em>la tine.</em></h2>
+    <div class="grid g3" style="margin-top:26px">
+      <div class="card rv"><div class="bignum">0</div><h3>conturi</h3><p class="small">Nu există server TEZAUR, telemetrie sau abonament.</p></div>
+      <div class="card rv"><div class="bignum">1</div><h3>mașină</h3><p class="small">Indexul și modelul stau pe calculatorul tău. Funcționează offline.</p></div>
+      <div class="card rv"><div class="bignum">2</div><h3>comenzi online</h3><p class="small"><code>lit</code> și <code>refs --online</code>, doar la cerere, cu avertisment înainte de trimitere.</p></div>
+    </div>
+    <p class="lead rv" style="margin-top:26px">Cod deschis, licență <b>MIT</b>. Poți citi fiecare linie care îți atinge documentele.</p>
+  </div>
+</section>
+
+<!-- 10 ONEST -->
+<section class="slide" id="s10" data-title="Adevărul">
+  <div class="wrap">
+    <div class="kicker rv">recenzie onestă, publicată în repo</div>
+    <h2 class="rv">Ce a fost <em>măsurat</em> — și ce nu.</h2>
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card col yes rv"><h3>Verificat</h3><ul>
+        <li>Fraze copiate din sursă: <b>6/6</b> acceptate</li>
+        <li>Sursă greșită: <b>3/3</b> prinse · fără legătură: <b>4/4</b></li>
+        <li>Contradicții: <b>4/6</b> semnalate (3 prin cifre; negațiile scapă)</li>
+        <li>61 de teste Rust + teste cap-coadă (CLI, API, MCP, browser)</li>
+        <li>Căutare ~0,14 s pe 6 M de cuvinte</li></ul></div>
+      <div class="card col no rv"><h3>Neverificat sau slab</h3><ul>
+        <li>Parafraze: <b>0/6</b> recunoscute de audit mecanic</li>
+        <li>Negații: ratate (de aici <code>--semantic</code>)</li>
+        <li>Niciun model real, niciun serviciu OpenAlex/Crossref real atins în teste</li>
+        <li>Integrările: netestate în aplicațiile reale</li>
+        <li>Fără utilizatori externi încă</li></ul></div>
+    </div>
+    <p class="lead rv" style="margin-top:22px;font-size:18px">Auditul <b>nu dovedește adevărul</b>. Îți arată în ce pagină trebuie să deschizi cartea.</p>
+  </div>
+</section>
+
+<!-- 11 COMPETITIE -->
+<section class="slide" id="s11" data-title="Poziționare">
+  <div class="wrap">
+    <div class="kicker rv">poziționare, 28 octombrie 2026</div>
+    <h2 class="rv">Nu înlocuiește Zotero. <em>Îl completează cu un strat de audit.</em></h2>
+    <div class="card tw rv" style="padding:6px 8px">
+      <table>
+        <thead><tr><th></th><th>TEZAUR</th><th>RAG local generic</th><th>Cloud academic</th></tr></thead>
+        <tbody>
+          <tr><td>Rulează local, gratuit</td><td class="y">da</td><td class="y">da</td><td class="n">nu</td></tr>
+          <tr><td>Citare cu pagină</td><td class="y">da</td><td class="y">da</td><td class="y">da</td></tr>
+          <tr><td>Audit al <i>textului tău</i> pe pagina citată</td><td class="y">da (mecanic)</td><td class="n">nu</td><td class="p">plătit, doar cloud</td></tr>
+          <tr><td>Citate ad litteram + cifre verificate</td><td class="y">da</td><td class="n">nu</td><td class="p">parțial</td></tr>
+          <tr><td>Chitanțe de proveniență + declarație AI</td><td class="y">da</td><td class="n">nu</td><td class="n">nu</td></tr>
+          <tr><td>Literatură mondială, rezumate, tabele</td><td class="p">doar căutare</td><td class="n">nu</td><td class="y">da</td></tr>
+          <tr><td>PDF avansat (tabele, ecuații)</td><td class="n">nu</td><td class="p">uneori</td><td class="y">da</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small rv" style="margin-top:12px">Detalii și surse în <code>COMPETITION.md</code>. Concurenții n-au fost rulați de autor; comparația de calitate nu e măsurată.</p>
+  </div>
+</section>
+
+<!-- 12 CTA -->
+<section class="slide" id="s12" data-title="Instalează">
+  <div class="wrap">
+    <div class="kicker rv">începe simplu</div>
+    <h2 class="rv">Pune-ți biblioteca <em>sub control.</em></h2>
+    <div class="term rv">
+      <div class="bar2"><i></i><i></i><i></i></div>
+<pre><span class="c"># indexează-ți documentele</span>
+<span class="p">$</span> tezaur ingest ~/Teza/surse
+<span class="c"># întreabă, cu citări</span>
+<span class="p">$</span> tezaur ask "Cine poartă sarcina probei?" --receipt r.json
+<span class="c"># verifică-ți textul pagină cu pagină</span>
+<span class="p">$</span> tezaur audit teza.md --fail
+<span class="o">✓ supported  ✗ wrong-page  ✗ number-mismatch  ✗ quote-not-found</span>
+<span class="c"># panoul web + API + MCP</span>
+<span class="p">$</span> tezaur serve</pre>
+    </div>
+    <div class="cta-row rv">
+      <a class="btn pri" href="https://github.com/chiuta/TEZAUR">★ Cod și descărcări pe GitHub</a>
+      <a class="btn sec" href="https://github.com/chiuta/TEZAUR/blob/main/REVIEW.md">Recenzia onestă</a>
+    </div>
+    <p class="small rv" style="margin-top:26px">© 2026 Alexio · <a href="https://trom.tf" style="color:var(--gold)">trom.tf</a> · licență MIT · parte din mișcarea trade-free</p>
+  </div>
+</section>
+
+<script>
+'use strict';
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+/* ---------- typed tagline ---------- */
+(function(){
+  const el=$('#typed'), full='Fiecare afirmație, legată de o pagină.';
+  if(reduce){el.textContent=full;return}
+  let i=0;(function t(){el.textContent=full.slice(0,++i);if(i<full.length)setTimeout(t,38+Math.random()*40)})();
+})();
+
+/* ---------- background: knowledge graph ---------- */
+(function(){
+  const c=$('#bg'),x=c.getContext('2d');let W,H,pts=[],mx=.5,my=.5,DPR=Math.min(2,devicePixelRatio||1);
+  function size(){W=c.width=innerWidth*DPR;H=c.height=innerHeight*DPR;c.style.width=innerWidth+'px';c.style.height=innerHeight+'px';
+    const n=Math.round(Math.min(90,innerWidth*innerHeight/16000));pts=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25*DPR,vy:(Math.random()-.5)*.25*DPR,r:(Math.random()*1.6+.6)*DPR,g:Math.random()<.14}))}
+  size();addEventListener('resize',size);
+  addEventListener('pointermove',e=>{mx=e.clientX/innerWidth;my=e.clientY/innerHeight},{passive:true});
+  function frame(){
+    x.clearRect(0,0,W,H);
+    const ox=(mx-.5)*30*DPR,oy=(my-.5)*30*DPR,D=150*DPR;
+    for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1}
+    for(let i=0;i<pts.length;i++){const a=pts[i];
+      for(let j=i+1;j<pts.length;j++){const b=pts[j],dx=a.x-b.x,dy=a.y-b.y,d=Math.hypot(dx,dy);
+        if(d<D){x.strokeStyle=`rgba(${a.g||b.g?'232,181,63':'90,120,170'},${(1-d/D)*(a.g||b.g?.38:.22)})`;x.lineWidth=DPR*.8;
+          x.beginPath();x.moveTo(a.x+ox*a.r/3,a.y+oy*a.r/3);x.lineTo(b.x+ox*b.r/3,b.y+oy*b.r/3);x.stroke()}}
+      x.fillStyle=a.g?'rgba(246,215,126,.95)':'rgba(150,175,220,.6)';x.beginPath();x.arc(a.x+ox*a.r/3,a.y+oy*a.r/3,a.r*(a.g?1.7:1),0,7);x.fill();
+      if(a.g){x.fillStyle='rgba(232,181,63,.12)';x.beginPath();x.arc(a.x+ox*a.r/3,a.y+oy*a.r/3,a.r*6,0,7);x.fill()}}
+    if(!reduce)requestAnimationFrame(frame)
+  }
+  frame();
+})();
+
+/* ---------- navigation ---------- */
+const slides=$$('section.slide'), dots=$('#dots');
+slides.forEach((s,i)=>{const a=document.createElement('a');a.href='#'+s.id;a.title=s.dataset.title;a.setAttribute('aria-label',s.dataset.title);dots.appendChild(a)});
+let cur=0;
+const io=new IntersectionObserver(es=>es.forEach(e=>{
+  if(e.isIntersecting){e.target.classList.add('in');cur=slides.indexOf(e.target);
+    $$('#dots a').forEach((d,i)=>d.classList.toggle('on',i===cur));
+    $('#count').textContent=String(cur+1).padStart(2,'0')+' / '+String(slides.length).padStart(2,'0');
+    $('#bar').style.width=((cur+1)/slides.length*100)+'%'}
+}),{threshold:.55});
+slides.forEach(s=>io.observe(s));
+function go(i){i=Math.max(0,Math.min(slides.length-1,i));slides[i].scrollIntoView({behavior:reduce?'auto':'smooth'})}
+addEventListener('keydown',e=>{
+  if(/^(TEXTAREA|INPUT|BUTTON)$/.test(document.activeElement.tagName)&&e.key!=='Escape')return;
+  if(['ArrowDown','PageDown','ArrowRight',' '].includes(e.key)){e.preventDefault();go(cur+1)}
+  else if(['ArrowUp','PageUp','ArrowLeft'].includes(e.key)){e.preventDefault();go(cur-1)}
+  else if(e.key==='Home')go(0);else if(e.key==='End')go(slides.length-1);
+  else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.()}
+});
+
+/* ---------- live audit demo (same heuristic as `tezaur audit`) ---------- */
+const PAGES={12:'Părțile recunosc calificările obținute în alt stat, cu excepția cazului în care se demonstrează o diferență substanțială. Sarcina probei revine autorității care evaluează calificarea.',
+ 47:'Perioada de adaptare nu poate depăși trei ani. Testul de aptitudini se organizează în termen de șase luni de la cerere.',
+ 88:'Autoritățile competente răspund în termen de patru luni de la depunerea dosarului complet.'};
+const FOLD={ă:'a',â:'a',î:'i',ș:'s',ş:'s',ț:'t',ţ:'t',é:'e',è:'e',ê:'e',ó:'o',ô:'o',ö:'o',ú:'u',ü:'u',ç:'c',ñ:'n',á:'a',à:'a',ä:'a',í:'i'};
+const tok=s=>{const out=[];let cur='';const fl=()=>{if([...cur].length>=2)out.push([...cur].slice(0,7).join(''));cur=''};
+  for(const ch of s.toLowerCase()){const f=FOLD[ch]||ch;if(/[\p{L}\p{N}]/u.test(f))cur+=f;else fl()}fl();return out};
+const cov=(q,t)=>{const Q=new Set(tok(q));if(!Q.size)return 0;const T=new Set(tok(t));let n=0;Q.forEach(w=>{if(T.has(w))n++});return n/Q.size};
+const NUMW=new Set('doi doua trei patru cinci sase sapte opt noua zece douazeci treizeci suta mie milion'.split(' '));
+const isNum=w=>/^\d+$/.test(w)||NUMW.has(w);
+const SUP=.6,WEAK=.35;
+function audit(text){
+  const m=text.match(/\[\s*p\.?\s*(\d+)\s*\]/i);const page=m?+m[1]:null;
+  const claim=text.replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim();
+  if(!claim)return null;
+  if(page===null)return{v:'uncited',cls:'b-weak',s:0,note:'Fără citare. Adaugă [p. N] la sfârșitul frazei.'};
+  if(!PAGES[page])return{v:'page-out-of-range',cls:'b-bad',s:0,note:'Sursa de demonstrație are doar paginile 12, 47 și 88.'};
+  const sup=cov(claim,PAGES[page]);
+  let any=0,anyp=page;for(const p in PAGES){const c=cov(claim,PAGES[p]);if(c>any){any=c;anyp=+p}}
+  let v,cls,note;
+  if(sup>=SUP){v='supported';cls='b-ok';note=`${Math.round(sup*100)}% din termenii frazei apar în pasajul citat.`}
+  else if(any>=SUP&&anyp!==page){v='wrong-page';cls='b-weak';note=`Pagina citată acoperă ${Math.round(sup*100)}%, dar p. ${anyp} din aceeași sursă acoperă ${Math.round(any*100)}% — probabil p. ${anyp}.`}
+  else if(sup>=WEAK){v='weak';cls='b-weak';note=`Doar ${Math.round(sup*100)}% din termeni apar în pasajul citat.`}
+  else{v='unsupported';cls='b-bad';note=`Doar ${Math.round(any*100)}% din termeni apar undeva în sursă.`}
+  if(v==='supported'||v==='weak'){
+    const have=new Set(PAGES[page].toLowerCase().split(/[^\p{L}\p{N}]+/u).map(w=>[...w].map(c=>FOLD[c]||c).join('')));
+    const miss=claim.toLowerCase().split(/[^\p{L}\p{N}]+/u).map(w=>[...w].map(c=>FOLD[c]||c).join('')).filter(w=>w&&isNum(w)&&!have.has(w));
+    if(miss.length){v='number-mismatch';cls='b-bad';note=`Fraza afirmă „${[...new Set(miss)].join(', ')}”, dar pasajul citat nu conține această cifră.`}
+  }
+  return{v,cls,s:v==='wrong-page'?sup:sup,note,page,anyp};
+}
+const claimEl=$('#claim');
+function render(){
+  const r=audit(claimEl.value);
+  const b=$('#badge');
+  $$('#srcbox p').forEach(p=>p.classList.remove('hl'));
+  if(!r){b.textContent='—';b.className='badge b-weak';$('#mfill').style.width='0';$('#pct').textContent='0%';$('#vnote').textContent='';return}
+  b.textContent=r.v;b.className='badge '+r.cls;
+  $('#mfill').style.width=Math.round(r.s*100)+'%';$('#pct').textContent=Math.round(r.s*100)+'%';
+  let lim='';
+  const t=claimEl.value.toLowerCase();
+  if(/\bnu revine\b|\bnu poate\b|\bnu este\b/.test(t)&&r.v==='supported')lim='Limită cunoscută: auditul mecanic nu vede negația. Cu <code>--semantic</code>, modelul tău local ar marca „contradicted”.';
+  else if((r.v==='weak'||r.v==='unsupported')&&/parafraz|deosebire|acceptate/.test(t))lim='Limită cunoscută: parafraza folosește alte cuvinte. Aici ajută <code>--semantic</code>, nu suprapunerea de termeni.';
+  $('#vnote').innerHTML=r.note+(lim?`<span class="lim">⚠ ${lim}</span>`:'');
+  const hp=r.v==='wrong-page'?r.anyp:r.page;const el=$(`#srcbox p[data-p="${hp}"]`);if(el&&r.v!=='uncited')el.classList.add('hl');
+}
+claimEl.addEventListener('input',render);
+$$('.chip').forEach(c=>c.addEventListener('click',()=>{claimEl.value=c.dataset.t;render()}));
+render();
+</script>
+</body>
+</html>
