@@ -21,6 +21,7 @@ jobs:
       - run: cargo build --release
       - run: cargo test --release
       - run: bash variants/build-obsidian.sh && bash variants/build-vscode.sh && bash variants/build-extension.sh
+      - run: bash build-portable.sh
       - run: bash variants/build-plugins.sh
       - run: bash .github/annotate.sh bash variants/tests/run-all.sh
   cross-build:

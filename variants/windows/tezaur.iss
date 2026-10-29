@@ -18,7 +18,7 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
 [Languages]
-Name: "romanian"; MessagesFile: "compiler:Languages\Romanian.isl"
+Name: "romanian"; MessagesFile: "Romanian.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 Source: "..\..\dist\TezaurPortable\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "Data\*"

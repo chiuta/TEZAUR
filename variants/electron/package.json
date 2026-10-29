@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "description": "Asistent local de cercetare pentru teză, cu citări verificabile",
   "author": "Alexio <alexio@trom.tf>",
+  "homepage": "https://github.com/chiuta/TEZAUR",
+  "license": "MIT",
   "main": "main.js",
   "scripts": {
     "prepare-web": "python3 ../build-web.py app",

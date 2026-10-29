@@ -58,7 +58,8 @@ check("Zed with comments is manual, not clobbered", ids["zed"]["state"] == "manu
 check("scan finds the WordPress folder", any(k.startswith("wordpress:") for k in ids))
 check("scan finds the PortableApps drive", any(k.startswith("usb:") for k in ids))
 check("scan changed nothing", not (home / ".tezaur/installed.json").exists() and not (home / ".cursor/mcp.json").exists())
-check("Chrome absent -> no Chrome item", "browser-chrome" not in ids)
+import shutil
+check("Chrome absent -> no Chrome item (only when no Chrome is on this machine)", "browser-chrome" not in ids or any(shutil.which(x) for x in ("google-chrome", "chromium", "chromium-browser", "brave-browser", "microsoft-edge")))
 check("android without apk is reported missing", ids["android:ABC123"]["state"] == "missing")
 
 r = setup("install", "--yes")

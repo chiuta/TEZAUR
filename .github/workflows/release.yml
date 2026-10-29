@@ -114,6 +114,8 @@ jobs:
       - run: .\build-portable.bat
         shell: cmd
       - run: choco install innosetup -y --no-progress
+      - run: curl -fsSL https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Romanian.isl -o variants/windows/Romanian.isl
+        shell: bash
       - run: bash .github/annotate.sh "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" variants/windows/tezaur.iss
         shell: bash
       - uses: actions/upload-artifact@v4
@@ -141,6 +143,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y poppler-utils texlive-latex-base texlive-latex-recommended php-cli vim pandoc zip && pip install pynacl lupa genanki ipython ipykernel nbclient nbformat pyyaml playwright && python -m playwright install --with-deps chromium
       - run: cargo build --release
       - run: bash variants/build-obsidian.sh && bash variants/build-vscode.sh && bash variants/build-extension.sh
+      - run: bash build-portable.sh
       - run: variants/build-plugins.sh
       - run: bash .github/annotate.sh bash variants/tests/run-all.sh
       - run: ./variants/build-deb.sh
