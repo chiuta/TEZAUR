@@ -148,3 +148,10 @@ jobs:
         run: |
           URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"
           bash .github/annotate.sh bash -c "curl -sf $URL/fdroid/repo/index-v1.json | python3 -c 'import sys,json;j=json.load(sys.stdin);print([a[\"packageName\"] for a in j[\"apps\"]])' | grep ro.trom.tezaur"
+      - name: presentation deck and video tutorials reachable
+        run: |
+          URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"
+          curl -sf "$URL/" | grep -q 'id="vid"'
+          curl -sfI "$URL/assets/tutorials/05-cli-ingest-search.mp4" | head -1 | grep -q 200
+          curl -sf "$URL/assets/tutorials/05-cli-ingest-search.hu.vtt" | head -1 | grep -q WEBVTT
+          curl -sf "$URL/app/" | grep -q manifest.webmanifest
