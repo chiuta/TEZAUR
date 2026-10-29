@@ -21,7 +21,7 @@ with sync_playwright() as p:
     if not info: bad("video-section", "no #vgrid video on the live page"); sys.exit(0)
     note("video-support", info)
     for k in range(13):
-        r = pg.evaluate("""async k=>{const v=document.querySelectorAll('#vgrid video')[k];v.muted=true;v.load();
+        r = pg.evaluate("""async k=>{const v=document.querySelectorAll('#vgrid video')[k];v.scrollIntoView({block:'center'});v.muted=true;v.load();
             await new Promise(r=>{v.onloadedmetadata=r;v.onerror=r;setTimeout(r,15000)});
             let pl='';try{await v.play();await new Promise(r=>setTimeout(r,2500))}catch(e){pl=String(e)}
             const st={rs:v.readyState,ns:v.networkState,paused:v.paused,dur:v.duration,buf:v.buffered.length?v.buffered.end(0):0};
