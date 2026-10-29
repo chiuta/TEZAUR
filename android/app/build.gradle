@@ -1,0 +1,25 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ro.trom.tezaur'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'ro.trom.tezaur'
+        minSdk 29
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+    buildTypes { release { minifyEnabled false } }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    sourceSets { main { assets.srcDir "$buildDir/htmlAssets" } }
+}
+
+dependencies { implementation 'androidx.webkit:webkit:1.11.0' }
+
+// The app is the single-file web version: ../tezaur.html is bundled as an asset at build time.
+tasks.register('copyHtml', Copy) {
+    from("$rootDir/../tezaur.html")
+    into("$buildDir/htmlAssets")
+}
+tasks.named('preBuild') { dependsOn 'copyHtml' }

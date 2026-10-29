@@ -1,0 +1,16 @@
+{
+  "name": "tezaur-capacitor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "web": "python3 ../build-web.py www && cp ../../pwa/icon-192.png ../../pwa/icon-512.png www/",
+    "android": "npm run web && npx cap add android || true && npx cap sync android",
+    "ios": "npm run web && npx cap add ios || true && npx cap sync ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2"
+  },
+  "devDependencies": { "@capacitor/cli": "^6.1.2" }
+}

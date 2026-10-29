@@ -1,0 +1,12 @@
+# Append to ~/.config/helix/languages.toml
+[language-server.tezaur]
+command = "python3"
+args = ["TEZAUR_TOOLS/tezaur_lsp.py"]
+
+[[language]]
+name = "markdown"
+language-servers = ["tezaur"]
+
+[[language]]
+name = "latex"
+language-servers = ["texlab", "tezaur"]

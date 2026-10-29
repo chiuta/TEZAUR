@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "description": "Local, citation-grounded research assistant for writing a thesis",
+  "homepage": "https://trom.tf",
+  "license": "MIT",
+  "url": "https://github.com/chiuta/tezaur/releases/download/v0.1.0/tezaur-windows.zip",
+  "hash": "SHA256-OF-WINDOWS-ZIP",
+  "bin": "tezaur.exe",
+  "shortcuts": [["TezaurPortable.exe", "TEZAUR"]],
+  "checkver": "github",
+  "autoupdate": { "url": "https://github.com/chiuta/tezaur/releases/download/v$version/tezaur-windows.zip" }
+}

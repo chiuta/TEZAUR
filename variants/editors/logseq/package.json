@@ -1,0 +1,1 @@
+{ "name": "logseq-tezaur", "version": "0.1.0", "main": "index.html", "logseq": { "id": "tezaur", "title": "TEZAUR", "icon": "icon.svg" }, "license": "MIT", "author": "Alexio" }

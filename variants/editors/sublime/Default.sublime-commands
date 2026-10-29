@@ -1,0 +1,6 @@
+[
+  {"caption": "TEZAUR: Ask", "command": "tezaur_ask"},
+  {"caption": "TEZAUR: Compare sources", "command": "tezaur_compare"},
+  {"caption": "TEZAUR: Gaps", "command": "tezaur_gaps"},
+  {"caption": "TEZAUR: Search passages", "command": "tezaur_search"}
+]

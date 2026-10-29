@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-tezaur
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: {{ .Release.Name }}-tezaur }
+  template:
+    metadata:
+      labels: { app: {{ .Release.Name }}-tezaur }
+    spec:
+      containers:
+        - name: tezaur
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["--bind", "0.0.0.0", "--port", "{{ .Values.service.port }}", "--workspaces", "/data/workspaces"]
+          env:
+            - { name: TEZAUR_INDEX, value: /data/tezaur.idx }
+            - { name: TEZAUR_API, value: {{ .Values.model.api | quote }} }
+            - { name: TEZAUR_HOST, value: {{ .Values.model.host | quote }} }
+            - { name: TEZAUR_MODEL, value: {{ .Values.model.name | quote }} }
+            - name: TEZAUR_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-tezaur" .Release.Name) .Values.existingSecret }}
+                  key: token
+          ports: [{ containerPort: {{ .Values.service.port }} }]
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: {{ .Values.service.port }}
+              httpHeaders: []
+          volumeMounts: [{ name: data, mountPath: /data }]
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim: { claimName: {{ .Release.Name }}-tezaur }
+          {{- else }}
+          emptyDir: {}
+          {{- end }}

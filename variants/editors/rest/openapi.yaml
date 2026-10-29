@@ -1,0 +1,152 @@
+openapi: 3.0.3
+info:
+  title: TEZAUR server API
+  version: 0.3.0
+  description: >
+    `tezaur serve` JSON API. Every endpoint except `GET /` needs `Authorization: Bearer <token>` (or `?token=`) when the server
+    was started with a token. Add `?ws=NAME` to address a workspace.
+servers:
+  - url: http://127.0.0.1:8787
+security:
+  - bearer: []
+  - {}
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+  schemas:
+    Error:
+      type: object
+      properties: { error: { type: string } }
+    Hit:
+      type: object
+      properties:
+        n: { type: integer }
+        label: { type: string, description: "Citation label, e.g. Smith & Doe (2019), p. 3" }
+        text: { type: string }
+        page: { type: integer, description: "0 when the format has no pages" }
+        path: { type: string }
+        title: { type: string }
+        cov: { type: number, description: "Share of query terms matched" }
+        score: { type: number }
+    AskRequest:
+      type: object
+      required: [q]
+      properties:
+        q: { type: string }
+        mode: { type: string, enum: [ask, compare, gaps] }
+        k: { type: integer, default: 8 }
+        lang: { type: string }
+    AskResponse:
+      type: object
+      properties:
+        answer: { type: string }
+        references: { type: string }
+        warnings: { type: array, items: { type: string } }
+        excerpts: { type: array, items: { type: object } }
+        receipt: { type: object, description: "tezaur-receipt/1: SHA-256 of question, model, answer and excerpts" }
+paths:
+  /api/health:
+    get: { summary: "Server, model and index status", responses: { "200": { description: ok } } }
+  /api/sources:
+    get: { summary: "Indexed documents and BibTeX keys", responses: { "200": { description: ok } } }
+  /api/search:
+    get:
+      summary: Passages for a query (no model). `mesh=1` also asks the peers.
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: k, in: query, schema: { type: integer } }
+        - { name: mesh, in: query, schema: { type: string, enum: ["1"] } }
+      responses:
+        "200": { description: hits, content: { application/json: { schema: { type: object, properties: { hits: { type: array, items: { $ref: "#/components/schemas/Hit" } } } } } } }
+    post:
+      summary: Same, with a JSON body
+      requestBody: { content: { application/json: { schema: { type: object, properties: { q: { type: string }, k: { type: integer } } } } } }
+      responses: { "200": { description: hits } }
+  /api/ask:
+    get:
+      summary: Cited answer from the local model, checked mechanically
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: mode, in: query, schema: { type: string, enum: [ask, compare, gaps] } }
+        - { name: k, in: query, schema: { type: integer } }
+      responses: { "200": { description: answer, content: { application/json: { schema: { $ref: "#/components/schemas/AskResponse" } } } } }
+    post:
+      summary: Same, with a JSON body
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AskRequest" } } } }
+      responses: { "200": { description: answer, content: { application/json: { schema: { $ref: "#/components/schemas/AskResponse" } } } } }
+  /api/audit:
+    post:
+      summary: Check a Markdown draft's [@key, p. N] citations and quotations against the library (no model)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string }, semantic: { type: string, description: "'1' = also ask the local model for a second opinion per citation (slow; verdict 'contradicted' becomes possible; the model can be wrong)" } } } } } }
+      responses: { "200": { description: "findings[] with verdict supported/weak/contradicted/unsupported/wrong-page/number-mismatch/unknown-source/page-out-of-range/uncited/quote-*, problems, markdown, semantic{judged,changed,model}" } }
+  /api/refs:
+    post:
+      summary: Reference hygiene for a draft - cited keys found nowhere, .bib entries and library documents never cited (no model)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string } } } } } }
+      responses: { "200": { description: "cited[], missing_everywhere[], in_bib_but_not_in_library[], bib_never_cited[], library_never_cited[], markdown" } }
+  /api/coverage:
+    post:
+      summary: Which headings of an outline have sources
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string } } } } } }
+      responses: { "200": { description: "rows[] with status well-covered/thin/empty, summary, markdown" } }
+  /api/novelty:
+    post:
+      summary: Which passages of a text are already covered by the library and which are new
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [text], properties: { text: { type: string } } } } } }
+      responses: { "200": { description: "passages[], covered, partial, new, share_new, markdown" } }
+  /api/receipt:
+    post:
+      summary: Verify a receipt from /api/ask (intact, answer matches, excerpts still in the index)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [receipt], properties: { receipt: { type: object }, answer: { type: string } } } } } }
+      responses: { "200": { description: "ok, checks[]" } }
+  /api/read:
+    get:
+      summary: All passages of one document
+      parameters: [ { name: path, in: query, required: true, schema: { type: string } } ]
+      responses: { "200": { description: ok } }
+  /api/bib:
+    get:
+      summary: Bibliography export
+      parameters: [ { name: fmt, in: query, schema: { type: string, enum: [csl, ris, bibtex] } } ]
+      responses: { "200": { description: ok } }
+  /api/ingest:
+    post:
+      summary: Upload one file (raw body); OCR for scans, embeddings if configured
+      parameters: [ { name: name, in: query, required: true, schema: { type: string } } ]
+      requestBody: { content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+      responses: { "200": { description: "status: added | unchanged | no-text" } }
+  /api/doc:
+    delete:
+      summary: Remove a document from the index
+      parameters: [ { name: path, in: query, required: true, schema: { type: string } } ]
+      responses: { "200": { description: ok } }
+  /api/index:
+    get: { summary: "Download the index file", responses: { "200": { description: binary } } }
+    put: { summary: "Replace the index (validated before use)", responses: { "200": { description: ok } } }
+  /api/mesh/info: { get: { summary: "This node's identity and sharing summary", responses: { "200": { description: ok } } } }
+  /api/mesh/manifest: { get: { summary: "Documents this node offers to peers (hash, title, pages)", responses: { "200": { description: ok } } } }
+  /api/mesh/doc:
+    get:
+      summary: One shared document as text chunks
+      parameters: [ { name: path, in: query, required: true, schema: { type: string } } ]
+      responses: { "200": { description: ok } }
+  /api/mesh/search:
+    get:
+      summary: Search only the shared documents (what a peer may see)
+      parameters: [ { name: q, in: query, required: true, schema: { type: string } } ]
+      responses: { "200": { description: ok } }
+  /api/mesh/bundle: { get: { summary: "Shared documents as an offline .tzb bundle", responses: { "200": { description: zip } } } }
+  /api/mesh/import: { post: { summary: "Import a .tzb bundle (raw body)", responses: { "200": { description: ok } } } }
+  /api/mesh/peers:
+    get: { summary: "List peers", responses: { "200": { description: ok } } }
+    post: { summary: "Add or replace a peer (name, url, token, proxy)", responses: { "200": { description: ok } } }
+  /api/mesh/pull:
+    post:
+      summary: Copy shared documents from one peer (?peer=NAME) or all
+      parameters: [ { name: peer, in: query, schema: { type: string } } ]
+      responses: { "200": { description: ok } }
+  /llm/{path}:
+    get:
+      summary: Same-origin proxy to the configured model server (streams)
+      parameters: [ { name: path, in: path, required: true, schema: { type: string } } ]
+      responses: { "200": { description: passthrough } }

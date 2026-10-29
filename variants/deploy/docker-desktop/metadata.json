@@ -1,0 +1,2 @@
+{ "ui": { "dashboard-tab": { "title": "TEZAUR", "src": "index.html", "root": "ui" } },
+  "vm": { "composefile": "docker-compose.yaml" } }

@@ -1,0 +1,1 @@
+{ "clients": { "tezaur": { "enabled": true, "command": ["python3", "TEZAUR_TOOLS/tezaur_lsp.py"], "selector": "text.html.markdown | text.tex.latex" } } }

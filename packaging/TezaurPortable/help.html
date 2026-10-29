@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ro"><head><meta charset="utf-8"><title>Tezaur Portable — ajutor</title>
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem;color:#222}
+code,pre{background:#f3f1ea;padding:.1em .35em;border-radius:4px}pre{padding:.7em 1em;overflow:auto}
+h1{color:#18345c}</style></head><body>
+<h1>Tezaur Portable</h1>
+<p>Asistent local pentru redactarea tezei. Indexează cărțile și articolele tale și redactează <b>doar</b> pe baza pasajelor găsite, cu citări <code>[n]</code> către fișier și pagină. Nimic nu părăsește calculatorul.</p>
+<h2>Pornire rapidă</h2>
+<ol>
+<li>Copiază cărțile/articolele (pdf, docx, epub, txt, md, html, tex) în <code>Data\Library</code>. Dacă folosești Zotero, pune acolo și exportul <code>.bib</code> (BibTeX): citările devin „Autor (An), p. N”.</li>
+<li>Pornește <code>TezaurPortable.exe</code> și scrie <code>/ingest</code>.</li>
+<li>Caută fără model: <code>/search recunoașterea calificărilor</code></li>
+<li>Pentru răspunsuri și capitole ai nevoie de un model local. Două variante:
+<ul><li><b>Ollama</b>: dacă l-ai pus în <code>App\Ollama</code>, pornește singur; altfel rulează <code>ollama serve</code>. O dată: <code>ollama pull llama3.1:8b</code> (opțional <code>ollama pull bge-m3</code> pentru căutare după sens).</li>
+<li><b>Jan</b> (mai simplu, cu interfață): descarcă un model în Jan, apoi <i>Settings → Local API Server → Start Server</i>. În <code>Data\settings\tezaur.conf</code> pune <code>api = jan</code> și <code>model = &lt;id&gt;</code> (comanda <code>/models</code> arată id-urile).</li></ul></li>
+</ol>
+<h2>Comenzi</h2>
+<pre>întrebare liberă             → răspuns cu citări
+/search text                 → pasajele cele mai relevante
+/compare întrebare           → ce spun sursele, unde sunt de acord / nu
+/gaps tema                   → ce e bine susținut, ce e slab, ce lipsește
+/summarize carte             → rezumatul unei cărți întregi (lent)
+/only text                   → limitează la documentele care conțin „text” (/only singur: anulează)
+/ask întrebare --decompose   → caută mai larg, din mai multe unghiuri
+/flashcards tema -o carduri.tsv → carduri de studiu cu sursă (importabile în Anki)
+/draft "Tema" --kind lit-review → recenzie de literatură (și: introduction, critical-review)
+/doctor [--generate]         → verifică serverul, modelul, indexul și .bib; spune ce e de reparat
+/draft "Secțiune" --notes "idee 1
+idee 2" -o sectiune.md        → ciornă (salvată în Data\Output)
+/outline "Tema"              → schiță de capitol
+/ingest [cale ...] [--force] → indexează (fără cale: Data\Library); --force reciteşte tot
+/sources   /models   /help   /quit</pre>
+<h2>Setări</h2>
+<p><code>Data\settings\tezaur.conf</code>: <code>api</code> (ollama / jan / openai), <code>host</code>, <code>api_key</code>, <code>model</code>, <code>embed_model</code>, <code>num_ctx</code> (doar Ollama).</p>
+<h2>Portabilitate</h2>
+<p>Dacă folosești Jan, acesta își păstrează propriul folder de date (mutabil din setările Jan); portabil este doar TEZAUR.</p>
+<p>Tot ce este al tău stă în <code>Data\</code> (index, bibliotecă, setări, ciorne, modelele Ollama din pachet). Folderul poate fi mutat pe alt stick sau alt calculator; căile din index sunt relative. Nu se scrie nimic în registry, <code>%APPDATA%</code> sau profilul utilizatorului.</p>
+<h2>Limite</h2>
+<p>Verificarea citărilor este mecanică: arată dacă pasajul citat există, nu dacă susține afirmația. Deschide pagina. PDF-urile scanate au nevoie de OCR. DOCX/EPUB nu au numere de pagină. Cardurile Anki nu au fost testate în Anki. Rezumatele lungi păstrează referințele de pagină prin mai mulți pași: verifică-le prin sondaj. Modelele mici parafrazează aproximativ.</p>
+</body></html>

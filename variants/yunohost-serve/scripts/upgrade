@@ -1,0 +1,10 @@
+#!/bin/bash
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Upgrading TEZAUR..."
+chmod 755 "$install_dir/tezaur"
+ynh_config_add_nginx
+ynh_config_add_systemd
+ynh_systemctl --service="$app" --action="restart"
+ynh_script_progression "Upgrade of $app completed"

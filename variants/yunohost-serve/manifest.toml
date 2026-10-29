@@ -1,0 +1,78 @@
+packaging_format = 2
+
+id = "tezaur_server"
+name = "TEZAUR server"
+description.en = "Local citation-grounded research assistant: web app, API for editors/plugins, OCR, workspaces and peer-to-peer mesh. Documents stay on your server."
+description.fr = "Assistant de recherche local avec citations vérifiables: appli web, API, OCR, espaces de travail et maillage pair-à-pair."
+description.ro = "Asistent de cercetare local cu citări verificabile: aplicație web, API pentru editoare, OCR, spații de lucru și mesh P2P."
+
+version = "0.1.0~ynh1"
+maintainers = ["Alexio"]
+
+[upstream]
+license = "MIT"
+website = "https://github.com/chiuta/tezaur"
+code = "https://github.com/chiuta/tezaur"
+
+[integration]
+yunohost = ">= 12.0.0"
+helpers_version = "2.1"
+architectures = ["amd64"]
+multi_instance = false
+ldap = false
+sso = false
+disk = "300M"
+ram.build = "50M"
+ram.runtime = "150M"
+
+[install]
+    [install.domain]
+    type = "domain"
+    help.en = "Use a (sub)domain of its own, e.g. tezaur.example.org: the app is served from the domain root."
+
+    [install.init_main_permission]
+    type = "group"
+    default = "admins"
+    help.en = "Who may open the web app. The API stays token-protected for editors and mesh peers."
+
+    [install.model_host]
+    ask.en = "Address of the model server (Ollama / Jan / LM Studio)"
+    type = "string"
+    default = "http://127.0.0.1:11434"
+
+    [install.model_name]
+    ask.en = "Model name (can be changed later in the app)"
+    type = "string"
+    default = "llama3.1:8b"
+
+[resources]
+    [resources.sources.main]
+    amd64.url = "https://github.com/chiuta/tezaur/releases/download/v0.1.0/tezaur-linux-x86_64"
+    amd64.sha256 = "REPLACE_WITH_SHA256"
+    format = "whatever"
+    in_subdir = false
+    rename = "tezaur"
+
+    [resources.system_user]
+
+    [resources.install_dir]
+
+    [resources.data_dir]
+
+    [resources.ports]
+    main.default = 8787
+
+    [resources.apt]
+    packages = "poppler-utils, tesseract-ocr, tesseract-ocr-eng, tesseract-ocr-ron"
+
+    [resources.permissions]
+    main.url = "/"
+    # /api and /llm are protected by TEZAUR's own token, not by the YunoHost portal, so that editors, bots and peers can call them.
+    api.url = "/api"
+    api.allowed = "visitors"
+    api.show_tile = false
+    api.auth_header = false
+    llm.url = "/llm"
+    llm.allowed = "visitors"
+    llm.show_tile = false
+    llm.auth_header = false

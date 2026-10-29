@@ -1,0 +1,5 @@
+TeXstudio: Options → Configure TeXstudio → Commands → "User Commands", add (replace the path):
+   Name:    TEZAUR audit
+   Command: python3 /PATH/TO/tezaur_tex.py audit %.tex | ?txt     (shows the report in TeXstudio's log viewer)
+Then Tools → User → TEZAUR audit. For citations: python3 tezaur_tex.py cite "your words"
+(This follows TeXstudio's documented user-command syntax; I could not run TeXstudio here.)

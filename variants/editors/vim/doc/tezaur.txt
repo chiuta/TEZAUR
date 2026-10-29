@@ -1,0 +1,7 @@
+*tezaur.txt*  Cited answers from your own library
+
+:TezaurAsk {question}    answer with [n] citations in the preview window
+:TezaurCompare, :TezaurGaps, :TezaurSearch (no model)
+:TezaurAskSelection      use the visual selection as the question
+:TezaurInsert            paste the last answer below the cursor
+Needs `tezaur serve` and curl. g:tezaur_server, g:tezaur_token, g:tezaur_k.

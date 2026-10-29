@@ -1,0 +1,34 @@
+{
+  "name": "tezaur",
+  "displayName": "TEZAUR",
+  "description": "Ask your own notes and drafts (Markdown, LaTeX, text) with a local model; answers cite file and line.",
+  "version": "1.0.0",
+  "publisher": "trom",
+  "license": "MIT",
+  "author": "Alexio <alexio@trom.tf> (https://trom.tf)",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Education", "Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "tezaur.ask", "title": "TEZAUR: Ask the workspace" },
+      { "command": "tezaur.compare", "title": "TEZAUR: Compare sources" },
+      { "command": "tezaur.search", "title": "TEZAUR: Search passages (no model)" },
+      { "command": "tezaur.reindex", "title": "TEZAUR: Re-read workspace files" }
+    ],
+    "configuration": {
+      "title": "TEZAUR",
+      "properties": {
+        "tezaur.api": { "type": "string", "enum": ["ollama", "jan", "openai"], "default": "ollama", "description": "Model server type." },
+        "tezaur.host": { "type": "string", "default": "", "description": "Address; empty = default of the chosen server." },
+        "tezaur.model": { "type": "string", "default": "", "description": "Model name, e.g. llama3.1:8b." },
+        "tezaur.apiKey": { "type": "string", "default": "" },
+        "tezaur.k": { "type": "number", "default": 8, "description": "Passages per question." },
+        "tezaur.language": { "type": "string", "default": "", "description": "Answer language; empty = same as the question." },
+        "tezaur.include": { "type": "string", "default": "**/*.{md,markdown,tex,txt,rst}", "description": "Files to read (glob)." },
+        "tezaur.exclude": { "type": "string", "default": "**/{node_modules,.git,dist,build,target}/**", "description": "Files to skip (glob)." }
+      }
+    }
+  }
+}

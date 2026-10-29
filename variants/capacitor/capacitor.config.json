@@ -1,0 +1,6 @@
+{
+  "appId": "tf.trom.tezaur",
+  "appName": "TEZAUR",
+  "webDir": "www",
+  "server": { "androidScheme": "https", "cleartext": true }
+}

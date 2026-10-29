@@ -1,0 +1,11 @@
+{
+  "manifest_version": 1,
+  "id": "org.tezaur.joplin",
+  "app_min_version": "2.8",
+  "version": "0.1.0",
+  "name": "TEZAUR",
+  "description": "Cited answers from your own library inside a note (needs `tezaur serve`).",
+  "author": "Alexio",
+  "homepage_url": "https://github.com/chiuta/tezaur",
+  "categories": ["productivity"]
+}

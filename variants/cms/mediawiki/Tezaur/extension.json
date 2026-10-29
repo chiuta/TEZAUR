@@ -1,0 +1,17 @@
+{
+  "name": "Tezaur",
+  "version": "0.1.0",
+  "type": "parserhook",
+  "license-name": "MIT",
+  "descriptionmsg": "tezaur-desc",
+  "requires": { "MediaWiki": ">= 1.39.0" },
+  "MessagesDirs": { "Tezaur": ["i18n"] },
+  "AutoloadClasses": { "TezaurHooks": "includes/TezaurHooks.php" },
+  "Hooks": { "ParserFirstCallInit": "TezaurHooks::onParserFirstCallInit" },
+  "config": {
+    "TezaurServer": { "value": "http://127.0.0.1:8787" },
+    "TezaurToken": { "value": "" },
+    "TezaurK": { "value": 6 }
+  },
+  "manifest_version": 2
+}

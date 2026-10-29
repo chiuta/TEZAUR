@@ -1,0 +1,22 @@
+image:
+  repository: ghcr.io/chiuta/tezaur
+  tag: latest
+  pullPolicy: IfNotPresent
+token: ""            # required: access token (stored in a Secret)
+existingSecret: ""   # or name of a Secret with key `token`
+model:
+  api: ollama
+  host: http://ollama:11434
+  name: llama3.1:8b
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: ""
+service:
+  port: 8787
+ingress:
+  enabled: false
+  className: ""
+  host: tezaur.example.org
+  tls: false
+resources: {}

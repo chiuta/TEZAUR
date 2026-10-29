@@ -1,0 +1,12 @@
+<!doctype html><html><head><base target="_top"><style>
+body{font:13px sans-serif;margin:10px}textarea{width:100%;box-sizing:border-box}pre{white-space:pre-wrap;background:#f4f1ea;padding:8px}select,button{margin:4px 4px 4px 0}
+</style></head><body>
+<textarea id="q" rows="4" placeholder="Question…"></textarea>
+<select id="m"><option value="ask">Ask</option><option value="compare">Compare sources</option><option value="gaps">Gaps</option><option value="search">Search only</option></select>
+<button id="go">Run</button><button id="ins">Insert into document</button>
+<pre id="out"></pre>
+<script>
+const $=id=>document.getElementById(id);
+$('go').onclick=()=>{$('out').textContent='Thinking…';google.script.run.withSuccessHandler(r=>{$('out').textContent=r.error?'Error: '+r.error:r.text}).query($('q').value,$('m').value)};
+$('ins').onclick=()=>google.script.run.insertAnswer($('out').textContent);
+</script></body></html>

@@ -1,0 +1,13 @@
+#!/bin/bash
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Upgrading TEZAUR files..."
+cp -a ../sources/. "$install_dir/"
+chown -R "$app:www-data" "$install_dir"
+chmod -R g+rX "$install_dir"
+
+ynh_script_progression "Upgrading NGINX configuration..."
+ynh_config_add_nginx
+
+ynh_script_progression "Upgrade of $app completed"

@@ -1,0 +1,23 @@
+{
+  "name": "tezaur-desktop",
+  "productName": "TEZAUR",
+  "version": "1.0.0",
+  "description": "Asistent local de cercetare pentru teză, cu citări verificabile",
+  "author": "Alexio <alexio@trom.tf>",
+  "main": "main.js",
+  "scripts": {
+    "prepare-web": "python3 ../build-web.py app",
+    "start": "npm run prepare-web && electron .",
+    "dist": "npm run prepare-web && electron-builder"
+  },
+  "devDependencies": { "electron": "^33.0.0", "electron-builder": "^25.1.8" },
+  "build": {
+    "appId": "tf.trom.tezaur",
+    "productName": "TEZAUR",
+    "files": ["main.js", "app/**"],
+    "win": { "target": ["nsis", "portable"] },
+    "mac": { "target": ["dmg"], "category": "public.app-category.education" },
+    "linux": { "target": ["AppImage", "deb"], "category": "Education" },
+    "directories": { "output": "../../dist/electron" }
+  }
+}

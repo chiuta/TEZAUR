@@ -1,0 +1,22 @@
+#!/bin/bash
+source _common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Installing TEZAUR..."
+token=$(ynh_string_random --length=32)
+ynh_app_setting_set --key=token --value="$token"
+ynh_app_setting_set --key=model_host --value="$model_host"
+ynh_app_setting_set --key=model_name --value="$model_name"
+
+# the binary was downloaded by [resources.sources.main] into $install_dir
+chmod 755 "$install_dir/tezaur"
+mkdir -p "$data_dir/workspaces"
+chown -R "$app:$app" "$data_dir"
+
+ynh_script_progression "Configuring NGINX and the service..."
+ynh_config_add_nginx
+ynh_config_add_systemd
+yunohost service add "$app" --description="TEZAUR research assistant" --log="/var/log/$app/$app.log"
+ynh_systemctl --service="$app" --action="start"
+
+ynh_script_progression "Installation of $app completed. API token: yunohost app setting $app token"

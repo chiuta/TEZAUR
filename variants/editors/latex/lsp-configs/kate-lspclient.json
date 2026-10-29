@@ -1,0 +1,1 @@
+{ "servers": { "markdown": { "command": ["python3", "TEZAUR_TOOLS/tezaur_lsp.py"], "highlightingModeRegex": "^(Markdown|LaTeX)$" } } }

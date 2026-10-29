@@ -1,0 +1,10 @@
+PackageIdentifier: trom.Tezaur
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: Alexio
+PackageName: TEZAUR
+License: MIT
+ShortDescription: Local, citation-grounded research assistant for writing a thesis
+PackageUrl: https://trom.tf
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

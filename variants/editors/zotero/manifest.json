@@ -1,0 +1,7 @@
+{
+  "manifest_version": 2,
+  "name": "TEZAUR",
+  "version": "0.1.0",
+  "description": "Send the PDFs/EPUBs of the selected items to your TEZAUR server (right-click > Send to TEZAUR).",
+  "applications": { "zotero": { "id": "tezaur@example.org", "update_url": "https://example.org/tezaur-update.json", "strict_min_version": "7.0", "strict_max_version": "7.*" } }
+}

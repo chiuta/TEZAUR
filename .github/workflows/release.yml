@@ -1,0 +1,146 @@
+name: release-variants
+# Run by hand (Actions → Run workflow) or on a tag v*. Builds every variant that needs a toolchain.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  cli:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release
+      - run: cargo test --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tezaur-cli-${{ matrix.os }}
+          path: |
+            target/release/tezaur
+            target/release/tezaur.exe
+            target/release/TezaurPortable.exe
+          if-no-files-found: ignore
+  deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release && ./variants/build-deb.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: tezaur-deb, path: dist/*.deb }
+  extensions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./variants/build-extension.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: tezaur-extensions, path: dist/*.zip }
+  electron:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { working-directory: variants/electron } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install
+      - run: npm run dist
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tezaur-electron-${{ matrix.os }}
+          path: dist/electron/*.*
+  tauri:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults: { run: { working-directory: variants/tauri } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: dtolnay/rust-toolchain@stable
+      - if: matrix.os == 'ubuntu-22.04'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: npm install
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tezaur-tauri-${{ matrix.os }}
+          path: variants/tauri/src-tauri/target/release/bundle/**
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 variants/build-web.py variants/docker/site && cp pwa/manifest.webmanifest pwa/sw.js pwa/icon-*.png variants/docker/site/
+      - run: docker build -t tezaur variants/docker
+  editors:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node --test variants/core/test.js
+      - run: ./variants/build-obsidian.sh && ./variants/build-vscode.sh && ./variants/build-office.sh
+      - run: cd dist/vscode && npx --yes @vscode/vsce package --allow-missing-repository --skip-license
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tezaur-editors
+          path: |
+            dist/obsidian
+            dist/vscode/*.vsix
+            dist/office
+  ios-simulator:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: cd variants/ios && xcodegen && xcodebuild -project Tezaur.xcodeproj -scheme Tezaur -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build
+  rpm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release && cargo install cargo-generate-rpm --locked && cargo generate-rpm
+      - uses: actions/upload-artifact@v4
+        with: { name: tezaur-rpm, path: target/generate-rpm/*.rpm }
+  windows-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: .\build-portable.bat
+        shell: cmd
+      - run: choco install innosetup -y --no-progress
+      - run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" variants\windows\tezaur.iss'
+      - uses: actions/upload-artifact@v4
+        with: { name: tezaur-windows-installer, path: dist/TEZAUR-setup-*.exe }
+  capacitor-android:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: variants/capacitor } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - run: npm install && npm run android
+      - run: cd android && ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with: { name: tezaur-capacitor-apk, path: variants/capacitor/android/app/build/outputs/apk/debug/*.apk }
+  plugins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils php-cli vim pandoc && pip install pynacl lupa genanki ipython ipykernel nbclient nbformat pyyaml
+      - run: cargo build --release
+      - run: bash variants/build-obsidian.sh && bash variants/build-vscode.sh && bash variants/build-extension.sh
+      - run: variants/build-plugins.sh
+      - run: variants/tests/run-all.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: tezaur-plugins, path: dist/tezaur-plugins.zip }

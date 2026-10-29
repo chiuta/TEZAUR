@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Word task-pane add-in. Replace HOST with the https address where taskpane.html is published
+     (YunoHost app, Docker image, GitHub Pages…). Install: Word → Insert → My Add-ins → Upload My Add-in. -->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="TaskPaneApp">
+  <Id>6f1f3c0e-7a52-4d0b-9a55-3b2f6a1c9e11</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Alexio</ProviderName>
+  <DefaultLocale>ro-RO</DefaultLocale>
+  <DisplayName DefaultValue="TEZAUR"/>
+  <Description DefaultValue="Asistent local de cercetare pentru teză, cu citări verificabile."/>
+  <IconUrl DefaultValue="https://HOST/icon-192.png"/>
+  <HighResolutionIconUrl DefaultValue="https://HOST/icon-512.png"/>
+  <SupportUrl DefaultValue="https://trom.tf"/>
+  <AppDomains><AppDomain>https://HOST</AppDomain></AppDomains>
+  <Hosts><Host Name="Document"/></Hosts>
+  <DefaultSettings><SourceLocation DefaultValue="https://HOST/taskpane.html"/></DefaultSettings>
+  <Permissions>ReadWriteDocument</Permissions>
+</OfficeApp>

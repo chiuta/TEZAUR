@@ -1,0 +1,10 @@
+{
+  "name": "tezaur-tauri",
+  "private": true,
+  "scripts": {
+    "prepare-web": "python3 ../build-web.py app",
+    "dev": "npm run prepare-web && tauri dev",
+    "build": "npm run prepare-web && tauri build"
+  },
+  "devDependencies": { "@tauri-apps/cli": "^2" }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "tezaur-client",
+  "version": "0.1.0",
+  "description": "JavaScript client and CLI for TEZAUR, a local citation-grounded research assistant (talks to `tezaur serve`)",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "bin": { "tezaur-js": "bin/tezaur-js.js" },
+  "engines": { "node": ">=18" },
+  "files": ["index.js", "index.d.ts", "bin", "README.md"],
+  "keywords": ["research", "thesis", "rag", "citations", "local-first"],
+  "license": "MIT",
+  "author": "Alexio <alexio@trom.tf> (https://trom.tf)"
+}

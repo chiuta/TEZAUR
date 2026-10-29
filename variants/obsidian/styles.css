@@ -1,0 +1,3 @@
+.tezaur select, .tezaur textarea { width: 100%; margin-bottom: 6px; }
+.tezaur button { margin-right: 6px; }
+.tezaur-status { white-space: pre-wrap; color: var(--text-warning); font-size: 0.85em; margin: 6px 0; }

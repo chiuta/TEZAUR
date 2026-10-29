@@ -1,0 +1,9 @@
+#!/bin/bash
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Removing TEZAUR..."
+yunohost service remove "$app"
+ynh_config_remove_systemd
+ynh_config_remove_nginx
+# install_dir, data_dir (your library: kept in the backup the admin is offered), port, user are removed by the resources
+ynh_script_progression "Removal of $app completed"

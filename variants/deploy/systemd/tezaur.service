@@ -1,0 +1,25 @@
+# System service. Install: sudo cp tezaur.service /etc/systemd/system/ && sudo systemctl enable --now tezaur
+# Put secrets in /etc/tezaur.env (chmod 600):  TEZAUR_TOKEN=...   TEZAUR_MODEL=llama3.1:8b   TEZAUR_HOST=http://127.0.0.1:11434
+[Unit]
+Description=TEZAUR research assistant (web app, API, mesh)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tezaur
+Group=tezaur
+StateDirectory=tezaur
+EnvironmentFile=-/etc/tezaur.env
+Environment=TEZAUR_INDEX=/var/lib/tezaur/tezaur.idx
+Environment=TEZAUR_MESH_BEACON=1
+ExecStart=/usr/bin/tezaur serve --bind 0.0.0.0 --port 8787 --workspaces /var/lib/tezaur/workspaces
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/tezaur
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tezaur
+description: TEZAUR research assistant (web app, API, OCR, mesh)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

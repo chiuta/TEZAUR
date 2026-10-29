@@ -1,0 +1,36 @@
+name: Portable package
+
+# Builds the PortableApps.com folder on Windows (TezaurPortable.exe + App\Tezaur\tezaur.exe + Data\...)
+# and uploads it as a zip. Run it from the Actions tab, or push a tag like v0.2.0.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --release
+
+  package-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build and assemble dist\TezaurPortable
+        shell: cmd
+        run: build-portable.bat
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path dist\TezaurPortable -DestinationPath "TezaurPortable-${{ github.ref_name }}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TezaurPortable
+          path: TezaurPortable-*.zip

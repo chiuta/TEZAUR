@@ -1,0 +1,12 @@
+# Per-user service (no root). Install: mkdir -p ~/.config/systemd/user && cp tezaur-user.service ~/.config/systemd/user/tezaur.service
+#   systemctl --user enable --now tezaur   (loginctl enable-linger $USER to keep it running after logout)
+[Unit]
+Description=TEZAUR (local only)
+
+[Service]
+ExecStart=%h/.local/bin/tezaur serve
+Restart=on-failure
+Environment=TEZAUR_INDEX=%h/.local/share/tezaur/tezaur.idx
+
+[Install]
+WantedBy=default.target

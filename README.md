@@ -1,0 +1,211 @@
+# TEZAUR
+
+A local, citation-grounded research assistant for writing a thesis. One Rust binary.
+Your books and articles never leave your machine.
+
+```
+PDF / EPUB / DOCX / txt ──► chunk (page-tagged) ──► index (BM25 + optional embeddings)
+   question or section title ──► retrieve ──► local model writes ONLY from the excerpts, with [n] citations
+                                             └─► post-check flags invented citations, builds the reference list
+```
+
+## Why retrieval instead of "training on the books"
+
+A laptop cannot fine-tune a model on a library, and a fine-tuned model would still hallucinate
+sources. Retrieval gives the opposite guarantee: every claim points to a passage (file + page) you
+can open and verify, and the model is forced to say what the library does *not* contain.
+
+## Model backends
+
+TEZAUR needs a local model server for answers (not for `search`, `sources`, `ingest`).
+
+| `--api`  | Server | Default address |
+|----------|--------|-----------------|
+| `ollama` | Ollama | `http://localhost:11434` |
+| `jan`    | [Jan](https://jan.ai) — Settings → Local API Server → Start Server | `http://127.0.0.1:1337/v1` |
+| `openai` | LM Studio, llama.cpp `llama-server`, vLLM… (give `--host`) | `http://127.0.0.1:8080/v1` |
+
+```bash
+tezaur --api jan models            # lists the model ids Jan serves; use one as --model
+tezaur --api jan --model <id> ask "…"
+```
+Or put `api = jan` and `model = <id>` in `Data/settings/tezaur.conf` (portable) so flags are not needed.
+With Jan/LM Studio the context window is a setting of the model there, not something TEZAUR can request.
+Embeddings (`--embed-model`) work only if the server offers an embeddings endpoint; if not, ingest keeps
+your documents and keyword search, and says so.
+
+## Setup (Ollama example)
+
+```bash
+cargo build --release                      # binary: target/release/tezaur
+ollama pull llama3.1:8b                    # generation; bigger model = better and slower
+ollama pull bge-m3                         # optional: multilingual embeddings (Romanian/English/French)
+tezaur ingest ~/thesis/library --embed-model bge-m3
+```
+
+Inputs: **pdf, docx, epub, txt, md, html, tex**. Re-running `ingest` only processes new or changed files;
+after upgrading TEZAUR, run `ingest --force` once to re-read everything with the newer chunking and readers.
+Passages are cut at sentence boundaries when possible; EPUBs are read in the book's own reading order.
+
+## Commands
+
+```bash
+tezaur search "burden of proof"                  # passages only, no model; shows % of query terms matched
+tezaur ask "Who bears the burden of proof?"      # cited answer;  --decompose first splits the question into queries
+tezaur compare "How is X defined?"               # positions, agreements, disagreements across sources
+tezaur gaps "recognition of qualifications"      # what is established / weak / unanswered / missing
+tezaur summarize "smith2019"                     # whole-document summary (map-reduce, slow, page references)
+tezaur outline "Recognition of qualifications"   # chapter skeleton, marks sections lacking sources
+tezaur draft "Principles" --notes $'burden\ncompensation' -o draft.md --lang română
+tezaur draft "Recognition" --kind lit-review     # also: introduction, critical-review (default: section)
+tezaur flashcards "burden of proof" -o cards.tsv # study cards; each answer must cite a source; imports into Anki
+tezaur doctor [--generate]                       # checks server, model, embeddings, index, BibTeX; says what to fix
+tezaur sources                                   # what is indexed (+ BibTeX citation)
+tezaur serve                                     # local web server: web app + API + OCR + model proxy (variants/README.md)
+tezaur export draft.md --to tex|docx|html|pdf|odt|epub   # LaTeX with \cite{} (+ --bib-name), Word, HTML; pdf needs pdflatex, odt/epub need pandoc
+tezaur bib --to ris|csl-json|bibtex              # your bibliography for Zotero, Mendeley, pandoc, Word
+tezaur mesh share smith; tezaur mesh add ana http://192.168.1.20:8787 --token X; tezaur mesh search "burden of proof"; tezaur mesh pull
+                                                 # peer-to-peer exchange with colleagues, opt-in (variants/MESH.md)
+tezaur audit draft.md [--fail]                   # check each [@key, p. 3] against the cited page; quotes word-for-word; no model needed
+tezaur audit draft.md --semantic                 # + second opinion from your local model per citation (paraphrases, negations); slow, can be wrong
+tezaur refs draft.md [--online]                  # cited keys found nowhere, .bib/library entries never cited; --online checks DOIs/retractions (OpenAlex, Crossref)
+tezaur lit "mutual recognition" [--bibtex]       # opt-in ONLINE literature search (OpenAlex, Crossref fallback); the query leaves your computer
+tezaur eval cases.jsonl                          # recall@1/3/10 + MRR of the search on YOUR library: {"q": "...", "doc": "key", "page": 12}
+tezaur coverage outline.md                       # which sections have sources (well-covered / thin / empty)
+tezaur novelty paper.pdf                         # what a text adds beyond your library (covered / partly / new)
+tezaur ask "…" --receipt r.json; tezaur receipt r.json; tezaur declare r.json --lang ro
+                                                 # tamper-evident receipt per answer, and an AI-use statement from receipts
+tezaur zotero                                    # BibTeX from Zotero's local API + its attachments
+tezaur ask "…" --rerank --verify                 # model re-orders passages; model checks each cited sentence
+tezaur mcp                                       # MCP server on stdio: your library as tools in Claude Desktop/Code (see variants/README.md)
+tezaur                                           # no command: interactive mode (/ingest, /only, free-text questions)
+```
+
+- `--only smith` (interactive: `/only smith`) restricts everything to documents whose title, path or
+  citation matches — one chapter's sources at a time, like a workspace.
+- **BibTeX**: drop a Zotero / Better BibTeX `.bib` export next to the index (portable: anywhere in `Data/`).
+  A file is matched by citation key = file name, or by the entry's `file` field. Citations then read
+  "Smith & Doe (2019), p. 3" and the reference list carries full details. No re-indexing needed.
+- **Weak-match warning**: in keyword-only mode TEZAUR warns when the best passage covers under 40% of the
+  query's terms, instead of letting the model improvise around nothing.
+
+Settings (flags / env / `tezaur.conf`): `--api/TEZAUR_API`, `--host/TEZAUR_HOST` (Ollama also `OLLAMA_HOST`),
+`--api-key/TEZAUR_API_KEY`, `--model/TEZAUR_MODEL`, `--embed-model/TEZAUR_EMBED_MODEL`,
+`--num-ctx/TEZAUR_NUM_CTX` (Ollama), `--index/TEZAUR_INDEX`, `--only`, `--bib`.
+
+## Portable (PortableApps.com format)
+
+```
+build-portable.bat      # Windows: builds and assembles dist\TezaurPortable   (build-portable.sh on Linux/macOS)
+```
+
+```
+TezaurPortable/
+  TezaurPortable.exe            launcher (src/launcher.rs): sets TEZAUR_DATA, starts bundled Ollama if present
+  help.html
+  App/AppInfo/appinfo.ini, appicon*.png/.ico, Launcher/TezaurPortable.ini   (PortableApps.com metadata)
+  App/Tezaur/tezaur.exe         the application
+  App/Ollama/ollama.exe         OPTIONAL: unzip the official portable Ollama here
+  Data/                         everything that is yours: tezaur.idx, Library/, settings/tezaur.conf, Output/, ollama/models
+  Other/Source/
+```
+
+Running `tezaur.exe` with no command opens the interactive mode. Documents inside `Data/` are stored by
+relative path, so the folder can move between drives and machines. Nothing is written to the registry,
+`%APPDATA%` or the user profile. If you use Jan instead of Ollama, Jan keeps its own data folder (it can be
+relocated in Jan's settings); only TEZAUR's side is portable.
+
+## Single-file HTML version
+
+`tezaur.html` is the same idea in one offline file: open it in a browser, add your files, point it at Ollama / Jan /
+LM Studio. BM25 search (no embeddings), ask / compare / gaps / summarize / outline / draft / flashcards, BibTeX,
+citation check, Anki export. The index lives in the browser (IndexedDB). PDFs need pdf.js, fetched once from a CDN.
+The model server must allow browser access (CORS): Ollama `OLLAMA_ORIGINS=*`, Jan → Local API Server → CORS.
+
+### Other ways to run it
+
+See `variants/README.md`: MCP server, browser extension (Chrome/Firefox), Electron and Tauri desktop apps, `.deb`, Docker,
+YunoHost, plugins for DokuWiki / WordPress / MediaWiki / Vim / Neovim / Emacs / Sublime / Notepad++ / Obsidian / VS Code / Joplin / Logseq /
+Zotero / LibreOffice / Google Docs / Calibre, Slack / Discord / WhatsApp / Telegram / Matrix / e-mail bots, PyPI + npm clients, systemd / Helm /
+Raspberry Pi / Termux / NixOS recipes, and **Mesh** (peer-to-peer exchange between researchers, `variants/MESH.md`) — with an honest status for each.
+
+### Android / phone
+
+- **`pwa/`**: the same page as an installable web app (manifest + service worker). Put the folder on any HTTPS host
+  (e.g. your YunoHost) and use Chrome → "Install app". Works offline after the first visit.
+- **`android/`**: a small WebView project that bundles `tezaur.html` into an APK. No local toolchain is needed:
+  GitHub → Actions → *android-apk* → Run workflow → download `Tezaur-apk` (debug-signed, installable). Or open
+  `android/` in Android Studio. **Not built or run yet** (the SDK cannot be downloaded in my sandbox).
+  The model server has to be reachable from the phone (Ollama / Jan on your PC, same Wi-Fi) with CORS enabled.
+
+## Checks no other tool gives you (and their limits)
+
+- **`audit`** reads your draft, finds every pandoc-style `[@key, p. 3]`, looks up *that page* of *that source* and reports sentences the
+  page does not cover (`unsupported`, `weak`), a likelier page (`wrong-page`), keys that match no document, pages beyond the document's length,
+  long statements with no citation, and quotation marks whose text is not word-for-word in the source. It is a term-overlap test: a paraphrase that
+  uses other words will score low, and a sentence that repeats the right words with the wrong meaning will score high. It tells you where to open the book.
+- **`audit --semantic`** (v0.3) asks your local model, for every cited sentence, whether the passage says the same (SUPPORTS / PARTIAL / CONTRADICTS / UNRELATED).
+  It can rescue a correct paraphrase and catch a negation that word overlap accepts; every verdict it changes is marked `[model]` in the note.
+  It is only as good as the model you run, and it has been tested here only against a scripted stand-in (see REVIEW.md).
+- **`refs`** is bookkeeping: cited keys that exist in neither the `.bib` nor the library, `.bib` entries and indexed documents your text never cites.
+  `refs --online` and `lit` are the **only** commands that contact the internet (OpenAlex, Crossref; `TEZAUR_MAILTO` for their polite pool;
+  `TEZAUR_OPENALEX` / `TEZAUR_CROSSREF` to point at a mirror). They never run implicitly and print a notice before sending anything.
+- **`eval`** turns “the search seems fine” into numbers on your own questions.
+- The search index keeps a BM25 cache next to the index file (`<index>.bm25`, rebuilt automatically when the library changes): a CLI search over 6 M words went from ~4.3 s to ~0.14 s.
+- **`coverage`** and **`novelty`** compare an outline or a new text with what your library actually contains.
+- **Receipts** (`ask --receipt`): SHA-256 over the question, model, answer and every excerpt; `receipt` verifies it later and that those excerpts still exist unchanged
+  in the index. With `TEZAUR_RECEIPT_KEY` set they also carry an HMAC. This is tamper evidence, not a signature of identity, and not proof that an answer is true.
+  `declare` turns receipts into a plain AI-use statement (Romanian or English) with a line you must confirm yourself.
+- **Notebooks**: `%load_ext tezaur_client.magics` in Jupyter gives `%tezaur_ask`, `%%tezaur_audit`, `%%tezaur_coverage`; `python -m tezaur_client.notebook thesis.ipynb` audits a notebook's prose.
+
+See [COMPETITION.md](COMPETITION.md) for how it compares with today's tools, and [REVIEW.md](REVIEW.md) for a measured, unflattering review of what is and is not proven (audit accuracy numbers, scale, security findings).
+
+## Honest limits
+
+- **Not a thesis writer.** It drafts from your sources; you own the argument, the structure, and the verification.
+- The citation check is mechanical: it catches non-existent excerpt numbers and uncited long paragraphs,
+  but it cannot tell whether a cited passage truly supports a sentence. **Open the page.**
+- `summarize` carries page references through several model calls; TEZAUR checks they exist in the document,
+  not that each is attached to the right sentence. Spot-check.
+- `gaps` only sees the retrieved excerpts: it reports what those passages leave open, not everything missing.
+- Small models paraphrase loosely. Bigger models (and slower runs) are noticeably more faithful.
+- Scanned PDFs need OCR first (e.g. `ocrmypdf`); they are reported as "no text layer".
+- EPUB/DOCX have no page numbers, so their citations carry no page. EPUB chapters are read in the book's own spine order.
+- Chunks are ~200-word windows (40 overlap) cut at sentence ends, not chapter-aware. Tables and equations extract poorly from PDFs.
+- Retrieval quality is the ceiling: if `search` doesn't surface the right passage, `ask` can't use it.
+
+- **Flashcards** keep a card only if its answer cites an excerpt that exists; the rest are dropped and counted.
+  The `.tsv` has `#separator:tab` / `#html:false` header lines and two columns (front, back + source); I could not
+  test the import in Anki itself.
+- **Draft kinds** change the writing brief, not the rules: every kind still cites excerpts, and `introduction`
+  leaves your own aims as an `[AUTHOR: …]` placeholder instead of inventing them.
+
+## Where the ideas came from
+
+Surveyed: AnythingLLM, GPT4All LocalDocs, Kotaemon, Khoj, NotebookLM, PrivateGPT, Zotero-based assistants, and the
+(now abandoned) UberStudent Linux distribution for students. From UberStudent: a menu organised by academic skill
+(read / research / write / study — the `/help` layout), study aids built around Anki, templates for academic work
+(`draft --kind`), and a first-run guide (`doctor`, the "next step" hint). UberStudent also ran live from a USB stick,
+which is what the portable layout is for.
+
+## CI
+
+`.github/workflows/portable.yml` builds the Windows PortableApps folder on a GitHub runner (Actions tab → Run
+workflow) and uploads it as a zip. It has not been run yet; the Windows build and tests are unverified until it is.
+
+## Deliberately not built
+
+- **Saving model answers back into the library as sources**: the next answer could then cite the model's own
+  earlier text as if it were evidence. Save drafts with `-o`, and ingest them only if you accept that.
+- **Cloud embeddings / reranking services**: against the point of a local tool. A local reranker is a possible
+  future addition.
+
+## Tests
+
+`cargo test` (61 tests, incl. SHA-256/HMAC vectors and the audit/receipt logic) and `variants/tests/run-all.sh` — tokenizer/diacritics, BM25, rank fusion, document filter, chunking, DOCX/EPUB reading, BibTeX
+parsing and matching, citation parsing and page rewriting, REPL parsing, portable layout, and the model client
+for both protocols (Ollama NDJSON, OpenAI SSE) against in-process fake servers.
+
+## License
+
+MIT © 2026 Alexio (https://trom.tf) — see [LICENSE](LICENSE).

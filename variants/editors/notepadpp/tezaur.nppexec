@@ -1,0 +1,6 @@
+// NppExec alternative (Plugins > NppExec > Execute...). Needs curl (included in Windows 10+).
+// Uses the selected text as the question and prints the JSON answer in the console.
+set local TZ_SERVER = http://127.0.0.1:8787
+set local Q = $(CURRENT_WORD)
+npe_console a-
+curl -s -G "$(TZ_SERVER)/api/ask" --data-urlencode "q=$(Q)"

@@ -1,0 +1,10 @@
+{
+  "id": "tezaur",
+  "name": "TEZAUR",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Ask your own notes with a local model; answers cite your notes as links. Nothing leaves your machine.",
+  "author": "Alexio",
+  "authorUrl": "https://trom.tf",
+  "isDesktopOnly": true
+}

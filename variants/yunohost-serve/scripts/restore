@@ -1,0 +1,15 @@
+#!/bin/bash
+source ../settings/scripts/_common.sh
+source /usr/share/yunohost/helpers
+
+ynh_script_progression "Restoring the app files..."
+ynh_restore "$install_dir"
+ynh_restore "$data_dir"
+ynh_restore "/etc/nginx/conf.d/$domain.d/$app.conf"
+ynh_restore "/etc/systemd/system/$app.service"
+chown -R "$app:$app" "$data_dir"
+systemctl daemon-reload
+systemctl enable "$app" --quiet
+yunohost service add "$app" --description="TEZAUR research assistant" --log="/var/log/$app/$app.log"
+ynh_systemctl --service="$app" --action="start"
+ynh_systemctl --service=nginx --action=reload

@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TEZAUR</title>
+<style>
+:root{--bg:#f6f4ef;--panel:#fffdf8;--ink:#23211c;--mute:#6d675b;--line:#ddd6c6;--acc:#8a4b14;--acc2:#f0e2cf;--bad:#a4271f;--ok:#2f6b3a;--warn:#8a6a00}
+@media (prefers-color-scheme:dark){:root{--bg:#171613;--panel:#1f1d19;--ink:#ece7da;--mute:#9b9484;--line:#38342c;--acc:#e0a463;--acc2:#3a2e1e;--bad:#ff8b80;--ok:#7fcf8c;--warn:#e2c15a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.app{display:grid;grid-template-columns:330px 1fr;min-height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);padding:16px;overflow:auto;max-height:100vh;position:sticky;top:0}
+main{padding:20px 24px;max-width:960px;width:100%}
+h1{font:700 22px Georgia,serif;letter-spacing:.14em;margin:0 0 2px;color:var(--acc)}
+.sub{color:var(--mute);font-size:12px;margin-bottom:14px}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin:18px 0 6px}
+[hidden]{display:none!important}
+label{display:block;font-size:12px;color:var(--mute);margin:8px 0 2px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+textarea{resize:vertical}
+button{font:inherit;cursor:pointer;border:1px solid var(--acc);background:var(--acc);color:var(--panel);border-radius:6px;padding:6px 12px}
+button.alt{background:transparent;color:var(--acc)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.row>*{flex:1}
+.row>button{flex:0 0 auto}
+.docs{list-style:none;margin:6px 0;padding:0;font-size:13px}
+.docs li{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px dotted var(--line)}
+.docs li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.docs input{width:auto}
+.x{border:0;background:none;color:var(--mute);padding:0 4px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tabs button{background:transparent;color:var(--ink);border-color:var(--line)}
+.tabs button.on{background:var(--acc2);border-color:var(--acc);color:var(--ink)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
+.out p{margin:.5em 0}.out h1,.out h2,.out h3,.out h4{font-family:Georgia,serif;text-transform:none;letter-spacing:0;color:var(--ink);font-size:17px;margin:1em 0 .3em}
+.out ul{margin:.4em 0 .4em 1.2em;padding:0}
+a.c{color:var(--acc);cursor:pointer;font-size:.85em;font-weight:600;vertical-align:super;padding:0 1px}
+a.c.bad{color:var(--bad);text-decoration:line-through}
+.warn{color:var(--warn);font-size:13px;margin:4px 0}.err{color:var(--bad);white-space:pre-wrap}.ok{color:var(--ok)}
+.ex{border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;font-size:13px;color:var(--mute)}
+.ex.hl{border-color:var(--acc);background:var(--acc2);color:var(--ink)}
+.ex b{color:var(--ink)}
+.small{font-size:12px;color:var(--mute)}
+table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+@media (max-width:820px){.app{grid-template-columns:1fr}aside{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line)}main{padding:14px 16px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <h1>TEZAUR</h1>
+  <div class="sub">asistent de cercetare pentru teză · local · cu citări verificabile</div>
+
+  <h2>Bibliotecă</h2>
+  <div class="row"><button id="addFiles">+ Fișiere</button><button id="addDir" class="alt">+ Folder</button></div>
+  <input type="file" id="fFiles" multiple hidden accept=".pdf,.docx,.epub,.txt,.md,.markdown,.html,.htm,.tex">
+  <input type="file" id="fDir" webkitdirectory hidden>
+  <div class="small" id="status">Biblioteca e goală.</div>
+  <ul class="docs" id="docs"></ul>
+  <div class="row"><button class="alt" id="selAll">Toate</button><button class="alt" id="selNone">Niciuna</button><button class="alt" id="clearAll">Șterge tot</button></div>
+  <div class="small">Bifează documentele la care se restrânge căutarea (ca <code>--only</code>).</div>
+
+  <h2>BibTeX (Zotero)</h2>
+  <button class="alt" id="addBib">Încarcă .bib</button>
+  <input type="file" id="fBib" multiple hidden accept=".bib,.bibtex,.txt">
+  <div class="small" id="bibStatus">Fără BibTeX: citările folosesc titlul fișierului.</div>
+
+  <h2>Mesh P2P</h2>
+  <details id="mesh"><summary class="small">Schimb direct între cercetători, fără server central</summary>
+    <label>Numele nodului</label><input id="mName" placeholder="ana">
+    <label>Ofer colegilor (text din cale/titlu; * = tot; gol = nimic)</label><input id="mShare" placeholder="smith, *">
+    <label class="small"><input type="checkbox" id="mRelay" style="width:auto"> reofer și documentele primite de la alții</label>
+    <label class="small"><input type="checkbox" id="mStun" style="width:auto"> peste internet (cere unui server STUN Google adresa ta publică)</label>
+    <div class="row"><button class="alt" id="mOffer">Creează invitație</button><button class="alt" id="mAccept">Acceptă cod</button></div>
+    <textarea id="mCode" rows="3" placeholder="cod de invitație sau de răspuns (se trimite prin orice canal)"></textarea>
+    <div class="small" id="mStat">neconectat</div>
+    <div class="row"><button class="alt" id="mSearch">Caută la peer</button><button class="alt" id="mPull">Copiază documentele lui</button></div>
+    <div class="row"><button class="alt" id="mExp">Export pachet .tzb</button><button class="alt" id="mImp">Import .tzb</button></div>
+    <input type="file" id="fTzb" hidden accept=".tzb,.zip">
+    <div id="mSrv" hidden>
+      <div class="small" id="mPeers"></div>
+      <label class="small"><input type="checkbox" id="mFed" style="width:auto"> include și peers în căutare/răspuns (server)</label>
+      <div class="row"><button class="alt" id="mAddPeer">Adaugă peer</button><button class="alt" id="mSrvPull">Trage de la peers</button></div>
+    </div>
+    <div class="small">Peers văd doar ce ai ales să oferi. Textele primite sunt ale lor: verifică sursa înainte să citezi.</div>
+  </details>
+
+  <h2>Model local</h2>
+  <label>Server</label>
+  <select id="api"><option value="ollama">Ollama</option><option value="jan">Jan</option><option value="openai">OpenAI-compatibil (LM Studio, llama.cpp…)</option></select>
+  <label>Adresă</label><input id="host">
+  <label>Model</label>
+  <div class="row"><select id="modelSel"></select><button class="alt" id="listModels">Listează</button></div>
+  <input id="model" placeholder="sau scrie numele modelului" style="margin-top:6px">
+  <label>Cheie API (opțional)</label><input id="key" type="password" autocomplete="off">
+  <label>Context (num_ctx, doar Ollama)</label><input id="numctx" type="number" value="8192">
+  <div class="row" style="margin-top:8px"><button class="alt" id="doctor">Verifică conexiunea</button></div>
+  <div id="doctorOut" class="small"></div>
+</aside>
+
+<main>
+  <div class="tabs" id="tabs"></div>
+  <div class="card">
+    <div id="modeHelp" class="small" style="margin-bottom:8px"></div>
+    <div id="fInput"><textarea id="q" rows="3" placeholder="Întrebarea / tema…"></textarea></div>
+    <div id="fNotes" hidden><label>Note ale tale (opțional)</label><textarea id="notes" rows="3"></textarea></div>
+    <div class="row">
+      <div id="fKind" hidden><label>Tip</label><select id="kind"><option value="section">secțiune</option><option value="introduction">introducere</option><option value="lit-review">recenzie de literatură</option><option value="critical-review">recenzie critică</option></select></div>
+      <div id="fDoc" hidden><label>Document</label><select id="docSel"></select></div>
+      <div><label>Pasaje (k)</label><input id="k" type="number" value="8" min="1" max="30"></div>
+      <div><label>Limba răspunsului</label><input id="lang" placeholder="ca în cerere"></div>
+    </div>
+    <label id="fSem" hidden><input type="checkbox" id="sem" style="width:auto"> a doua opinie de la modelul local pentru fiecare citare (lent; prinde parafraze și negații, dar modelul poate greși)</label>
+    <label id="fDec"><input type="checkbox" id="dec" style="width:auto"> descompune întrebarea în mai multe interogări (mai lent)</label>
+    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><button id="mic" class="alt" title="Dictare" hidden>🎤</button><button id="speak" class="alt" title="Citește răspunsul" hidden>🔊</button><span class="small" id="runInfo"></span></div>
+  </div>
+
+  <div class="card" id="resCard" hidden>
+    <div id="warns"></div>
+    <div class="out" id="out"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="alt" id="copy">Copiază</button><button class="alt" id="dlMd">Descarcă .md</button><button class="alt" id="dlTsv" hidden>Descarcă .tsv (Anki)</button>
+    </div>
+  </div>
+  <div class="card" id="srcCard" hidden><h2 style="margin-top:0">Pasaje folosite</h2><div id="src"></div><div id="refs" class="small"></div></div>
+  <p class="small">TEZAUR verifică mecanic existența citărilor, nu dacă pasajul susține afirmația. Deschide pagina citată.</p>
+</main>
+</div>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+
+/* ---------- prompts (same rules as the Rust version) ---------- */
+const SYSTEM=`You are a careful academic writing assistant helping a researcher write a thesis. You are given numbered SOURCE EXCERPTS from the researcher's own library. Rules:
+1. Base every factual claim ONLY on the excerpts. Never use outside knowledge for facts, figures, dates or quotations.
+2. After each claim, cite the excerpt number(s) in square brackets, like [3] or [2, 5]. Never invent a number.
+3. If the excerpts do not contain enough to answer, say exactly what is missing instead of guessing.
+4. If excerpts disagree, present both positions and cite each.
+5. Keep quotations short and exact; otherwise paraphrase in scholarly prose.
+6. Write in the same language as the TASK unless told otherwise.`;
+const SYSTEM_MERGE=`You merge partial summaries of one document into a single coherent summary. Rules:
+1. Use ONLY what the partial summaries say; add no facts, interpretation or outside knowledge.
+2. Keep every reference such as (p. 12) or (§4) exactly as written, attached to the claim it supports.
+3. Remove repetition, keep the document's own order, and write in the same language as the partials.`;
+const SYSTEM_QUERIES=`You turn a research question into search queries for a document library. Output 2 to 4 short, self-contained queries, one per line, no numbering, no commentary. Each query should cover a different aspect of the question. Use the same language as the question.`;
+
+/* ---------- text utils ---------- */
+const fold=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ß/g,'ss').replace(/ø/g,'o').replace(/đ/g,'d').replace(/ł/g,'l');
+const STEM=7;
+function tokens(s){return (fold(s).match(/[a-z0-9]+/g)||[]).filter(t=>t.length>=2).map(t=>t.slice(0,STEM))}
+function fnv(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0}return h}
+function decodeEnt(s){const t=document.createElement('textarea');t.innerHTML=s;return t.value}
+function htmlText(h){return decodeEnt(h.replace(/<(script|style|head)[\s\S]*?<\/\1>/gi,' ').replace(/<\/(p|div|h\d|li|tr|section)>|<br\s*\/?>/gi,'\n').replace(/<[^>]+>/g,' ')).replace(/[ \t\f\r]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n')}
+function chunkWords(text,size=200,overlap=40){
+  const w=text.split(/\s+/).filter(Boolean);if(!w.length)return[];
+  const out=[];let s=0;
+  while(s<w.length){
+    let e=Math.min(s+size,w.length);
+    if(e<w.length){for(let j=e;j>Math.max(s+size-40,s+20);j--){if(/[.!?…]["')\]»”]?$/.test(w[j-1])){e=j;break}}}
+    out.push(w.slice(s,e).join(' '));
+    if(e>=w.length)break;
+    s=Math.max(e-overlap,s+1);
+  }
+  return out;
+}
+
+/* ---------- zip (docx / epub) ---------- */
+async function unzip(buf){
+  const dv=new DataView(buf),u8=new Uint8Array(buf),td=new TextDecoder();
+  let e=buf.byteLength-22;while(e>=0&&dv.getUint32(e,true)!==0x06054b50)e--;
+  if(e<0)throw new Error('arhivă zip invalidă');
+  const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const files={};
+  for(let i=0;i<n;i++){
+    if(dv.getUint32(p,true)!==0x02014b50)break;
+    const method=dv.getUint16(p+10,true),csize=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lho=dv.getUint32(p+42,true);
+    files[td.decode(u8.subarray(p+46,p+46+nl))]={method,csize,lho};p+=46+nl+xl+cl;
+  }
+  return {names:Object.keys(files),async read(name){
+    const f=files[name];if(!f)return null;
+    const start=f.lho+30+dv.getUint16(f.lho+26,true)+dv.getUint16(f.lho+28,true);
+    const data=u8.slice(start,start+f.csize);
+    if(f.method===0)return td.decode(data);
+    const b=await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+    return td.decode(b);
+  }};
+}
+function normPath(p){const o=[];for(const s of p.split('/')){if(s==='..')o.pop();else if(s&&s!=='.')o.push(s)}return o.join('/')}
+
+/* ---------- readers: return [{page, text}] ---------- */
+let pdfjsP=null;
+function loadPdfjs(){
+  if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+  if(pdfjsP)return pdfjsP;
+  const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  pdfjsP=new Promise((ok,no)=>{const s=document.createElement('script');s.src=base+'pdf.min.js';
+    s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc=base+'pdf.worker.min.js';ok(pdfjsLib)};
+    s.onerror=()=>{pdfjsP=null;no(new Error('PDF-urile cer biblioteca pdf.js (se încarcă o singură dată de pe internet). Conectează-te sau convertește PDF-ul în .txt/.docx.'))};
+    document.head.appendChild(s)});
+  return pdfjsP;
+}
+async function readPages(file){
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(['txt','md','markdown','tex'].includes(ext))return[{page:0,text:await file.text()}];
+  if(['html','htm'].includes(ext))return[{page:0,text:htmlText(await file.text())}];
+  if(ext==='docx'){
+    const z=await unzip(await file.arrayBuffer());const x=await z.read('word/document.xml');if(!x)throw new Error('DOCX fără document.xml');
+    const paras=x.split('</w:p>').map(p=>decodeEnt([...p.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)].map(m=>m[1]).join('')));
+    return[{page:0,text:paras.filter(Boolean).join('\n')}];
+  }
+  if(ext==='epub'){
+    const z=await unzip(await file.arrayBuffer());const P=new DOMParser();
+    const cont=await z.read('META-INF/container.xml');let order=[];
+    try{
+      const opfPath=P.parseFromString(cont,'text/xml').querySelector('rootfile').getAttribute('full-path');
+      const opf=P.parseFromString(await z.read(opfPath),'text/xml');const dir=opfPath.includes('/')?opfPath.replace(/\/[^/]*$/,'/'):'';
+      const man={};opf.querySelectorAll('manifest > item').forEach(i=>man[i.getAttribute('id')]=i.getAttribute('href'));
+      opf.querySelectorAll('spine > itemref').forEach(r=>{const h=man[r.getAttribute('idref')];if(h)order.push(normPath(dir+decodeURIComponent(h.split('#')[0])))});
+    }catch(e){order=[]}
+    if(!order.length)order=z.names.filter(n=>/\.(x?html?)$/i.test(n)).sort();
+    const parts=[];for(const n of order){const h=await z.read(n);if(h)parts.push(htmlText(h))}
+    return[{page:0,text:parts.join('\n\n')}];
+  }
+  if(ext==='pdf'){
+    const lib=await loadPdfjs();const pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;const out=[];
+    for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const c=await pg.getTextContent();out.push({page:i,text:c.items.map(t=>t.str+(t.hasEOL?'\n':' ')).join('')})}
+    if(!out.some(p=>p.text.trim()))throw new Error('PDF fără strat de text (scanat) — rulează OCR întâi');
+    return out;
+  }
+  throw new Error('format nesuportat: .'+ext);
+}
+
+/* ---------- store + BM25 ---------- */
+const S={docs:[],chunks:[],bib:[],inv:null,avg:0,only:new Set()};
+const DB={
+  open(){return new Promise((ok,no)=>{const r=indexedDB.open('tezaur',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)})},
+  async get(k){const d=await this.open();return new Promise((ok,no)=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)})},
+  async put(k,v){const d=await this.open();return new Promise((ok,no)=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=ok;t.onerror=()=>no(t.error)})}
+};
+async function persist(){try{await DB.put('index',{docs:S.docs,chunks:S.chunks.map(c=>({doc:c.doc,page:c.page,text:c.text})),bib:S.bibText||[]})}catch(e){console.warn('index not saved',e)}}
+function build(){
+  const inv=new Map();let total=0;
+  S.chunks.forEach((c,i)=>{
+    const t=tokens(c.text);c.len=t.length;total+=t.length;const tf=new Map();t.forEach(x=>tf.set(x,(tf.get(x)||0)+1));
+    for(const [x,n] of tf){let a=inv.get(x);if(!a)inv.set(x,a=[]);a.push([i,n])}
+  });
+  S.inv=inv;S.avg=total/Math.max(1,S.chunks.length);
+}
+function allowed(){return S.only}
+function search(query,k=8,perDoc=3){
+  const qt=[...new Set(tokens(query))];if(!qt.length||!S.inv)return[];
+  const N=S.chunks.length,sc=new Map(),ok=allowed();
+  for(const t of qt){
+    const p=S.inv.get(t);if(!p)continue;const idf=Math.log(1+(N-p.length+.5)/(p.length+.5));
+    for(const [i,tf] of p){const c=S.chunks[i];if(!ok.has(c.doc))continue;
+      sc.set(i,(sc.get(i)||0)+idf*tf*2.2/(tf+1.2*(.25+.75*c.len/S.avg)))}
+  }
+  const ranked=[...sc].sort((a,b)=>b[1]-a[1]);const cnt={},out=[];
+  for(const [i,s] of ranked){const d=S.chunks[i].doc;if((cnt[d]||0)>=perDoc)continue;cnt[d]=(cnt[d]||0)+1;out.push({chunk:i,score:s});if(out.length>=k)break}
+  return out;
+}
+function coverage(query,text){const q=[...new Set(tokens(query))];if(!q.length)return 1;const t=new Set(tokens(text));return q.filter(x=>t.has(x)).length/q.length}
+
+/* ---------- BibTeX ---------- */
+function bibClean(s){return s.replace(/\\[`'"^~=.]/g,'').replace(/\\([&%_#$])/g,'$1').replace(/\\[a-zA-Z]+/g,'').replace(/[{}]/g,'').replace(/\s+/g,' ').trim()}
+function parseBib(text){
+  const out=[];let i=0;
+  while((i=text.indexOf('@',i))>=0){
+    const m=/^@(\w+)\s*\{/.exec(text.slice(i,i+40));if(!m){i++;continue}
+    let j=i+m[0].length,d=1;const st=j;
+    while(j<text.length&&d>0){if(text[j]==='{')d++;else if(text[j]==='}')d--;j++}
+    i=j;if(/^(comment|string|preamble)$/i.test(m[1]))continue;
+    const body=text.slice(st,j-1),c=body.indexOf(',');if(c<0)continue;
+    const e={key:body.slice(0,c).trim(),author:'',year:'',title:'',container:'',doi:'',file:''};
+    const rest=body.slice(c+1);const re=/([A-Za-z\-_]+)\s*=\s*/g;let f;
+    while((f=re.exec(rest))){
+      let p=re.lastIndex,v='';
+      if(rest[p]==='{'){let dd=0,q=p;for(;q<rest.length;q++){if(rest[q]==='{')dd++;else if(rest[q]==='}'){dd--;if(!dd)break}}v=rest.slice(p+1,q);re.lastIndex=q+1}
+      else if(rest[p]==='"'){let q=p+1,dd=0;for(;q<rest.length&&!(rest[q]==='"'&&!dd);q++){if(rest[q]==='{')dd++;else if(rest[q]==='}')dd--}v=rest.slice(p+1,q);re.lastIndex=q+1}
+      else{let q=rest.indexOf(',',p);if(q<0)q=rest.length;v=rest.slice(p,q);re.lastIndex=q}
+      const n=f[1].toLowerCase(),cv=bibClean(v);
+      if(n==='author')e.author=cv;else if(n==='editor'&&!e.author)e.author=cv;else if(n==='year')e.year=cv;
+      else if(n==='date'&&!e.year)e.year=cv.slice(0,4);else if(n==='title')e.title=cv;
+      else if(['journal','journaltitle','booktitle'].includes(n))e.container=cv;
+      else if(['publisher','school','institution'].includes(n)&&!e.container)e.container=cv;
+      else if(n==='doi')e.doi=cv;else if(n==='file')e.file=v.trim();
+    }
+    out.push(e);
+  }
+  return out;
+}
+const ORG=['of','for','the','council','university','institute','commission','union','association','ministry','organization','organisation'];
+function lastName(a){a=a.trim();if(a.includes(','))return a.split(',')[0].trim();
+  if(a.toLowerCase().split(/\s+/).some(w=>ORG.includes(w)))return a;return a.split(/\s+/).pop()}
+function bibCite(e){
+  const a=e.author.split(' and ').map(x=>x.trim()).filter(Boolean);
+  const who=a.length===0?'':a.length===1?lastName(a[0]):a.length===2?lastName(a[0])+' & '+lastName(a[1]):lastName(a[0])+' et al.';
+  if(!who)return e.title||e.key;return e.year?`${who} (${e.year})`:who;
+}
+function bibRef(e){let s='';if(e.author)s+=e.author.split(' and ').join('; ')+'. ';if(e.year)s+=`(${e.year}). `;if(e.title)s+=e.title+'. ';if(e.container)s+=e.container+'. ';if(e.doi)s+='https://doi.org/'+e.doi;return s.trim()}
+function bibFind(path){
+  const fname=path.split('/').pop().toLowerCase(),stem=fname.replace(/\.[^.]+$/,'');
+  return S.bib.find(e=>e.key.toLowerCase()===stem)||S.bib.find(e=>e.file&&e.file.toLowerCase().includes(fname))||null;
+}
+function label(h){const c=S.chunks[h.chunk];if(c.label)return c.label;const d=S.docs[c.doc],e=bibFind(d.path);const n=e?bibCite(e):d.title;return c.page>0?`${n}, p. ${c.page}`:n}
+
+/* ---------- citations ---------- */
+const GROUP=/\[(\d+(?:\s*[,;]\s*\d+)*)\]/g;
+function citedNumbers(t){const s=new Set();for(const m of t.matchAll(GROUP))m[1].split(/[,;]/).forEach(x=>s.add(+x.trim()));return s}
+function rewriteCites(t,labels){return t.replace(GROUP,(a,g)=>'('+g.split(/[,;]/).map(x=>{x=+x.trim();return x>=1&&x<=labels.length?labels[x-1]:'?'}).join('; ')+')')}
+function checkAnswer(hits,ans){
+  const w=[],cited=citedNumbers(ans);
+  const bad=[...cited].filter(n=>n<1||n>hits.length);
+  if(bad.length)w.push(`modelul a citat pasaje inexistente: ${bad.join(', ')} — consideră afirmațiile din apropiere nesusținute`);
+  if(!cited.size)w.push('nicio citare — nu te baza pe acest text');
+  const un=ans.split(/\n\n/).filter(p=>p.length>200&&!citedNumbers(p).size).length;
+  if(un)w.push(`${un} paragraf(e) lungi fără citare — verifică sau elimină`);
+  return w;
+}
+function userPrompt(hits,task,lang){
+  let s='SOURCE EXCERPTS:\n\n';hits.forEach((h,i)=>{s+=`[${i+1}] (${label(h)})\n${S.chunks[h.chunk].text}\n\n`});
+  s+='TASK:\n'+task;if(lang)s+=`\n\nWrite the answer in: ${lang}.`;return s;
+}
+
+/* ---------- LLM ---------- */
+const DEF={ollama:'http://localhost:11434',jan:'http://127.0.0.1:1337/v1',openai:'http://127.0.0.1:8080/v1'};
+let ctrl=null;
+const cfg=()=>({api:$('api').value,host:$('host').value.trim().replace(/\/+$/,''),model:$('model').value.trim()||$('modelSel').value,key:$('key').value.trim(),numctx:+$('numctx').value||8192});
+function hint(c){return `Nu pot ajunge la ${c.host}. Verifică: (1) serverul rulează; (2) permite accesul din browser (CORS): `+
+  (c.api==='ollama'?'pornește Ollama cu variabila OLLAMA_ORIGINS="*"':c.api==='jan'?'în Jan: Settings → Local API Server → activează CORS':'activează CORS în server (LM Studio: Enable CORS; llama-server: --api-key nu e necesar, dar cere antet CORS)')+
+  '. Pagina deschisă din fișier (file://) are originea „null”, deci CORS trebuie să accepte orice origine.'}
+async function* lines(resp){const r=resp.body.getReader(),d=new TextDecoder();let b='';for(;;){const {done,value}=await r.read();if(done)break;b+=d.decode(value,{stream:true});let i;while((i=b.indexOf('\n'))>=0){yield b.slice(0,i);b=b.slice(i+1)}}if(b.trim())yield b}
+async function http(path,opt={}){
+  const c=cfg();const headers={'Content-Type':'application/json'};if(S.server){if(S.token)headers.Authorization='Bearer '+S.token}else if(c.key)headers.Authorization='Bearer '+c.key;
+  let r;try{r=await fetch(c.host+path,{...opt,headers})}catch(e){if(e.name==='AbortError')throw e;throw new Error(hint(c))}
+  if(!r.ok){const t=await r.text().catch(()=>'');throw new Error(`Serverul a răspuns ${r.status}: ${t.slice(0,300)}`)}
+  return r;
+}
+async function chat(sys,user,onTok){
+  const c=cfg();if(!c.model)throw new Error('Alege un model (butonul „Listează”).');
+  const messages=[{role:'system',content:sys},{role:'user',content:user}];let full='';
+  ctrl=new AbortController();
+  if(c.api==='ollama'){
+    const r=await http('/api/chat',{method:'POST',signal:ctrl.signal,body:JSON.stringify({model:c.model,messages,stream:true,options:{num_ctx:c.numctx}})});
+    for await(const l of lines(r)){if(!l.trim())continue;const j=JSON.parse(l);if(j.error)throw new Error(j.error);const t=j.message&&j.message.content;if(t){full+=t;onTok&&onTok(full)}}
+  }else{
+    const r=await http('/chat/completions',{method:'POST',signal:ctrl.signal,body:JSON.stringify({model:c.model,messages,stream:true})});
+    for await(const l of lines(r)){if(!l.startsWith('data:'))continue;const d=l.slice(5).trim();if(d==='[DONE]')break;const j=JSON.parse(d);const t=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content;if(t){full+=t;onTok&&onTok(full)}}
+  }
+  return full;
+}
+async function listModels(){
+  const c=cfg();const r=await http(c.api==='ollama'?'/api/tags':'/models');const j=await r.json();
+  return c.api==='ollama'?(j.models||[]).map(m=>m.name):(j.data||[]).map(m=>m.id);
+}
+
+/* ---------- UI: library ---------- */
+function libDocs(){return S.server?S.srv:S.docs}
+function renderLib(){
+  const ul=$('docs');ul.innerHTML='';const L=libDocs();
+  L.forEach((d,i)=>{const li=document.createElement('li');
+    li.innerHTML=`<input type="checkbox" ${S.only.has(i)?'checked':''}><span title="${esc(d.path)}">${esc(d.title)}</span><button class="x" title="Șterge">×</button>`;
+    li.firstChild.onchange=e=>{e.target.checked?S.only.add(i):S.only.delete(i)};
+    li.lastChild.onclick=()=>removeDoc(i);ul.appendChild(li)});
+  const nch=S.server?L.reduce((a,d)=>a+d.chunks,0):S.chunks.length;
+  $('status').textContent=(S.server?'[server] ':'')+(L.length?`${L.length} documente · ${nch} pasaje`:'Biblioteca e goală.');
+  $('docSel').innerHTML=L.map((d,i)=>`<option value="${i}">${esc(d.title)}</option>`).join('');
+}
+async function removeDoc(i){
+  if(S.server){await srvFetch('/api/doc?path='+encodeURIComponent(S.srv[i].path),{method:'DELETE'});return loadServerLib()}
+  S.docs.splice(i,1);S.chunks=S.chunks.filter(c=>c.doc!==i);S.chunks.forEach(c=>{if(c.doc>i)c.doc--});
+  S.only=new Set(S.docs.map((_,j)=>j));build();renderLib();await persist();
+}
+async function ingest(files){
+  if(S.server)return ingestServer(files);
+  const ok=/\.(pdf|docx|epub|txt|md|markdown|html?|tex)$/i;const list=[...files].filter(f=>ok.test(f.name));
+  const msgs=[];let n=0;
+  for(const f of list){
+    const path=f.webkitRelativePath||f.name;$('status').textContent=`Se citește (${++n}/${list.length}): ${f.name}…`;
+    try{
+      const pages=await readPages(f);const hash=fnv(pages.map(p=>p.text).join('\u0001'));
+      const old=S.docs.findIndex(d=>d.path===path);
+      if(old>=0){if(S.docs[old].hash===hash)continue;await removeDoc(old)}
+      const di=S.docs.length;let cnt=0;
+      for(const p of pages)for(const t of chunkWords(p.text)){S.chunks.push({doc:di,page:p.page,text:t});cnt++}
+      if(!cnt){msgs.push(`${f.name}: fără text`);continue}
+      S.docs.push({path,title:f.name.replace(/\.[^.]+$/,''),hash,pages:pages.length});S.only.add(di);
+    }catch(e){msgs.push(`${f.name}: ${e.message}`)}
+  }
+  build();renderLib();await persist();
+  if(msgs.length)$('status').innerHTML+='<br><span class="err">'+msgs.map(esc).join('<br>')+'</span>';
+}
+$('addFiles').onclick=()=>$('fFiles').click();$('addDir').onclick=()=>$('fDir').click();
+$('fFiles').onchange=e=>{ingest(e.target.files);e.target.value=''};$('fDir').onchange=e=>{ingest(e.target.files);e.target.value=''};
+$('selAll').onclick=()=>{S.only=new Set(S.docs.map((_,i)=>i));renderLib()};$('selNone').onclick=()=>{S.only=new Set();renderLib()};
+$('clearAll').onclick=async()=>{if(!confirm('Ștergi toată biblioteca din acest '+(S.server?'spațiu de lucru de pe server?':'browser?')))return;
+  if(S.server){for(const d of [...S.srv])await srvFetch('/api/doc?path='+encodeURIComponent(d.path),{method:'DELETE'});return loadServerLib()}
+  S.docs=[];S.chunks=[];S.only=new Set();build();renderLib();await persist()};
+$('addBib').onclick=()=>$('fBib').click();
+$('fBib').onchange=async e=>{const texts=[];for(const f of e.target.files)texts.push(await f.text());S.bibText=(S.bibText||[]).concat(texts);S.bib=S.bibText.flatMap(parseBib);bibStat();await persist();e.target.value=''};
+function bibStat(){const m=S.docs.filter(d=>bibFind(d.path)).length;$('bibStatus').textContent=S.bib.length?`${S.bib.length} intrări BibTeX · ${m}/${S.docs.length} documente asociate (cheie = nume fișier, sau câmpul file)`:'Fără BibTeX: citările folosesc titlul fișierului.'}
+
+/* ---------- UI: settings ---------- */
+function loadCfg(){
+  $('api').value=ls.get('t.api','ollama');$('host').value=ls.get('t.host',DEF[$('api').value]);$('model').value=ls.get('t.model','');
+  $('numctx').value=ls.get('t.numctx','8192');$('key').value=ls.get('t.key','');
+}
+['api','host','model','numctx','key'].forEach(id=>$(id).addEventListener('change',()=>ls.set('t.'+id,$(id).value)));
+$('api').addEventListener('change',()=>{if(S.server)return;$('host').value=DEF[$('api').value];ls.set('t.host',$('host').value);$('modelSel').innerHTML=''});
+$('listModels').onclick=async()=>{try{const m=await listModels();$('modelSel').innerHTML=m.map(x=>`<option>${esc(x)}</option>`).join('');if(m.length&&!$('model').value){$('model').value=m[0];ls.set('t.model',m[0])}$('doctorOut').innerHTML=`<span class="ok">${m.length} modele găsite.</span>`}catch(e){$('doctorOut').innerHTML='<span class="err">'+esc(e.message)+'</span>'}};
+$('modelSel').onchange=()=>{$('model').value=$('modelSel').value;ls.set('t.model',$('model').value)};
+$('doctor').onclick=async()=>{
+  const o=[];const c=cfg();
+  try{const m=await listModels();o.push(`<span class="ok">✓ server la ${esc(c.host)} (${m.length} modele)</span>`);
+    if(!c.model)o.push('<span class="warn">! niciun model ales</span>');else if(!m.some(x=>x===c.model||x.startsWith(c.model+':')))o.push(`<span class="warn">! modelul „${esc(c.model)}” nu e în listă</span>`)}
+  catch(e){o.push('<span class="err">✗ '+esc(e.message)+'</span>')}
+  o.push(S.chunks.length?`<span class="ok">✓ index: ${S.docs.length} documente, ${S.chunks.length} pasaje</span>`:'<span class="warn">! biblioteca e goală — adaugă fișiere</span>');
+  if(S.chunks.length&&!S.only.size)o.push('<span class="warn">! niciun document bifat</span>');
+  $('doctorOut').innerHTML=o.join('<br>');
+};
+
+/* ---------- modes ---------- */
+const MODES={
+  search:{n:'Căutare',h:'Doar pasajele relevante, fără model. Arată % din termenii interogării găsiți.',ph:'Ce cauți?'},
+  ask:{n:'Întreabă',h:'Răspuns cu citări [n] doar din pasajele regăsite.',ph:'Întrebarea ta…',dec:1},
+  compare:{n:'Compară',h:'Poziții, acorduri și dezacorduri între surse.',ph:'Cum este definit X?'},
+  gaps:{n:'Lacune',h:'Ce e stabilit, ce e slab susținut, ce rămâne fără răspuns.',ph:'Tema…'},
+  summarize:{n:'Rezumat',h:'Rezumatul unui întreg document (map-reduce, lent), cu referințe de pagină.',doc:1},
+  outline:{n:'Schiță',h:'Schelet de capitol; marchează secțiunile fără surse.',ph:'Titlul capitolului…'},
+  draft:{n:'Redactare',h:'Redactare din surse, cu citări. Tipul schimbă cerința, nu regulile.',ph:'Titlul secțiunii…',kind:1,notes:1,dec:1},
+  audit:{n:'Audit citări',h:'Lipește textul tău cu citări [@cheie, p. 3]. Verifică mecanic dacă pasajul citat acoperă fraza, citatele ad litteram, cifrele, paginile. Necesită „tezaur serve”.',ph:'Textul de verificat…',audit:1},
+  refs:{n:'Referințe',h:'Chei citate care nu există nicăieri, intrări .bib sau documente din bibliotecă necitate. Necesită „tezaur serve”.',ph:'Textul de verificat…',audit:1},
+  flashcards:{n:'Carduri',h:'Carduri de studiu; se păstrează doar cele al căror răspuns citează un pasaj real. Export Anki (.tsv).',ph:'Subiectul…'}
+};
+let mode='ask',lastText='',lastTsv='';
+function setMode(m){
+  mode=m;const M=MODES[m];
+  [...$('tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  $('modeHelp').textContent=M.h;$('fInput').hidden=!!M.doc;$('q').placeholder=M.ph||'';
+  $('fSem').hidden=m!=='audit';$('q').rows=M.audit?10:3;
+  $('fNotes').hidden=!M.notes;$('fKind').hidden=!M.kind;$('fDoc').hidden=!M.doc;$('fDec').hidden=!M.dec;
+  $('run').textContent=m==='search'?'Caută':'Rulează';
+}
+Object.keys(MODES).forEach(m=>{const b=document.createElement('button');b.textContent=MODES[m].n;b.dataset.m=m;b.onclick=()=>setMode(m);$('tabs').appendChild(b)});
+
+function mdRender(t,n){
+  const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:]|$)/g,'$1<i>$2</i>')
+    .replace(GROUP,(a,g)=>'['+g.split(/[,;]/).map(x=>{x=+x.trim();return `<a class="c${x<1||x>n?' bad':''}" data-n="${x}">${x}</a>`}).join(',')+']');
+  let h='',list=false;
+  for(const raw of t.split('\n')){
+    const l=raw.trimEnd();let m;
+    if((m=/^\s*(?:[-*•]|\d+[.)])\s+(.*)/.exec(l))){if(!list){h+='<ul>';list=true}h+='<li>'+inl(m[1])+'</li>';continue}
+    if(list){h+='</ul>';list=false}
+    if((m=/^#{1,4}\s+(.*)/.exec(l)))h+='<h3>'+inl(m[1])+'</h3>';else if(l.trim())h+='<p>'+inl(l)+'</p>';
+  }
+  return h+(list?'</ul>':'');
+}
+function showHits(hits,withScore){
+  $('srcCard').hidden=!hits.length;
+  $('src').innerHTML=hits.map((h,i)=>`<div class="ex" id="ex${i+1}"><b>[${i+1}] ${esc(label(h))}</b>${withScore?` <span class="small">· ${(h.cov*100|0)}% termeni</span>`:''}<br>${esc(S.chunks[h.chunk].text)}</div>`).join('');
+}
+$('out').addEventListener('click',e=>{const a=e.target.closest('a.c');if(!a)return;const el=$('ex'+a.dataset.n);if(!el)return;
+  document.querySelectorAll('.ex.hl').forEach(x=>x.classList.remove('hl'));el.classList.add('hl');el.scrollIntoView({behavior:'smooth',block:'center'})});
+function refsFor(hits,ans){
+  const out=[];for(const n of [...citedNumbers(ans)].sort((a,b)=>a-b)){if(n<1||n>hits.length)continue;const h=hits[n-1],d=S.docs[S.chunks[h.chunk].doc],e=bibFind(d.path);
+    out.push(`[${n}] ${label(h)} — ${e?bibRef(e)+'  ['+d.path+']':d.path}`)}
+  return out;
+}
+function warnBox(ws){$('warns').innerHTML=ws.map(w=>`<div class="warn">⚠ ${esc(w)}</div>`).join('')}
+function show(text,nHits){lastText=text;$('resCard').hidden=false;$('out').innerHTML=mdRender(text,nHits)}
+
+async function retrieve(queries,k){return S.server?retrieveSrv(queries,k):retrieveLocal(queries,k)}
+function retrieveLocal(queries,k){
+  let lists=queries.map(q=>search(q,k*2,3));
+  if(lists.length===1)lists=[lists[0].slice(0,k)];
+  const seen=new Set(),hits=[];
+  for(let r=0;hits.length<k;r++){let any=false;for(const l of lists){if(r<l.length){any=true;if(!seen.has(l[r].chunk)){seen.add(l[r].chunk);hits.push(l[r])}if(hits.length>=k)break}}if(!any)break}
+  const q=queries.join(' ');hits.forEach(h=>h.cov=coverage(q,S.chunks[h.chunk].text));
+  return hits;
+}
+async function queriesFor(q,dec){
+  if(!dec)return[q];
+  $('runInfo').textContent='descompun întrebarea…';
+  const t=await chat(SYSTEM_QUERIES,q);const l=t.split('\n').map(x=>x.replace(/^[\s\-*\d.)]+/,'').trim()).filter(Boolean).slice(0,4);
+  return l.length?[q,...l]:[q];
+}
+const TASKS={
+  ask:q=>q,
+  compare:q=>`Compare how the different sources address the following. Structure: (1) the positions found, with which sources hold them; (2) points of agreement; (3) points of disagreement. Cite every statement.\n\n${q}`,
+  gaps:q=>`For the topic below, list: what the excerpts establish well; what is only weakly supported; what the excerpts leave unanswered; what kinds of sources seem to be missing. Cite where applicable.\n\n${q}`,
+  outline:q=>`Propose a chapter outline (numbered sections and subsections, one line each) for: ${q}. Base each section on the excerpts and cite them. Mark with [NO SOURCES] any section the excerpts do not support.`,
+  flashcards:q=>`Create 8 to 12 study flashcards on: ${q}. Output ONLY lines of the form:\nQ: question | A: short answer [n]\nEvery answer must end with the number(s) of the excerpt(s) it comes from. Use only the excerpts.`
+};
+function draftTask(kind,title,notes){
+  const base={section:`Write a thesis section titled "${title}".`,
+    introduction:`Write the introduction of a thesis chapter titled "${title}": context, the problem the sources address, and the structure to follow. Where the author's own aims or research questions would go, leave a placeholder [AUTHOR: …] instead of inventing them.`,
+    'lit-review':`Write a literature review on "${title}", organised by themes rather than source by source, showing how the sources relate.`,
+    'critical-review':`Write a critical review on "${title}": strengths, limits and contested points of the sources.`}[kind];
+  return base+' Scholarly prose, every factual claim cited.'+(notes.trim()?`\n\nThe author's notes (guidance, not facts):\n${notes}`:'');
+}
+function parseCards(t){
+  const out=[];for(const raw of t.split('\n')){
+    const l=raw.trim().replace(/^[\d\s\-*•.)]+/,'');const m=/q:\s*(.*?)\s*\|\s*a:\s*(.+)$/i.exec(l);
+    if(m&&m[1]&&m[2])out.push([m[1],m[2]]);
+  }return out;
+}
+function setBusy(b){$('run').disabled=b;$('stop').disabled=!b;if(!b)$('runInfo').textContent=''}
+$('stop').onclick=()=>{if(ctrl)ctrl.abort()};
+
+async function summarize(di){
+  const idx=S.chunks.map((c,i)=>c.doc===di?i:-1).filter(i=>i>=0);const B=6,parts=[];
+  for(let b=0;b<idx.length;b+=B){
+    $('runInfo').textContent=`rezum partea ${b/B+1}/${Math.ceil(idx.length/B)}…`;
+    const hits=idx.slice(b,b+B).map(i=>({chunk:i,score:0}));
+    const labels=hits.map(h=>{const c=S.chunks[h.chunk];return c.page>0?`p. ${c.page}`:`§${idx.indexOf(h.chunk)+1}`});
+    const t=await chat(SYSTEM,userPrompt(hits,'Summarize these excerpts faithfully in at most 150 words. Cite the excerpts you rely on.'),null);
+    parts.push(rewriteCites(t,labels));
+  }
+  let level=parts;
+  while(level.length>1){
+    const next=[];for(let i=0;i<level.length;i+=6){
+      const g=level.slice(i,i+6);$('runInfo').textContent=`combin rezumatele (${level.length} → ${Math.ceil(level.length/6)})…`;
+      next.push(g.length===1?g[0]:await chat(SYSTEM_MERGE,'PARTIAL SUMMARIES:\n\n'+g.map((p,j)=>`${j+1}. ${p}`).join('\n\n')+'\n\nMerge them into one summary.',null));
+    }level=next;
+  }
+  return level[0]||'';
+}
+
+async function runAudit(){
+  const q=$('q').value.trim();if(!q)return alert('Lipește textul de verificat.');
+  if(!S.server){show('Auditul rulează în „tezaur serve” (are acces la indexul complet și la paginile surselor). Pornește serverul și deschide această pagină de acolo.',0);return}
+  try{setBusy(true);$('runInfo').textContent=mode==='audit'&&$('sem').checked?'verific cu modelul…':'verific…';$('srcCard').hidden=true;
+    const r=await srvFetch('/api/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q,semantic:mode==='audit'&&$('sem').checked?'1':'0'})});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);
+    show(j.markdown,0);
+    warnBox(mode==='audit'?[(j.problems?j.problems+' locuri de deschis la sursă. ':'Nimic găsit de acest test. ')+'Verificarea e mecanică (suprapunere de termeni'+(j.semantic?' + opinia modelului '+j.semantic.model:'')+'), nu o dovadă.']:[]);
+  }catch(e){show('Eroare: '+e.message,0)}finally{setBusy(false)}
+}
+async function run(){
+  if(MODES[mode].audit)return runAudit();
+  if(!(S.server?S.srv.length:S.chunks.length))return alert('Adaugă mai întâi documente în bibliotecă.');
+  if(!S.only.size)return alert('Niciun document nu e bifat.');
+  const q=$('q').value.trim(),k=Math.max(1,+$('k').value||8),lang=$('lang').value.trim();
+  $('dlTsv').hidden=true;$('refs').textContent='';warnBox([]);
+  try{
+    setBusy(true);
+    if(mode==='summarize'){
+      let di=+$('docSel').value;$('srcCard').hidden=true;
+      if(S.server){const pth=S.srv[di].path,rd=await(await srvFetch('/api/read?path='+encodeURIComponent(pth))).json();
+        S.docs=[{path:pth,title:rd.title}];S.chunks=rd.chunks.map(c=>({doc:0,page:c.page,text:c.text}));di=0}
+      const t=await summarize(di);show(t,0);
+      const pages=new Set(S.chunks.filter(c=>c.doc===di).map(c=>c.page));
+      const bad=[...t.matchAll(/p\. (\d+)/g)].map(m=>+m[1]).filter(p=>!pages.has(p));
+      warnBox(bad.length?[`pagini citate care nu există în document: ${[...new Set(bad)].join(', ')}`]:[]);
+      return;
+    }
+    if(!q)return alert('Scrie întrebarea sau tema.');
+    if(mode==='search'){
+      const hits=await retrieve([q],k);show(hits.length?`${hits.length} pasaje găsite.`:'Niciun pasaj potrivit.',0);showHits(hits,true);return;
+    }
+    const queries=await queriesFor(q,$('dec').checked&&!$('fDec').hidden);
+    const hits=await retrieve(queries,k);
+    if(!hits.length){show('Niciun pasaj relevant în documentele bifate.',0);$('srcCard').hidden=true;return}
+    showHits(hits,true);
+    const ws=[];if(Math.max(...hits.map(h=>h.cov))<.4)ws.push('potrivire slabă: cel mai bun pasaj conține sub 40% din termenii interogării — răspunsul poate fi superficial');
+    let task;
+    if(mode==='draft')task=draftTask($('kind').value,q,$('notes').value);else task=TASKS[mode](q);
+    $('runInfo').textContent='generez…';let pend=false,latest='';
+    const ans=await chat(SYSTEM,userPrompt(hits,task,lang),t=>{latest=t;if(!pend){pend=true;requestAnimationFrame(()=>{pend=false;if(mode!=='flashcards')show(latest,hits.length)})}});
+    latest=ans;
+    if(mode==='flashcards'){
+      const cards=parseCards(ans),labels=hits.map(label);let drop=0;const keep=[];
+      for(const [f,b] of cards){const nums=[...citedNumbers(b)];if(nums.length&&nums.every(n=>n>=1&&n<=hits.length))keep.push([f,rewriteCites(b,labels)]);else drop++}
+      lastTsv='#separator:tab\n#html:false\n'+keep.map(([f,b])=>[f,b].map(x=>x.replace(/[\t\r\n]+/g,' ')).join('\t')).join('\n')+'\n';
+      $('resCard').hidden=false;$('out').innerHTML=keep.length?'<table><tr><th>Față</th><th>Verso (cu sursă)</th></tr>'+keep.map(([f,b])=>`<tr><td>${esc(f)}</td><td>${esc(b)}</td></tr>`).join('')+'</table>':'<p>Niciun card valid.</p>';
+      lastText=keep.map(([f,b])=>`Q: ${f}\nA: ${b}`).join('\n\n');
+      if(drop)ws.push(`${drop} card(uri) eliminate: răspuns fără citare sau cu citare inexistentă`);
+      $('dlTsv').hidden=!keep.length;warnBox(ws);return;
+    }
+    show(ans,hits.length);warnBox(ws.concat(checkAnswer(hits,ans)));
+    $('refs').innerHTML='<b>Referințe</b><br>'+refsFor(hits,ans).map(esc).join('<br>');
+  }catch(e){
+    if(e.name==='AbortError'){warnBox(['oprit de utilizator'])}
+    else{$('resCard').hidden=false;$('out').innerHTML='<div class="err">'+esc(e.message)+'</div>'}
+  }finally{setBusy(false)}
+}
+$('run').onclick=run;
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey))run()});
+function dl(name,text,type){
+  if(window.AndroidBridge){const r=AndroidBridge.save(name,type,text);alert(r==='ok'?'Salvat în Descărcări: '+name:'Eroare: '+r);return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+$('copy').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(lastText).catch(()=>{})};
+$('dlMd').onclick=()=>dl('tezaur-'+mode+'.md',lastText+($('refs').textContent?'\n\n'+$('refs').innerText:''),'text/markdown');
+$('dlTsv').onclick=()=>dl('carduri.tsv',lastTsv,'text/tab-separated-values');
+
+
+/* ---------- server mode (tezaur serve) ---------- */
+S.server=false;S.token='';S.ws='default';S.srv=[];
+function srvFetch(path,opt={}){
+  const h=Object.assign({},opt.headers||{});if(S.token)h.Authorization='Bearer '+S.token;
+  return fetch(path+(path.includes('?')?'&':'?')+'ws='+encodeURIComponent(S.ws),Object.assign({},opt,{headers:h}));
+}
+async function loadServerLib(){
+  const r=await srvFetch('/api/sources');if(!r.ok)return;const j=await r.json();
+  S.srv=j.docs;S.only=new Set(S.srv.map((_,i)=>i));renderLib();
+}
+async function ingestServer(files){
+  const list=[...files];let n=0;const msgs=[];
+  for(const f of list){
+    $('status').textContent=`Se trimite la server (${++n}/${list.length}): ${f.name}… (PDF/OCR pot dura)`;
+    try{
+      const r=await srvFetch('/api/ingest?name='+encodeURIComponent(f.name),{method:'POST',body:f});const j=await r.json();
+      if(!r.ok)msgs.push(`${f.name}: ${j.error}`);else if(j.status==='no-text')msgs.push(`${f.name}: fără text (PDF scanat și OCR indisponibil)`);
+    }catch(e){msgs.push(`${f.name}: ${e.message}`)}
+  }
+  await loadServerLib();
+  if(msgs.length)$('status').innerHTML+='<br><span class="err">'+msgs.map(esc).join('<br>')+'</span>';
+}
+async function retrieveSrv(queries,k){
+  const paths=[...S.only].map(i=>S.srv[i]&&S.srv[i].path).filter(Boolean).join('\n');
+  const lists=[];const fed=$('mFed')&&$('mFed').checked;
+  for(const [qi,q] of queries.entries()){
+    const r=await srvFetch('/api/search?q='+encodeURIComponent(q)+'&k='+(k*2)+'&paths='+encodeURIComponent(paths)+(fed&&qi===0?'&mesh=1':''));
+    if(!r.ok)throw new Error((await r.json()).error||'eroare server');const j=await r.json();lists.push(j.hits);
+    if(fed&&qi===0){lists.push((j.peer_hits||[]).map(h=>({...h,path:'peer:'+h.peer+':'+h.path,label:h.label+' · via '+h.peer})));
+      if((j.peer_errors||[]).length)$('runInfo').textContent='peers: '+j.peer_errors.join('; ')}
+  }
+  const seen=new Set(),merged=[];
+  for(let r=0;merged.length<k;r++){let any=false;for(const l of lists){if(r<l.length){any=true;const h=l[r],key=h.path+'\u0001'+h.text.slice(0,60);if(!seen.has(key)){seen.add(key);merged.push(h)}if(merged.length>=k)break}}if(!any)break}
+  S.docs=[];S.chunks=[];const di={};
+  return merged.map(h=>{if(!(h.path in di)){di[h.path]=S.docs.length;S.docs.push({path:h.path,title:h.title})}
+    S.chunks.push({doc:di[h.path],page:h.page,text:h.text,label:h.label});return {chunk:S.chunks.length-1,score:h.score,cov:h.cov}});
+}
+async function detectServer(){
+  if(!/^https?:$/.test(location.protocol))return;
+  try{const u=new URL(location.href),t=u.searchParams.get('token');
+    if(t){sessionStorage.setItem('t.token',t);history.replaceState(null,'',u.pathname)}
+    S.token=sessionStorage.getItem('t.token')||''}catch(e){}
+  let r;try{r=await srvFetch('/api/health')}catch(e){return}
+  if(r.status===401){const t=prompt('Serverul cere un token:');if(!t)return;S.token=t;try{sessionStorage.setItem('t.token',t)}catch(e){}r=await srvFetch('/api/health')}
+  if(!r.ok)return;const j=await r.json();if(!j.server)return;
+  S.server=true;
+  const aside=document.querySelector('aside'),h2=[...aside.querySelectorAll('h2')][0];
+  h2.insertAdjacentHTML('beforebegin','<h2>Spațiu de lucru (server)</h2><div class="row"><select id="ws"></select><button class="alt" id="wsNew">Nou</button></div><div class="small">PDF-urile se citesc pe server (cu OCR dacă e instalat'+(j.ocr?'':' — lipsește acum')+')'+(j.embeddings?', căutare și cu embeddings':'')+'. Modelul se apelează prin server, fără CORS.</div>');
+  const fill=()=>{$('ws').innerHTML=j.workspaces.map(w=>`<option${w===S.ws?' selected':''}>${esc(w)}</option>`).join('')};fill();
+  $('ws').onchange=async()=>{S.ws=$('ws').value;await loadServerLib()};
+  $('wsNew').onclick=async()=>{const n=(prompt('Numele spațiului (litere, cifre, - _):')||'').replace(/[^A-Za-z0-9_-]/g,'');if(!n)return;
+    if(!j.workspaces.includes(n))j.workspaces.push(n);S.ws=n;fill();await loadServerLib()};
+  $('api').value=j.api;$('host').value=location.origin+'/llm';if(!$('model').value&&j.model)$('model').value=j.model;
+  $('key').disabled=true;$('key').placeholder='gestionată de server';
+  meshServerUI();
+  await loadServerLib();
+}
+
+
+/* ---------- Mesh: WebRTC peer-to-peer (no server), offline bundles (.tzb), server peers ---------- */
+const MESH={pc:null,dc:null,peer:'',pend:new Map(),seq:0};
+const b64e=o=>btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+const b64d=s=>JSON.parse(decodeURIComponent(escape(atob(s.replace(/\s+/g,'')))));
+const meshStat=t=>{$('mStat').textContent=t};
+const safeOrigin=s=>(String(s).replace(/[^\p{L}\p{N}._-]/gu,'_').slice(0,40))||'peer';
+const meshName=()=>$('mName').value.trim()||'nod';
+['mName','mShare'].forEach(id=>{$(id).value=ls.get('t.'+id,'');$(id).addEventListener('change',()=>ls.set('t.'+id,$(id).value))});
+function sharedIdx(){
+  const pats=$('mShare').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  return S.docs.map((_,i)=>i).filter(i=>{const d=S.docs[i];if(d.path.startsWith('mesh/')&&!$('mRelay').checked)return false;
+    const p=d.path.toLowerCase(),t=d.title.toLowerCase();return pats.some(x=>x==='*'||p.includes(x)||t.includes(x))});
+}
+function docPayload(i){const d=S.docs[i];return {path:d.path,title:d.title,hash:String(d.hash),pages:d.pages||0,chunks:S.chunks.filter(c=>c.doc===i).map(c=>({page:c.page,text:c.text}))}}
+function sharedSearch(q,k){
+  const keep=S.only;S.only=new Set(sharedIdx());
+  try{return search(q,k,3).map(h=>{const c=S.chunks[h.chunk],d=S.docs[c.doc];return {label:label(h),text:c.text,page:c.page,path:d.path,title:d.title,score:h.score,cov:coverage(q,c.text)}})}
+  finally{S.only=keep}
+}
+function dropDoc(i){S.docs.splice(i,1);S.chunks=S.chunks.filter(c=>c.doc!==i);S.chunks.forEach(c=>{if(c.doc>i)c.doc--});S.only=new Set([...S.only].filter(x=>x!==i).map(x=>x>i?x-1:x))}
+/** Insert a received document under mesh/<origin>/…; false when a document with the same hash is already held. */
+function mergeDoc(origin,p){
+  const h=String(p.hash);if(S.docs.some(d=>String(d.hash)===h))return false;
+  const ch=(p.chunks||[]).filter(c=>c&&typeof c.text==='string'&&c.text).map(c=>({page:+c.page||0,text:c.text.slice(0,20000)}));if(!ch.length)return false;
+  const rel=String(p.path||'doc').split(/[\/\\]/).filter(x=>x&&x!=='.'&&x!=='..'),o=safeOrigin(origin);
+  const path=rel[0]==='mesh'?rel.join('/'):`mesh/${o}/${rel.join('/')}`;
+  const old=S.docs.findIndex(d=>d.path===path);if(old>=0)dropDoc(old);
+  const di=S.docs.length;S.docs.push({path,title:`${String(p.title||path).slice(0,200)} [via ${o}]`,hash:String(+h)===h?+h:h,pages:+p.pages||0});
+  ch.forEach(c=>S.chunks.push({doc:di,...c}));S.only.add(di);return true;
+}
+async function meshFinish(added,held){build();renderLib();bibStat();await persist();return `${added} documente noi, ${held} deja existente`}
+
+/* WebRTC data channel: manual signalling = copy/paste a code through any channel (works on a LAN with no internet at all) */
+function dcSend(o){if(MESH.dc&&MESH.dc.readyState==='open')MESH.dc.send(JSON.stringify(o))}
+function rpc(msg,timeout=30000){return new Promise((ok,no)=>{if(!MESH.dc||MESH.dc.readyState!=='open')return no(new Error('nu ești conectat la un peer'));
+  const id=++MESH.seq;MESH.pend.set(id,{ok,no,acc:[]});dcSend({...msg,id});setTimeout(()=>{if(MESH.pend.delete(id))no(new Error('peer-ul nu răspunde'))},timeout)})}
+function setupDc(dc){
+  MESH.dc=dc;dc.onopen=()=>{meshStat('conectat');dcSend({t:'hello',name:meshName()})};dc.onclose=()=>meshStat('deconectat');
+  dc.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}
+    if(m.t==='hello'){MESH.peer=safeOrigin(m.name);meshStat('conectat cu '+MESH.peer)}
+    else if(m.t==='man'){dcSend({t:'r',id:m.id,docs:sharedIdx().map(i=>{const d=S.docs[i];return {path:d.path,title:d.title,hash:String(d.hash),pages:d.pages||0,chunks:S.chunks.filter(c=>c.doc===i).length}})})}
+    else if(m.t==='q'){dcSend({t:'r',id:m.id,hits:sharedSearch(String(m.q).slice(0,500),Math.min(+m.k||8,30))})}
+    else if(m.t==='doc'){const i=sharedIdx().find(i=>S.docs[i].path===m.path);if(i==null)return dcSend({t:'r',id:m.id,error:'documentul nu e partajat'});
+      const p=docPayload(i),parts=[];for(let j=0;j<p.chunks.length;j+=20)parts.push(p.chunks.slice(j,j+20));if(!parts.length)parts.push([]);
+      parts.forEach((c,j)=>dcSend({t:'r',id:m.id,part:j,last:j===parts.length-1,meta:j?undefined:{path:p.path,title:p.title,hash:p.hash,pages:p.pages},chunks:c}))}
+    else if(m.t==='r'){const w=MESH.pend.get(m.id);if(!w)return;
+      if(m.error){MESH.pend.delete(m.id);return w.no(new Error(m.error))}
+      if(m.chunks){w.acc.push(...m.chunks);if(m.meta)w.meta=m.meta;if(m.last){MESH.pend.delete(m.id);w.ok({...w.meta,chunks:w.acc})}}
+      else{MESH.pend.delete(m.id);w.ok(m)}}
+  };
+}
+function iceDone(pc){return new Promise(ok=>{if(pc.iceGatheringState==='complete')return ok();const t=setTimeout(ok,6000);
+  pc.addEventListener('icegatheringstatechange',()=>{if(pc.iceGatheringState==='complete'){clearTimeout(t);ok()}})})}
+function newPc(){if(MESH.pc)try{MESH.pc.close()}catch(_){}
+  const pc=new RTCPeerConnection({iceServers:$('mStun').checked?[{urls:'stun:stun.l.google.com:19302'}]:[]});
+  pc.onconnectionstatechange=()=>{if(pc.connectionState!=='connected')meshStat(pc.connectionState)};MESH.pc=pc;return pc}
+$('mOffer').onclick=async()=>{try{const pc=newPc();setupDc(pc.createDataChannel('tezaur'));await pc.setLocalDescription(await pc.createOffer());await iceDone(pc);
+  $('mCode').value=b64e({v:1,t:'offer',sdp:pc.localDescription.sdp,name:meshName()});meshStat('Trimite codul celuilalt; lipește aici răspunsul lui și apasă „Acceptă cod”')}catch(e){meshStat('eroare: '+e.message)}};
+$('mAccept').onclick=async()=>{let c;try{c=b64d($('mCode').value)}catch(_){return meshStat('cod invalid')}
+  try{
+    if(c.t==='offer'){const pc=newPc();pc.ondatachannel=e=>setupDc(e.channel);await pc.setRemoteDescription({type:'offer',sdp:c.sdp});
+      await pc.setLocalDescription(await pc.createAnswer());await iceDone(pc);
+      $('mCode').value=b64e({v:1,t:'answer',sdp:pc.localDescription.sdp,name:meshName()});meshStat('Trimite acest răspuns înapoi celui care a creat invitația')}
+    else if(c.t==='answer'&&MESH.pc){await MESH.pc.setRemoteDescription({type:'answer',sdp:c.sdp});meshStat('se conectează…')}
+    else meshStat('codul nu se potrivește (creează întâi o invitație)');
+  }catch(e){meshStat('eroare: '+e.message)}};
+$('mSearch').onclick=async()=>{
+  const q=$('q').value.trim();if(!q)return meshStat('scrie întâi o întrebare sus');
+  try{const r=await rpc({t:'q',q,k:+$('k').value||8});$('srcCard').hidden=true;
+    show(r.hits.length?r.hits.map((h,i)=>`**[${i+1}]** ${h.label} (via ${MESH.peer})\n> ${h.text.slice(0,400).replace(/\n+/g,' ')}`).join('\n\n'):'Peer-ul nu are pasaje potrivite în ce partajează.',0)}
+  catch(e){meshStat('eroare: '+e.message)}};
+$('mPull').onclick=async()=>{
+  try{const man=await rpc({t:'man'});let added=0,held=0;
+    for(const d of man.docs){if(S.docs.some(x=>String(x.hash)===String(d.hash))){held++;continue}
+      meshStat(`se copiază ${d.title}…`);const p=await rpc({t:'doc',path:d.path},120000);mergeDoc(MESH.peer||'peer',p)?added++:held++}
+    meshStat(await meshFinish(added,held))}catch(e){meshStat('eroare: '+e.message)}};
+
+/* .tzb bundles: a zip with manifest.json + docs/NNNNN.json (+ refs.bib) — the same format `tezaur mesh export` writes */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+function crc32(u8){let c=0xFFFFFFFF;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function zipStore(files){
+  const te=new TextEncoder(),parts=[],cd=[];let off=0;
+  for(const f of files){const nm=te.encode(f.name),crc=crc32(f.data),n=f.data.length;
+    const lh=new DataView(new ArrayBuffer(30));lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);lh.setUint16(12,0x21,true);lh.setUint32(14,crc,true);lh.setUint32(18,n,true);lh.setUint32(22,n,true);lh.setUint16(26,nm.length,true);
+    parts.push(new Uint8Array(lh.buffer),nm,f.data);
+    const ch=new DataView(new ArrayBuffer(46));ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint16(8,0x0800,true);ch.setUint16(14,0x21,true);ch.setUint32(16,crc,true);ch.setUint32(20,n,true);ch.setUint32(24,n,true);ch.setUint16(28,nm.length,true);ch.setUint32(42,off,true);
+    cd.push(new Uint8Array(ch.buffer),nm);off+=30+nm.length+n}
+  const cdLen=cd.reduce((a,b)=>a+b.length,0),e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdLen,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'application/zip'});
+}
+$('mExp').onclick=()=>{
+  const idx=sharedIdx();if(!idx.length)return meshStat('nu oferi nimic: completează „Ofer colegilor” (ex. * pentru tot)');
+  const te=new TextEncoder(),files=idx.map((i,n)=>({name:`docs/${String(n).padStart(5,'0')}.json`,data:te.encode(JSON.stringify(docPayload(i)))}));
+  files.push({name:'manifest.json',data:te.encode(JSON.stringify({format:'tezaur-bundle/1',node:{id:ls.get('t.nid','')||(()=>{const v=Math.random().toString(16).slice(2,18);ls.set('t.nid',v);return v})(),name:meshName()},docs:idx.length}))});
+  const a=document.createElement('a');a.href=URL.createObjectURL(zipStore(files));a.download=`${safeOrigin(meshName())}.tzb`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+  meshStat(`${idx.length} documente în pachet (fără bibliografie: .bib se trimite separat)`)};
+$('mImp').onclick=()=>$('fTzb').click();
+$('fTzb').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const z=await unzip(await f.arrayBuffer()),man=JSON.parse(await z.read('manifest.json')||'null');
+    if(!man||man.format!=='tezaur-bundle/1')throw new Error('nu e un pachet TEZAUR');
+    const o=man.node&&man.node.name||'pachet';let added=0,held=0;
+    for(const n of z.names.filter(n=>/^docs\/.*\.json$/.test(n))){mergeDoc(o,JSON.parse(await z.read(n)))?added++:held++}
+    const bib=await z.read('refs.bib');if(bib){S.bibText=(S.bibText||[]).concat(bib);S.bib=S.bibText.flatMap(parseBib)}
+    meshStat(`din ${o}: `+await meshFinish(added,held))}catch(err){meshStat('eroare: '+err.message)}};
+
+/* server mode: peers live in the server (`tezaur serve`), which also answers federated queries */
+async function meshServerUI(){
+  $('mSrv').hidden=false;
+  const refresh=async()=>{try{const j=await(await srvFetch('/api/mesh/peers')).json();$('mPeers').textContent=j.peers.length?'Peers: '+j.peers.map(p=>p.name).join(', '):'Niciun peer. Adaugă unul (adresa unui alt `tezaur serve`).'}catch(e){}};
+  $('mAddPeer').onclick=async()=>{const name=(prompt('Nume peer:')||'').trim(),url=(prompt('Adresa lui (ex. http://192.168.1.20:8787 sau http://xxxx.onion):')||'').trim();if(!name||!url)return;
+    const token=prompt('Token (gol dacă nu are):')||null;const r=await srvFetch('/api/mesh/peers',{method:'POST',body:JSON.stringify({name,url,token})});
+    if(!r.ok)alert((await r.json()).error);refresh()};
+  $('mSrvPull').onclick=async()=>{meshStat('se trag documentele de la peers…');const r=await srvFetch('/api/mesh/pull',{method:'POST'}),j=await r.json();
+    meshStat(r.ok?`${j.added} documente noi, ${j.already_held} existente${j.errors.length?' · '+j.errors.join('; '):''}`:j.error);await loadServerLib()};
+  refresh();
+}
+
+/* ---------- voice: dictation (browser speech recognition) and reading answers aloud (local voices preferred) ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+$('mic').hidden=!SR;$('speak').hidden=!window.speechSynthesis;
+$('mic').onclick=()=>{
+  if(!ls.get('t.micok','')&&!confirm('Dictarea folosește recunoașterea vocală a browserului. În Chrome și Edge sunetul este trimis unui serviciu cloud al producătorului; în rest rămâne local. Continui?'))return;
+  ls.set('t.micok','1');const r=new SR();r.lang=$('lang').value.trim()||navigator.language;
+  r.onresult=e=>{$('q').value=(($('q').value?$('q').value+' ':'')+e.results[0][0].transcript).trim()};r.start()};
+$('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return}
+  const u=new SpeechSynthesisUtterance(lastText||''),lg=($('lang').value.trim()||navigator.language).slice(0,2).toLowerCase();
+  const v=s.getVoices().find(v=>v.localService&&v.lang.toLowerCase().startsWith(lg));if(v){u.voice=v;u.lang=v.lang}s.speak(u)};
+
+/* ---------- opened from a share sheet / link: ?q= or ?text= (PWA share target) ---------- */
+(()=>{try{const u=new URL(location.href),p=u.searchParams,q=p.get('q')||p.get('text');if(!q)return;
+  $('q').value=[p.get('title'),q,p.get('url')].filter(Boolean).join('\n').trim();
+  ['q','text','title','url'].forEach(k=>p.delete(k));history.replaceState(null,'',u.pathname+(p.toString()?'?'+p:''))}catch(e){}})();
+
+/* ---------- boot ---------- */
+(async()=>{
+  loadCfg();setMode('ask');
+  try{const d=await DB.get('index');if(d){S.docs=d.docs||[];S.chunks=d.chunks||[];S.bibText=d.bib||[];S.bib=S.bibText.flatMap(parseBib);S.only=new Set(S.docs.map((_,i)=>i));build()}}catch(e){}
+  renderLib();bibStat();
+  detectServer();
+})();
+</script>
+</body>
+</html>

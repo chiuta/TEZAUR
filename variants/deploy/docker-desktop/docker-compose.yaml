@@ -1,0 +1,10 @@
+services:
+  tezaur:
+    image: ${DESKTOP_PLUGIN_IMAGE}-server
+    volumes: [tezaur-data:/data]
+    ports: ["127.0.0.1:8787:8787"]
+    environment:
+      TEZAUR_INDEX: /data/tezaur.idx
+      TEZAUR_HOST: http://host.docker.internal:11434
+volumes:
+  tezaur-data:

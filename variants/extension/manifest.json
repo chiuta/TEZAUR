@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "TEZAUR",
+  "version": "1.1",
+  "description": "Asistent local de cercetare pentru teză, cu citări verificabile.",
+  "action": {
+    "default_title": "TEZAUR"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "permissions": [
+    "sidePanel",
+    "contextMenus"
+  ],
+  "side_panel": {
+    "default_path": "app/index.html"
+  }
+}

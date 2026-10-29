@@ -1,0 +1,43 @@
+### JetBrains HTTP Client / VS Code REST Client / httpyac. Set {{host}} and {{token}} in an environment file.
+@host = http://127.0.0.1:8787
+
+### Health
+GET {{host}}/api/health
+Authorization: Bearer {{token}}
+
+### Ask
+POST {{host}}/api/ask
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "q": "Who bears the burden of proof?", "mode": "ask", "k": 8 }
+
+### Search only (no model)
+POST {{host}}/api/search
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "q": "burden of proof", "k": 5 }
+
+### Sources and BibTeX keys
+GET {{host}}/api/sources
+Authorization: Bearer {{token}}
+
+### Bibliography as RIS / CSL JSON / BibTeX
+GET {{host}}/api/bib?fmt=ris
+Authorization: Bearer {{token}}
+
+### Mesh: what this node offers, search the peers
+GET {{host}}/api/mesh/manifest
+Authorization: Bearer {{token}}
+
+###
+GET {{host}}/api/search?q=burden&mesh=1
+Authorization: Bearer {{token}}
+
+
+### Audit a draft's citations (no model)
+POST {{host}}/api/audit
+Content-Type: application/json
+
+{"text": "The burden of proof lies with the assessing body [@lisbon_convention, p. 1]."}

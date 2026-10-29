@@ -1,0 +1,21 @@
+name: tezaur
+base: core22
+version: '0.1.0'
+summary: Local, citation-grounded research assistant for writing a thesis
+description: |
+  Indexes your books and articles and answers with citations drawn only from them,
+  using a local model server (Ollama, Jan, LM Studio). Also an MCP server.
+grade: stable
+confinement: strict
+architectures: [{ build-on: amd64 }]
+apps:
+  tezaur:
+    command: bin/tezaur
+    plugs: [home, network, removable-media]
+parts:
+  tezaur:
+    plugin: rust
+    source: https://github.com/chiuta/tezaur.git
+    source-tag: v0.1.0
+    build-packages: [pkg-config]
+    stage-packages: [poppler-utils]

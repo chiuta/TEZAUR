@@ -1,0 +1,47 @@
+[package]
+name = "tezaur"
+version = "0.3.0"
+edition = "2024"
+description = "Local, citation-grounded research assistant for writing a thesis"
+license = "MIT"
+authors = ["Alexio <alexio@trom.tf>"]
+homepage = "https://trom.tf"
+repository = "https://github.com/chiuta/tezaur"
+readme = "README.md"
+keywords = ["research", "thesis", "rag", "citations", "local-first"]
+categories = ["command-line-utilities", "text-processing"]
+exclude = ["/target", "/dist", "/android", "/variants", "/packaging", "/.github", "/Dockerfile", "/flake.nix", "/pwa", "/build-portable.*"]
+
+[[bin]]
+name = "tezaur"
+path = "src/main.rs"
+
+[[bin]]
+name = "TezaurPortable"
+path = "src/launcher.rs"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+
+[dependencies]
+anyhow = "1.0.104"
+bincode = "1"
+clap = { version = "4.6.7", features = ["derive", "env"] }
+pdf-extract = "0.12.1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ureq = { version = "2", features = ["json", "socks-proxy"] }
+tiny_http = "0.12"
+walkdir = "2.5.0"
+zip = { version = "9.1.3", default-features = false, features = ["deflate"] }
+
+[package.metadata.generate-rpm]
+assets = [
+  { source = "target/release/tezaur", dest = "/usr/bin/tezaur", mode = "755" },
+  { source = "README.md", dest = "/usr/share/doc/tezaur/README.md", mode = "644", doc = true },
+  { source = "tezaur.html", dest = "/usr/share/tezaur/tezaur.html", mode = "644" },
+]
+[package.metadata.generate-rpm.requires]
+poppler-utils = "*"

@@ -1,0 +1,5 @@
+OPTIONAL. Pentru un pachet complet independent de calculator, dezarhiveaza aici versiunea
+portabila Ollama pentru Windows (arhiva oficiala "ollama-windows-amd64.zip", de pe ollama.com),
+astfel incat sa existe  App\Ollama\ollama.exe.
+TezaurPortable.exe il porneste automat, tine modelele in Data\ollama\models si il opreste la iesire.
+Daca Ollama este deja instalat si ruleaza pe calculator, launcherul il foloseste pe acela.

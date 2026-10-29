@@ -1,0 +1,28 @@
+# Generate cargo-sources.json first (offline Flathub builds):
+#   pip install aiohttp toml && python3 flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+#   (flatpak-cargo-generator.py: https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
+# Build: flatpak-builder --user --install --force-clean build tf.trom.Tezaur.yml
+app-id: tf.trom.Tezaur
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions: [org.freedesktop.Sdk.Extension.rust-stable]
+command: tezaur
+finish-args:
+  - --share=network
+  - --filesystem=home
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env: { CARGO_HOME: /run/build/tezaur/cargo }
+modules:
+  - name: tezaur
+    buildsystem: simple
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml
+      - cargo --offline build --release --bin tezaur
+      - install -Dm755 target/release/tezaur /app/bin/tezaur
+    sources:
+      - type: git
+        url: https://github.com/chiuta/tezaur.git
+        tag: v0.1.0
+      - cargo-sources.json

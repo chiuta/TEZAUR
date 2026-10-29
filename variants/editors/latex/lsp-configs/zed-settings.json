@@ -1,0 +1,2 @@
+{ "lsp": { "tezaur": { "binary": { "path": "python3", "arguments": ["TEZAUR_TOOLS/tezaur_lsp.py"] } } },
+  "languages": { "Markdown": { "language_servers": ["tezaur", "..."] }, "LaTeX": { "language_servers": ["tezaur", "..."] } } }

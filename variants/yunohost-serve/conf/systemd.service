@@ -1,0 +1,25 @@
+[Unit]
+Description=TEZAUR server for __APP__
+After=network.target
+
+[Service]
+Type=simple
+User=__APP__
+Group=__APP__
+WorkingDirectory=__DATA_DIR__
+Environment=TEZAUR_INDEX=__DATA_DIR__/tezaur.idx
+Environment=TEZAUR_TOKEN=__TOKEN__
+Environment=TEZAUR_API=ollama
+Environment=TEZAUR_HOST=__MODEL_HOST__
+Environment=TEZAUR_MODEL=__MODEL_NAME__
+ExecStart=__INSTALL_DIR__/tezaur serve --bind 127.0.0.1 --port __PORT__ --workspaces __DATA_DIR__/workspaces
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=__DATA_DIR__
+
+[Install]
+WantedBy=multi-user.target

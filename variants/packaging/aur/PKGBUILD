@@ -1,0 +1,25 @@
+# Maintainer: Alexio <alexio@trom.tf>
+pkgname=tezaur
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Local, citation-grounded research assistant for writing a thesis"
+arch=('x86_64' 'aarch64')
+url="https://trom.tf"
+license=('MIT')
+depends=('gcc-libs')
+makedepends=('cargo')
+optdepends=('poppler: text extraction fallback for difficult PDFs')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/chiuta/tezaur/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "$pkgname-$pkgver"
+  cargo build --release --locked --bin tezaur
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm755 target/release/tezaur "$pkgdir/usr/bin/tezaur"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 tezaur.html "$pkgdir/usr/share/$pkgname/tezaur.html"
+}

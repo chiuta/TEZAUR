@@ -1,0 +1,27 @@
+name: docker-images
+# Publishes two images to GitHub Container Registry:
+#   ghcr.io/<owner>/tezaur-server  (Rust server: web app + API + OCR + model proxy)
+#   ghcr.io/<owner>/tezaur-web     (static page + nginx proxy, see variants/docker)
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions: { contents: read, packages: write }
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr 'A-Z' 'a-z')
+          docker build -t ghcr.io/$OWNER/tezaur-server:latest .
+          python3 variants/build-web.py variants/docker/site
+          cp pwa/manifest.webmanifest pwa/sw.js pwa/icon-*.png variants/docker/site/
+          docker build -t ghcr.io/$OWNER/tezaur-web:latest variants/docker
+          docker push ghcr.io/$OWNER/tezaur-server:latest
+          docker push ghcr.io/$OWNER/tezaur-web:latest

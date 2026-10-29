@@ -1,0 +1,13 @@
+# Podman Quadlet (systemd-managed container). Rootless: cp to ~/.config/containers/systemd/ && systemctl --user daemon-reload && systemctl --user start tezaur
+[Unit]
+Description=TEZAUR
+
+[Container]
+Image=ghcr.io/chiuta/tezaur:latest
+PublishPort=127.0.0.1:8787:8787
+Volume=tezaur-data:/data:Z
+Environment=TEZAUR_INDEX=/data/tezaur.idx
+Environment=TEZAUR_HOST=http://host.containers.internal:11434
+
+[Install]
+WantedBy=default.target

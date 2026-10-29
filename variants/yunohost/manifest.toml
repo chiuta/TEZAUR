@@ -1,0 +1,45 @@
+packaging_format = 2
+
+id = "tezaur"
+name = "TEZAUR"
+description.en = "Local, citation-grounded research assistant for writing a thesis (static web app; your documents stay in your browser)."
+description.fr = "Assistant de recherche local pour rédiger une thèse, avec citations vérifiables (application web statique)."
+
+version = "1.0~ynh1"
+
+maintainers = ["Alexio"]
+
+[upstream]
+license = "free"
+website = "https://trom.tf"
+
+[integration]
+yunohost = ">= 12.0.0"
+helpers_version = "2.1"
+architectures = "all"
+multi_instance = true
+ldap = false
+sso = false
+disk = "20M"
+ram.build = "10M"
+ram.runtime = "10M"
+
+[install]
+    [install.domain]
+    type = "domain"
+
+    [install.path]
+    type = "path"
+    default = "/tezaur"
+
+    [install.init_main_permission]
+    type = "group"
+    default = "visitors"
+
+[resources]
+    [resources.system_user]
+
+    [resources.install_dir]
+
+    [resources.permissions]
+    main.url = "/"

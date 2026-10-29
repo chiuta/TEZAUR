@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TEZAUR</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="app">
+<aside>
+  <h1>TEZAUR</h1>
+  <div class="sub">asistent de cercetare pentru teză · local · cu citări verificabile</div>
+
+  <h2>Bibliotecă</h2>
+  <div class="row"><button id="addFiles">+ Fișiere</button><button id="addDir" class="alt">+ Folder</button></div>
+  <input type="file" id="fFiles" multiple hidden accept=".pdf,.docx,.epub,.txt,.md,.markdown,.html,.htm,.tex">
+  <input type="file" id="fDir" webkitdirectory hidden>
+  <div class="small" id="status">Biblioteca e goală.</div>
+  <ul class="docs" id="docs"></ul>
+  <div class="row"><button class="alt" id="selAll">Toate</button><button class="alt" id="selNone">Niciuna</button><button class="alt" id="clearAll">Șterge tot</button></div>
+  <div class="small">Bifează documentele la care se restrânge căutarea (ca <code>--only</code>).</div>
+
+  <h2>BibTeX (Zotero)</h2>
+  <button class="alt" id="addBib">Încarcă .bib</button>
+  <input type="file" id="fBib" multiple hidden accept=".bib,.bibtex,.txt">
+  <div class="small" id="bibStatus">Fără BibTeX: citările folosesc titlul fișierului.</div>
+
+  <h2>Model local</h2>
+  <label>Server</label>
+  <select id="api"><option value="ollama">Ollama</option><option value="jan">Jan</option><option value="openai">OpenAI-compatibil (LM Studio, llama.cpp…)</option></select>
+  <label>Adresă</label><input id="host">
+  <label>Model</label>
+  <div class="row"><select id="modelSel"></select><button class="alt" id="listModels">Listează</button></div>
+  <input id="model" placeholder="sau scrie numele modelului" style="margin-top:6px">
+  <label>Cheie API (opțional)</label><input id="key" type="password" autocomplete="off">
+  <label>Context (num_ctx, doar Ollama)</label><input id="numctx" type="number" value="8192">
+  <div class="row" style="margin-top:8px"><button class="alt" id="doctor">Verifică conexiunea</button></div>
+  <div id="doctorOut" class="small"></div>
+</aside>
+
+<main>
+  <div class="tabs" id="tabs"></div>
+  <div class="card">
+    <div id="modeHelp" class="small" style="margin-bottom:8px"></div>
+    <div id="fInput"><textarea id="q" rows="3" placeholder="Întrebarea / tema…"></textarea></div>
+    <div id="fNotes" hidden><label>Note ale tale (opțional)</label><textarea id="notes" rows="3"></textarea></div>
+    <div class="row">
+      <div id="fKind" hidden><label>Tip</label><select id="kind"><option value="section">secțiune</option><option value="introduction">introducere</option><option value="lit-review">recenzie de literatură</option><option value="critical-review">recenzie critică</option></select></div>
+      <div id="fDoc" hidden><label>Document</label><select id="docSel"></select></div>
+      <div><label>Pasaje (k)</label><input id="k" type="number" value="8" min="1" max="30"></div>
+      <div><label>Limba răspunsului</label><input id="lang" placeholder="ca în cerere"></div>
+    </div>
+    <label id="fDec"><input type="checkbox" id="dec" style="width:auto"> descompune întrebarea în mai multe interogări (mai lent)</label>
+    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><span class="small" id="runInfo"></span></div>
+  </div>
+
+  <div class="card" id="resCard" hidden>
+    <div id="warns"></div>
+    <div class="out" id="out"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="alt" id="copy">Copiază</button><button class="alt" id="dlMd">Descarcă .md</button><button class="alt" id="dlTsv" hidden>Descarcă .tsv (Anki)</button>
+    </div>
+  </div>
+  <div class="card" id="srcCard" hidden><h2 style="margin-top:0">Pasaje folosite</h2><div id="src"></div><div id="refs" class="small"></div></div>
+  <p class="small">TEZAUR verifică mecanic existența citărilor, nu dacă pasajul susține afirmația. Deschide pagina citată.</p>
+</main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
