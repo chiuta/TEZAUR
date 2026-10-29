@@ -1,0 +1,21 @@
+# Self-hosted reverse proxy in front of GitHub Pages (or serve the files yourself).
+# Caddy gets and renews the TLS certificate on its own.
+tezaur.chiuta.ro, www.tezaur.chiuta.ro {
+	@www host www.tezaur.chiuta.ro
+	redir @www https://tezaur.chiuta.ro{uri} permanent
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), geolocation=(), payment=(), usb=()"
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	@deck path /
+	header @deck Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+	reverse_proxy https://chiuta.github.io {
+		header_up Host chiuta.github.io
+	}
+}
