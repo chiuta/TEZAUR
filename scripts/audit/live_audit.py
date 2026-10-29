@@ -48,7 +48,7 @@ for k in ("strict-transport-security", "content-security-policy", "x-content-typ
     meta = {"content-security-policy": 'http-equiv="Content-Security-Policy"', "referrer-policy": 'name="referrer"'}.get(k)
     if meta and meta in html: note("header-meta", f"{k} absent as header, present as <meta>")
     else: warn("header-missing", f"{k} absent on / (GitHub Pages cannot set it; needs a proxy/CDN)")
-n_sl = len(re.findall(r'<section class="slide"', html)); ctr = re.findall(r'id="count"[^>]*>([^<]*)', html)
+n_sl = len(re.findall(r'<section class="slide[ "]', html)); ctr = re.findall(r'id="count"[^>]*>([^<]*)', html)
 if not n_sl or not ctr or not ctr[0].strip().endswith(f"/ {n_sl:02d}"): bad("counter", f"static counter {ctr} does not match {n_sl} slides")
 for need in ('rel="canonical"', 'property="og:title"', 'rel="icon"', 'id="vid"'):
     if need not in html: bad("metadata", f"missing {need}")

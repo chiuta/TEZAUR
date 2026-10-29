@@ -20,12 +20,13 @@ with sync_playwright() as p:
     info = pg.evaluate("""()=>{const v=document.querySelector('#vgrid video');if(!v)return null;return {n:document.querySelectorAll('#vgrid video').length,mp4:v.canPlayType('video/mp4; codecs="avc1.42E01E"'),tracks:v.textTracks.length}}""")
     if not info: bad("video-section", "no #vgrid video on the live page"); sys.exit(0)
     note("video-support", info)
-    for k in (0, 4, 12):
+    for k in range(13):
         r = pg.evaluate("""async k=>{const v=document.querySelectorAll('#vgrid video')[k];v.muted=true;v.load();
             await new Promise(r=>{v.onloadedmetadata=r;v.onerror=r;setTimeout(r,15000)});
             let pl='';try{await v.play();await new Promise(r=>setTimeout(r,2500))}catch(e){pl=String(e)}
+            const st={rs:v.readyState,ns:v.networkState,paused:v.paused,dur:v.duration,buf:v.buffered.length?v.buffered.end(0):0};
             const tr=[...v.textTracks].map(t=>t.language+':'+t.mode+':'+(t.cues?t.cues.length:'null'));
-            const o={k,t:v.currentTime,err:v.error&&v.error.code,play:pl,tracks:tr.join(' ')};v.pause();return o}""", k)
+            const o={k,id:v.dataset.id,st,t:v.currentTime,err:v.error&&v.error.code,play:pl,tracks:tr.join(' ')};v.pause();return o}""", k)
         (note if r["t"] > 0.5 and not r["err"] else bad)("video-%d" % k, r)
     pg.click("#vlang button[data-l=fr]"); pg.wait_for_timeout(600)
     r = pg.evaluate("[...document.querySelector('#vgrid video').textTracks].filter(t=>t.mode==='showing').map(t=>t.language)")
