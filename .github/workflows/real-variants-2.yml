@@ -83,6 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read, packages: read }
     steps:
+      - uses: actions/checkout@v4
       - uses: docker/login-action@v3
         with: { registry: ghcr.io, username: '${{ github.actor }}', password: '${{ secrets.GITHUB_TOKEN }}' }
       - name: pull the published images and run them
