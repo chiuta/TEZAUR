@@ -206,6 +206,7 @@ jobs:
             $j.PSObject.Properties.Remove("autoupdate"); $j.PSObject.Properties.Remove("checkver")
             $j | ConvertTo-Json -Depth 5 | Set-Content tezaur-ci.json
             $srv = Start-Process python -ArgumentList "-m","http.server","8099" -PassThru; Start-Sleep 3
+            Write-Host (Get-Command scoop | Out-String); Write-Host (scoop --version | Out-String); Write-Host (Get-Content tezaur-ci.json | Out-String)
             $out = (scoop install ./tezaur-ci.json 2>&1 | Out-String); Write-Host $out
             if (-not (scoop prefix tezaur)) { throw $out }
             $pre = scoop prefix tezaur; Write-Host "installed at $pre"; Get-ChildItem $pre
