@@ -1,0 +1,220 @@
+name: real-variants
+# Runs the distribution variants that cannot be run in the offline sandbox, on real GitHub runners with the real tools.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['variants/**', 'packaging/**', 'flake.nix', 'Dockerfile', '.github/workflows/real-variants.yml', 'src/**', 'Cargo.*']
+env:
+  REPO: ${{ github.repository }}
+  OWNER: ${{ github.repository_owner }}
+jobs:
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+      - name: nix build + run the packaged binary
+        run: bash .github/annotate.sh bash -c 'nix build .#tezaur -L && ./result/bin/tezaur --version && nix-instantiate --parse variants/deploy/nix/nixos-module.nix >/dev/null'
+
+  flatpak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder
+      - run: flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: build the Flatpak from this checkout (placeholder source replaced by the local tree)
+        run: |
+          pip install aiohttp toml tomlkit
+          curl -sSLo fcg.py https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
+          python3 fcg.py Cargo.lock -o cargo-sources.json
+          python3 - <<'EOF'
+          import re
+          s = open('variants/packaging/flatpak/tf.trom.Tezaur.yml').read()
+          s = re.sub(r'- type: git\n\s+url: [^\n]+\n(\s+tag: [^\n]+\n)?(\s+branch: [^\n]+\n)?', '- type: dir\n        path: .\n', s)
+          open('flatpak-ci.yml', 'w').write(s)
+          EOF
+          cat flatpak-ci.yml
+          bash .github/annotate.sh flatpak-builder --user --force-clean --install-deps-from=flathub --install build flatpak-ci.yml
+      - run: flatpak run tf.trom.Tezaur --version || flatpak run --command=tezaur tf.trom.Tezaur --version
+
+  snap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: use the local tree as the snap source
+        run: |
+          mkdir -p snap && python3 - <<'EOF'
+          import re
+          s = open('variants/packaging/snap/snapcraft.yaml').read()
+          s = re.sub(r'source: https://[^\n]+', 'source: .', s)
+          s = re.sub(r'\n\s+source-tag: [^\n]+', '', s)
+          open('snap/snapcraft.yaml', 'w').write(s)
+          EOF
+          cat snap/snapcraft.yaml
+      - uses: snapcore/action-build@v1
+        id: build
+      - run: |
+          sudo snap install --dangerous --classic ${{ steps.build.outputs.snap }} 2>&1 || sudo snap install --dangerous ${{ steps.build.outputs.snap }}
+          tezaur --version
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - uses: helm/kind-action@v1
+      - name: lint + template
+        run: bash .github/annotate.sh bash -c 'helm lint variants/deploy/helm/tezaur --set token=x && helm template t variants/deploy/helm/tezaur --set token=x >/dev/null'
+      - name: build the image, load it into kind, install the chart, wait for the pod, call the API
+        run: |
+          docker build -t tezaur:ci .
+          kind load docker-image tezaur:ci --name chart-testing
+          bash .github/annotate.sh bash -c '
+            helm install t variants/deploy/helm/tezaur --set token=x --set image.repository=tezaur --set image.tag=ci --set image.pullPolicy=Never --wait --timeout 150s &&
+            kubectl get pods -o wide &&
+            kubectl port-forward svc/t-tezaur 8787:8787 & sleep 6;
+            curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health'
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: main image
+        run: |
+          docker build -t tezaur:ci .
+          docker run -d --name t -p 8787:8787 -e TEZAUR_TOKEN=x tezaur:ci
+          sleep 5; bash .github/annotate.sh curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health
+          docker rm -f t
+      - name: static web image (nginx) + compose file
+        run: |
+          python3 variants/build-web.py variants/docker/site
+          docker build -t tezaur-web:ci variants/docker
+          docker run -d --name w -p 8080:80 tezaur-web:ci
+          sleep 3; bash .github/annotate.sh curl -sf http://127.0.0.1:8080/index.html -o /dev/null
+          docker compose -f variants/docker/docker-compose.yml config -q
+      - name: Docker Desktop extension image builds
+        run: bash .github/annotate.sh docker build -t tezaur-ext:ci -f variants/deploy/docker-desktop/Dockerfile .
+
+  quadlet:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t localhost/tezaur:ci .
+      - name: Quadlet dry-run with the real generator, then run the generated unit
+        run: |
+          sudo apt-get update && sudo apt-get install -y podman
+          sed -i "s#ghcr.io/OWNER/tezaur:latest#localhost/tezaur:ci#; s#^Image=.*#Image=localhost/tezaur:ci#" variants/deploy/quadlet/tezaur.container
+          mkdir -p ~/.config/containers/systemd && cp variants/deploy/quadlet/tezaur.container ~/.config/containers/systemd/
+          docker save localhost/tezaur:ci | podman load
+          export XDG_RUNTIME_DIR=/run/user/$(id -u)
+          sudo loginctl enable-linger $USER; sleep 2
+          bash .github/annotate.sh bash -c '/usr/lib/systemd/user-generators/podman-user-generator /tmp/qout /tmp/qout /tmp/qout 2>&1; /usr/libexec/podman/quadlet -dryrun -user 2>&1 || /usr/lib/podman/quadlet -dryrun -user'
+          systemctl --user daemon-reload
+          systemctl --user start tezaur.service; sleep 6
+          systemctl --user status tezaur.service --no-pager | head -12
+          podman ps
+
+  mediawiki:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: real MediaWiki (sqlite) with the extension loaded and the parser tag exercised
+        run: |
+          docker run -d --name mw -p 8081:80 -v $PWD/variants/cms/mediawiki/Tezaur:/var/www/html/extensions/Tezaur mediawiki:1.42
+          sleep 10
+          docker exec mw php maintenance/run.php install --dbtype sqlite --dbpath /var/www/data --pass 'Aa1!aaaaaaaa1' --server http://127.0.0.1:8081 --scriptpath "" TezaurWiki Admin
+          docker exec mw bash -c 'echo "wfLoadExtension( \"Tezaur\" );" >> LocalSettings.php'
+          docker cp mw:/var/www/html/LocalSettings.php ./LocalSettings.php
+          bash .github/annotate.sh bash -c 'docker exec mw php maintenance/run.php version && curl -s "http://127.0.0.1:8081/index.php?title=Special:Version" | grep -i tezaur'
+
+  zotero:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: real Zotero 7 under Xvfb with the plugin installed in a fresh profile
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libdbus-glib-1-2 libasound2t64 zip
+          curl -sSL "https://www.zotero.org/download/client/dl?channel=release&platform=linux-x86_64" -o z.tar.xz || true
+          file z.tar.xz; mkdir z && tar -xf z.tar.xz -C z --strip-components=1 || tar -xjf z.tar.xz -C z --strip-components=1
+          ID=$(python3 -c "import json;print(json.load(open('variants/editors/zotero/manifest.json'))['applications']['zotero']['id'])")
+          (cd variants/editors/zotero && zip -qr ../../../p.xpi .)
+          mkdir -p prof/extensions && cp p.xpi "prof/extensions/$ID.xpi"
+          xvfb-run -a timeout 60 z/zotero -profile "$PWD/prof" -no-remote -ZoteroDebugText > z.log 2>&1 || true
+          grep -i "tezaur" z.log | head -20
+          bash .github/annotate.sh bash -c 'grep -qi tezaur z.log'
+
+  firefox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash variants/build-extension.sh && ls dist
+      - name: real Firefox installs the add-on and the content script runs on a page
+        run: |
+          pip install selenium
+          bash .github/annotate.sh python3 variants/tests/test_firefox_real.py
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+      - name: Inno Setup installer built, installed silently, binary run
+        shell: bash
+        run: |
+          mkdir -p dist && cp target/release/tezaur.exe dist/ && cp tezaur.html dist/ || true
+          choco install innosetup -y --no-progress
+          curl -sSLo "/c/Program Files (x86)/Inno Setup 6/Languages/Romanian.isl" https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/Languages/Unofficial/Romanian.isl || true
+          bash .github/annotate.sh "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" variants/windows/tezaur.iss
+          ls variants/windows
+      - name: MSIX package built with makeappx
+        shell: pwsh
+        run: |
+          $mk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter makeappx.exe | Select-Object -First 1
+          New-Item -ItemType Directory -Force pk | Out-Null
+          Copy-Item variants/deploy/msix/AppxManifest.xml pk/
+          Copy-Item target/release/tezaur.exe pk/
+          & $mk.FullName pack /d pk /p t.msix /nv
+      - name: winget manifests validated
+        shell: pwsh
+        run: winget validate --manifest variants/packaging/winget
+      - name: Scoop manifest installs
+        shell: pwsh
+        run: |
+          iwr -useb get.scoop.sh -outfile i.ps1; .\i.ps1 -RunAsAdmin
+          scoop bucket list
+          scoop-check 2>$null; Get-Content variants/packaging/scoop/tezaur.json | ConvertFrom-Json | Out-Null
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Homebrew formula and cask audited/styled by real brew
+        run: |
+          brew tap-new local/t
+          cp variants/packaging/homebrew/tezaur.rb "$(brew --repository local/t)/Formula/tezaur.rb"
+          mkdir -p "$(brew --repository local/t)/Casks" && cp variants/deploy/cask/tezaur.rb "$(brew --repository local/t)/Casks/tezaur.rb"
+          sed -i '' "s#OWNER/tezaur#$REPO#g" "$(brew --repository local/t)/Formula/tezaur.rb"
+          bash .github/annotate.sh brew style local/t/tezaur
+          bash .github/annotate.sh brew install --HEAD --build-from-source local/t/tezaur
+          tezaur --version
+      - name: iOS app (WKWebView) builds for the simulator with xcodebuild
+        run: |
+          brew install xcodegen
+          cd variants/ios && xcodegen
+          bash ../../.github/annotate.sh xcodebuild -project Tezaur.xcodeproj -scheme Tezaur -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+
+  arch:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - run: pacman -Syu --noconfirm git cargo poppler tesseract
+      - uses: actions/checkout@v4
+      - name: makepkg with the PKGBUILD against the local tarball
+        run: |
+          useradd b && mkdir /b && cp variants/packaging/aur/PKGBUILD /b/ && chown -R b /b
+          git archive --prefix=tezaur-0.4.0/ HEAD | gzip > /b/tezaur-0.4.0.tar.gz
+          cd /b && sed -i 's#^source=.*#source=("$pkgname-$pkgver.tar.gz")#; s#^pkgver=.*#pkgver=0.4.0#' PKGBUILD
+          bash $GITHUB_WORKSPACE/.github/annotate.sh su b -c 'cd /b && makepkg --noconfirm --skipchecksums -f'
+          ls /b/*.pkg.tar.*
