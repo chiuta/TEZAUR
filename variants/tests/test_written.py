@@ -2,7 +2,7 @@
 """Variants that used to be 'written, not run': each is exercised against the REAL tool where one can be installed here
 (Emacs, Neovim, LyX under Xvfb, Streamlit, Gradio, Marimo, nginx, Tor, rpm, web-ext, shellcheck, systemd-analyze).
 A check is SKIPped (not failed) when its tool is missing. Model answers come from a fake Ollama; speech engines are mocked.
-NOT covered: Nix, Snap/Flatpak builds, Helm, Quadlet, Docker Hub images, Zotero, MediaWiki, real Firefox/Windows/macOS/iOS/Android."""
+NOT covered here (see .github/workflows/real-variants.yml for what runs on GitHub runners): Nix, Snap/Flatpak, Helm, Quadlet, Docker, Zotero, MediaWiki, Firefox, Windows, macOS/iOS, Arch."""
 import json, os, shutil, subprocess, sys, tempfile, time, socket, urllib.request, tomllib, glob
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 BIN = os.environ.get("TEZAUR_BIN") or os.path.join(ROOT, "target", "release", "tezaur")

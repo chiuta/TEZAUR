@@ -145,3 +145,21 @@ Bug-uri reale găsite și reparate prin rulare:
 
 Încă nerulate (instrumente indisponibile aici): Nix, Snap/Flatpak, Helm, Quadlet, imaginile Docker Hub, Zotero, MediaWiki,
 Firefox/Windows/macOS/iOS/Android reale, microfon real.
+
+## Runda 0.4.2 — tot ce nu se putea rula local, rulat pe runnere GitHub
+
+`.github/workflows/real-variants.yml` rulează pe mașini reale: Nix (build), Flatpak și Snap (build + rulare), Helm (cluster kind), Docker (imagini construite și rulate; Docker Desktop extension), Podman Quadlet,
+MediaWiki 1.42 (tag randat prin API contra unui server TEZAUR real), Zotero 10 real sub Xvfb, Firefox real (selenium), Windows (Inno Setup instalat silențios, MSIX, winget validate, Scoop), macOS (Homebrew, iOS prin xcodebuild), Arch (makepkg).
+
+Bug-uri reale găsite doar prin rulare:
+- `Dockerfile`: imagine construită pe Debian trixie, rulată pe bookworm → `GLIBC_2.39 not found`; acum build pe `rust:1-slim-bookworm`. `ENTRYPOINT` + `args` din Helm dublau `--bind` → ENTRYPOINT/CMD separate.
+- Helm: sonda de readiness lovea `/api/health` fără token (401) → `tcpSocket`.
+- nginx (Docker): nu pornea dacă `ollama` nu se rezolva → rezolvare per cerere cu `resolver`.
+- Nix: nixpkgs 24.05 avea cargo prea vechi (edition 2024) și `poppler_utils` e redenumit → `nixos-unstable`, `poppler-utils`.
+- Flatpak: runtime 23.08 cu Rust prea vechi → 25.08.
+- AUR: LTO strică `ring` → `options=('!lto')`.
+- Zotero: pluginul era dezactivat ca incompatibil (`strict_max_version` 7.*, Zotero e la 10.x) → fără plafon.
+- Homebrew cask: erori `brew style`; winget/Scoop: placeholdere invalide.
+- Docker Desktop extension: imaginea de bază era hardcodată → `ARG SERVER_IMAGE`.
+
+Rămân nerulate: iOS pe dispozitiv, APK instalat pe telefon, Tauri lansat, imaginile publicate pe Docker Hub/ghcr trase de pe registry, F-Droid, TeXstudio/Geany/Kate/Helix/Zed, microfon real.
