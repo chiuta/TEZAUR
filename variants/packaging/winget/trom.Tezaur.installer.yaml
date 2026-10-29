@@ -7,7 +7,7 @@ NestedInstallerFiles:
     PortableCommandAlias: tezaur
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/chiuta/tezaur/releases/download/v0.1.0/tezaur-windows.zip
+    InstallerUrl: https://github.com/OWNER/tezaur/releases/download/v0.1.0/tezaur-windows.zip
     InstallerSha256: SHA256-OF-WINDOWS-ZIP
 ManifestType: installer
 ManifestVersion: 1.6.0

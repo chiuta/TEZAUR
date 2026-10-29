@@ -15,7 +15,7 @@ apps:
 parts:
   tezaur:
     plugin: rust
-    source: https://github.com/chiuta/tezaur.git
+    source: https://github.com/OWNER/tezaur.git
     source-tag: v0.1.0
     build-packages: [pkg-config]
     stage-packages: [poppler-utils]

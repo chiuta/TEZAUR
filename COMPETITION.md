@@ -40,7 +40,7 @@ O comparație independentă (PromptQuorum, august 2026, un singur corp de 5.047 
 | **Descoperire de literatură** (căutare în sute de milioane de lucrări, OpenAlex/Semantic Scholar) | Elicit, Consensus, Atlas, SciSpace, Research Rabbit |
 | **Contextul citărilor** (cine a infirmat această lucrare) | Scite |
 | **Verificarea existenței referințelor în baze externe** (Crossref/OpenAlex) | Acurio, CiteCheck, Scite — la mine lipsește; ar fi completarea naturală a `audit` |
-| **Parsare bună a PDF-urilor** (tabele, ecuații, figuri, layout) | llm-for-zotero (MinerU); TEZAUR extrage text simplu |
+| **Parsare bună a PDF-urilor** (tabele, ecuații, figuri, layout) | llm-for-zotero (MinerU). TEZAUR (v0.4) are doar o euristică peste stratul de text poppler: tabele cu coloane clare și ecuații pe o linie, nu fracții suprapuse, matrici, tabele-imagine sau OCR de tip Nougat/MinerU |
 | **Mod agent**, scriere de note/etichete în Zotero | llm-for-zotero |
 | **Interfață lustruită, utilizatori, comunitate, actualizări** | toți ceilalți; TEZAUR are un singur autor și zero utilizatori externi |
 | **Calitate de răspuns demonstrată cu modele reale** | AnythingLLM etc. au măsurători (oricât de grosiere); TEZAUR nu a rulat cu un model real |

@@ -1,12 +1,12 @@
 [package]
 name = "tezaur"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "Local, citation-grounded research assistant for writing a thesis"
 license = "MIT"
 authors = ["Alexio <alexio@trom.tf>"]
 homepage = "https://trom.tf"
-repository = "https://github.com/chiuta/tezaur"
+repository = "https://github.com/OWNER/tezaur" # placeholder
 readme = "README.md"
 keywords = ["research", "thesis", "rag", "citations", "local-first"]
 categories = ["command-line-utilities", "text-processing"]

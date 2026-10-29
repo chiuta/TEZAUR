@@ -2,7 +2,7 @@
 # TEZAUR on an Android phone, inside Termux (F-Droid build of Termux). Builds the real Rust server with OCR, no APK needed.
 set -e
 pkg update -y && pkg install -y rust git poppler tesseract termux-services
-if [ -d tezaur ]; then cd tezaur; else git clone https://github.com/chiuta/tezaur && cd tezaur; fi
+if [ -d tezaur ]; then cd tezaur; else git clone https://github.com/OWNER/tezaur && cd tezaur; fi
 cargo install --path . --root "$PREFIX"
 mkdir -p "$HOME/tezaur-data"
 mkdir -p "$PREFIX/var/service/tezaur" && cat > "$PREFIX/var/service/tezaur/run" <<RUN

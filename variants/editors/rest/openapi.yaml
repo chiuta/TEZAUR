@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: TEZAUR server API
-  version: 0.3.0
+  version: 0.4.0
   description: >
     `tezaur serve` JSON API. Every endpoint except `GET /` needs `Authorization: Bearer <token>` (or `?token=`) when the server
     was started with a token. Add `?ws=NAME` to address a workspace.

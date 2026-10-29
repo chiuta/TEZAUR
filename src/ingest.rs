@@ -356,6 +356,18 @@ pub fn read_pages(path: &Path) -> Result<Vec<(usize, String)>> {
                 Some(_) => {}
                 None => eprintln!("  (no text layer; install tesseract + poppler to OCR it automatically)"),
             }
+        } else if crate::pdfx::enabled() {
+            // Advanced reading: on pages where the layout shows a table or a display equation, store them as Markdown / LaTeX-style text.
+            if let Some(lp) = crate::pdfx::layout_pages(path) {
+                if lp.len() == pages.len() {
+                    for (i, l) in lp.iter().enumerate() {
+                        let items = crate::pdfx::parse_page(l);
+                        if crate::pdfx::has_structure(&items) {
+                            pages[i] = crate::pdfx::render(&items);
+                        }
+                    }
+                }
+            }
         }
         return Ok(pages.into_iter().enumerate().map(|(i, t)| (i + 1, t)).collect());
     }
@@ -476,7 +488,7 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
     let mut new_chunks = Vec::new();
     let doc_id = store.docs.len();
     for (page, text) in pages {
-        for c in chunk_words(&text, CHUNK_WORDS, OVERLAP_WORDS) {
+        for c in crate::pdfx::chunk_page(&text, CHUNK_WORDS, OVERLAP_WORDS, &chunk_words) {
             new_chunks.push(Chunk { doc: doc_id, page, text: c, emb: None });
         }
     }

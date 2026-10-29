@@ -11,8 +11,8 @@ maintainers = ["Alexio"]
 
 [upstream]
 license = "MIT"
-website = "https://github.com/chiuta/tezaur"
-code = "https://github.com/chiuta/tezaur"
+website = "https://github.com/OWNER/tezaur"
+code = "https://github.com/OWNER/tezaur"
 
 [integration]
 yunohost = ">= 12.0.0"
@@ -47,7 +47,7 @@ ram.runtime = "150M"
 
 [resources]
     [resources.sources.main]
-    amd64.url = "https://github.com/chiuta/tezaur/releases/download/v0.1.0/tezaur-linux-x86_64"
+    amd64.url = "https://github.com/OWNER/tezaur/releases/download/v0.1.0/tezaur-linux-x86_64"
     amd64.sha256 = "REPLACE_WITH_SHA256"
     format = "whatever"
     in_subdir = false

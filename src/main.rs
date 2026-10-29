@@ -20,6 +20,7 @@ mod mesh;
 mod sha256;
 mod audit;
 mod eval;
+mod pdfx;
 mod online;
 
 use anyhow::{bail, Result};
@@ -310,6 +311,27 @@ enum Cmd {
     /// Measure retrieval on your own library: a JSONL of {"q","doc","page"?} lines → recall@1/3/10 and MRR. No model needed.
     Eval {
         file: PathBuf,
+        #[arg(long)]
+        json: bool,
+    },
+    /// Tables found in a PDF (aligned columns in the text layer), as Markdown, CSV (`-o DIR` writes one file per table) or JSON. Heuristic; needs poppler's pdftotext.
+    Tables {
+        file: PathBuf,
+        #[arg(long)]
+        page: Option<usize>,
+        #[arg(long)]
+        csv: bool,
+        #[arg(long)]
+        json: bool,
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
+    /// Display equations found in a PDF, as LaTeX-style text with their numbers. Heuristic: single-line equations, big operators with limits;
+    /// stacked fractions and matrices are not reconstructed. Needs poppler's pdftotext.
+    Equations {
+        file: PathBuf,
+        #[arg(long)]
+        page: Option<usize>,
         #[arg(long)]
         json: bool,
     },
@@ -964,6 +986,46 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let cases = eval::parse_cases(&std::fs::read_to_string(file)?).map_err(|e| anyhow::anyhow!(e))?;
             let v = eval::evaluate(&store, &bib, &cases, &|q| embed_query(ctx, &store, q));
             if *json { println!("{}", serde_json::to_string_pretty(&v)?) } else { print!("{}", eval::markdown(&v)) }
+        }
+
+        Cmd::Tables { file, page, csv, json, out } => {
+            let pages = pdfx::layout_pages(file).ok_or_else(|| anyhow::anyhow!("pdftotext (poppler) is required: could not read {}", file.display()))?;
+            let mut all: Vec<(usize, usize, pdfx::Table)> = Vec::new();
+            for (pi, l) in pages.iter().enumerate() {
+                if page.map(|p| p != pi + 1).unwrap_or(false) { continue; }
+                let mut k = 0;
+                for it in pdfx::parse_page(l) {
+                    if let pdfx::Item::Table(t) = it { k += 1; all.push((pi + 1, k, t)); }
+                }
+            }
+            if let Some(dir) = out {
+                std::fs::create_dir_all(dir)?;
+                for (p, k, t) in &all { std::fs::write(dir.join(format!("table-p{p}-{k}.csv")), t.to_csv())?; }
+                eprintln!("wrote {} CSV files to {}", all.len(), dir.display());
+            } else if *json {
+                println!("{}", serde_json::to_string_pretty(&all.iter().map(|(p, k, t)| serde_json::json!({"page": p, "n": k, "caption": t.caption, "rows": t.rows})).collect::<Vec<_>>())?);
+            } else {
+                for (p, k, t) in &all {
+                    if *csv { println!("# page {p}, table {k}{}\n{}", t.caption.as_ref().map(|c| format!(": {c}")).unwrap_or_default(), t.to_csv()); }
+                    else { println!("<!-- page {p}, table {k} -->\n{}", t.to_markdown()); }
+                }
+            }
+            if all.is_empty() { eprintln!("no tables found (scanned PDFs, tables drawn as images and two-column prose are not detected)"); }
+        }
+
+        Cmd::Equations { file, page, json } => {
+            let pages = pdfx::layout_pages(file).ok_or_else(|| anyhow::anyhow!("pdftotext (poppler) is required: could not read {}", file.display()))?;
+            let mut n = 0;
+            let mut rows = Vec::new();
+            for (pi, l) in pages.iter().enumerate() {
+                if page.map(|p| p != pi + 1).unwrap_or(false) { continue; }
+                for it in pdfx::parse_page(l) {
+                    if let pdfx::Item::Equation(e) = it { n += 1; rows.push((pi + 1, e)); }
+                }
+            }
+            if *json { println!("{}", serde_json::to_string_pretty(&rows.iter().map(|(p, e)| serde_json::json!({"page": p, "latex": e.latex, "tag": e.tag})).collect::<Vec<_>>())?); }
+            else { for (p, e) in &rows { println!("p. {p}{}: $$ {} $$", e.tag.as_ref().map(|t| format!(", eq. {t}")).unwrap_or_default(), e.latex); } }
+            if n == 0 { eprintln!("no display equations found"); }
         }
 
         Cmd::Lit { query, n, bibtex, json } => {

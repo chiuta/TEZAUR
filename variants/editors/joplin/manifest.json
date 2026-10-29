@@ -6,6 +6,6 @@
   "name": "TEZAUR",
   "description": "Cited answers from your own library inside a note (needs `tezaur serve`).",
   "author": "Alexio",
-  "homepage_url": "https://github.com/chiuta/tezaur",
+  "homepage_url": "https://github.com/OWNER/tezaur",
   "categories": ["productivity"]
 }

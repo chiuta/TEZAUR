@@ -23,6 +23,6 @@ modules:
       - install -Dm755 target/release/tezaur /app/bin/tezaur
     sources:
       - type: git
-        url: https://github.com/chiuta/tezaur.git
+        url: https://github.com/OWNER/tezaur.git
         tag: v0.1.0
       - cargo-sources.json

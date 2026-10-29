@@ -122,3 +122,10 @@ nu am utilizatori și nu am rulat concurenții. Am închis lacunele din `COMPETI
 **Încă deschis, în ordinea importanței** (nimic din 0.3.0 nu le rezolvă): (1) niciun model real și niciun corp real de documente cu OCR; (2) PDF-uri: extragere de text simplă, fără tabele/ecuații;
 (3) fără index aproximativ pentru embeddings; (4) integrările rămân netestate în aplicațiile reale; (5) fără Windows/macOS rulate; (6) Mesh doar pe aceeași mașină; (7) fără mod agent și fără scriere în Zotero;
 (8) o singură persoană întreține tot, fără comunitate. Contextul citărilor (cum a fost citată o lucrare ulterior, ca la Scite) nu este implementat.
+
+## Runda 0.4.0 — PDF avansat: tabele și ecuații
+
+| Adăugat | Ce arată testele | Ce NU arată |
+|---|---|---|
+| `tezaur tables` / `tezaur equations`; ingest păstrează tabelul ca un pasaj Markdown (legendă, antet repetat la împărțire) și ecuațiile ca `[equation] $$ … $$ (eq. N)` | 7 teste unitare + `test_pdfx.py` pe PDF-uri generate cu pdflatex: tabel 3 coloane, tabel cu 4 coloane, tabel împărțit pe pagini cu antet repetat (test unitar), `\sum_{i=1}^{N}` și `\int` cu limite și număr de ecuație, pagină pe două coloane (după reparația jgheabului); căutarea returnează tabelul întreg | **doar documente LaTeX proprii, de laborator.** Nu am încercat PDF-uri de editură, scanate, cu fonturi ne-standard sau în alte limbi. Euristică peste `pdftotext -layout`: coloane foarte strânse (spațiu de 1 caracter) se lipesc — l-am găsit în test și l-am documentat; celule pe mai multe rânduri, tabele-imagine, fracții suprapuse, matrici, indici/exponenți (aplatizați: `pi ti`) nu se reconstruiesc. Nu înlocuiește Nougat/MinerU și nu a fost comparat cu ele |
+| Randare tabele/ecuații în `tezaur.html` | verificată cu Chromium (captura din prezentare) | — |

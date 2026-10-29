@@ -3,7 +3,7 @@
 Description=TEZAUR
 
 [Container]
-Image=ghcr.io/chiuta/tezaur:latest
+Image=ghcr.io/OWNER/tezaur:latest
 PublishPort=127.0.0.1:8787:8787
 Volume=tezaur-data:/data:Z
 Environment=TEZAUR_INDEX=/data/tezaur.idx

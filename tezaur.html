@@ -39,6 +39,8 @@ button:disabled{opacity:.5;cursor:default}
 a.c{color:var(--acc);cursor:pointer;font-size:.85em;font-weight:600;vertical-align:super;padding:0 1px}
 a.c.bad{color:var(--bad);text-decoration:line-through}
 .warn{color:var(--warn);font-size:13px;margin:4px 0}.err{color:var(--bad);white-space:pre-wrap}.ok{color:var(--ok)}
+.ex table{border-collapse:collapse;margin:6px 0;font-size:12.5px}.ex td,.ex th{border:1px solid var(--line);padding:2px 8px;text-align:left}.ex th{background:var(--soft,rgba(128,128,128,.12));color:var(--ink)}
+.ex .eq{display:block;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;background:rgba(128,128,128,.1);padding:4px 8px;margin:4px 0;border-radius:4px;color:var(--ink);overflow-x:auto}
 .ex{border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;font-size:13px;color:var(--mute)}
 .ex.hl{border-color:var(--acc);background:var(--acc2);color:var(--ink)}
 .ex b{color:var(--ink)}
@@ -461,7 +463,7 @@ function mdRender(t,n){
 }
 function showHits(hits,withScore){
   $('srcCard').hidden=!hits.length;
-  $('src').innerHTML=hits.map((h,i)=>`<div class="ex" id="ex${i+1}"><b>[${i+1}] ${esc(label(h))}</b>${withScore?` <span class="small">· ${(h.cov*100|0)}% termeni</span>`:''}<br>${esc(S.chunks[h.chunk].text)}</div>`).join('');
+  $('src').innerHTML=hits.map((h,i)=>`<div class="ex" id="ex${i+1}"><b>[${i+1}] ${esc(label(h))}</b>${withScore?` <span class="small">· ${(h.cov*100|0)}% termeni</span>`:''}<br>${rich(S.chunks[h.chunk].text)}</div>`).join('');
 }
 $('out').addEventListener('click',e=>{const a=e.target.closest('a.c');if(!a)return;const el=$('ex'+a.dataset.n);if(!el)return;
   document.querySelectorAll('.ex.hl').forEach(x=>x.classList.remove('hl'));el.classList.add('hl');el.scrollIntoView({behavior:'smooth',block:'center'})});
@@ -508,6 +510,13 @@ function parseCards(t){
     if(m&&m[1]&&m[2])out.push([m[1],m[2]]);
   }return out;
 }
+function rich(t){const L=String(t).split('\n');let o='',i=0;
+  while(i<L.length){const l=L[i];
+    if(/^\s*\|.*\|\s*$/.test(l)){const rows=[];while(i<L.length&&/^\s*\|.*\|\s*$/.test(L[i]))rows.push(L[i++].trim().slice(1,-1).split('|').map(c=>c.trim()));
+      const hd=rows.length>1&&rows[1].every(c=>/^:?-{3,}:?$/.test(c));
+      o+='<table>'+rows.filter((r,k)=>!(hd&&k===1)).map((r,k)=>'<tr>'+r.map(c=>hd&&k===0?`<th>${esc(c)}</th>`:`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</table>';continue}
+    o+=esc(l).replace(/\[equation\] \$\$ (.*?) \$\$( \(eq\. [^)]*\))?/g,(_,e,t)=>`<span class="eq">${e}${t||''}</span>`)+(i<L.length-1?'<br>':'');i++}
+  return o}
 function setBusy(b){$('run').disabled=b;$('stop').disabled=!b;if(!b)$('runInfo').textContent=''}
 $('stop').onclick=()=>{if(ctrl)ctrl.abort()};
 

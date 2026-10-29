@@ -150,6 +150,10 @@ Raspberry Pi / Termux / NixOS recipes, and **Mesh** (peer-to-peer exchange betwe
 - **`refs`** is bookkeeping: cited keys that exist in neither the `.bib` nor the library, `.bib` entries and indexed documents your text never cites.
   `refs --online` and `lit` are the **only** commands that contact the internet (OpenAlex, Crossref; `TEZAUR_MAILTO` for their polite pool;
   `TEZAUR_OPENALEX` / `TEZAUR_CROSSREF` to point at a mirror). They never run implicitly and print a notice before sending anything.
+- **Tables and equations in PDFs** (v0.4): `ingest` keeps a table together as one Markdown passage (caption first, header repeated if it must be split) and writes
+  display equations as `[equation] $$ LaTeX $$ (eq. N)`; `tezaur tables FILE [--csv|--json|-o DIR]` and `tezaur equations FILE` export them. Two-column pages are read column by column.
+  It is a **heuristic over poppler's text layer** (needs `pdftotext`; without it ingest falls back to plain text): columns are recovered from gaps of 2+ spaces, so very tight tables,
+  merged/multi-line cells, tables that are images, stacked fractions, matrices and sub/superscripts (flattened: `pi ti`) are not reconstructed. It does not replace an OCR model such as Nougat or MinerU.
 - **`eval`** turns “the search seems fine” into numbers on your own questions.
 - The search index keeps a BM25 cache next to the index file (`<index>.bm25`, rebuilt automatically when the library changes): a CLI search over 6 M words went from ~4.3 s to ~0.14 s.
 - **`coverage`** and **`novelty`** compare an outline or a new text with what your library actually contains.
@@ -171,7 +175,7 @@ See [COMPETITION.md](COMPETITION.md) for how it compares with today's tools, and
 - Small models paraphrase loosely. Bigger models (and slower runs) are noticeably more faithful.
 - Scanned PDFs need OCR first (e.g. `ocrmypdf`); they are reported as "no text layer".
 - EPUB/DOCX have no page numbers, so their citations carry no page. EPUB chapters are read in the book's own spine order.
-- Chunks are ~200-word windows (40 overlap) cut at sentence ends, not chapter-aware. Tables and equations extract poorly from PDFs.
+- Chunks are ~200-word windows (40 overlap) cut at sentence ends, not chapter-aware. Tables and equations in PDFs are recovered only heuristically (see above).
 - Retrieval quality is the ceiling: if `search` doesn't surface the right passage, `ask` can't use it.
 
 - **Flashcards** keep a card only if its answer cites an excerpt that exists; the rest are dropped and counted.

@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/chiuta/tezaur
+  repository: ghcr.io/OWNER/tezaur
   tag: latest
   pullPolicy: IfNotPresent
 token: ""            # required: access token (stored in a Secret)

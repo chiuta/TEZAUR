@@ -4,4 +4,4 @@ email
 date   2026-10-28
 name   TEZAUR research assistant
 desc   Ask your own library from a wiki page: cited answers and passage search from a `tezaur serve` instance
-url    https://github.com/chiuta/tezaur
+url    https://github.com/OWNER/tezaur
