@@ -806,7 +806,7 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
   async function finish(){clearTimeout(timer);b.textContent='🎙️';say('se transcrie local…');
     try{const blob=new Blob(chunks,{type:rec.mimeType}),ab=await blob.arrayBuffer(),ctx=new AudioContext({sampleRate:16000}),au=await ctx.decodeAudioData(ab);
       const a=await load(),lg=LN[($('lang').value.trim()||navigator.language).slice(0,2).toLowerCase()];
-      const o=await a(au.getChannelData(0),lg?{language:lg,task:'transcribe'}:{});
+      const o=await a(au.getChannelData(0),Object.assign({max_new_tokens:96,no_repeat_ngram_size:3,chunk_length_s:30},lg?{language:lg,task:'transcribe'}:{}));
       const t=(o.text||'').trim();if(t)$('q').value=(($('q').value?$('q').value+' ':'')+t).trim();say(t?'gata':'nu s-a auzit nimic')}
     catch(e){say('dictare locală indisponibilă: '+e.message)}}
   b.onclick=async()=>{if(rec&&rec.state==='recording'){rec.stop();return}

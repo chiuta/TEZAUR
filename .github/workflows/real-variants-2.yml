@@ -201,15 +201,20 @@ jobs:
           mkdir -p ~/.config/kate/lspclient
           sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/kate-lspclient.json > ~/.config/kate/lspclient/settings.json
           printf '[Kate Plugins]\nlspclientplugin=true\n' >> ~/.config/katerc
-          export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'kate -n doc.md & sleep 20; import -window root kate-shot.png; pkill kate' || true
-          cat /tmp/lsp-spawn.log; grep -q "kate spawned" /tmp/lsp-spawn.log
+          export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'kate -n doc.md >kate.log 2>&1 & sleep 20; import -window root kate-shot.png; pkill kate' || true
+          tail -5 kate.log; cat /tmp/lsp-spawn.log; grep -q "kate spawned" /tmp/lsp-spawn.log
       - name: TeXstudio (user command from the shipped instructions, run through its Tools menu)
         run: |
           mkdir -p ~/.config/texstudio
           printf '[texmaker]\nTools\\User\\Tool1=TEZAUR audit|python3 %s/variants/editors/latex/tezaur_tex.py audit %%.tex > %s/texstudio-out.txt\n' "$PWD" "$PWD" > ~/.config/texstudio/texstudio.ini
           printf '\\documentclass{article}\\begin{document}Penguins sing opera [\\cite{ghost2020}].\\end{document}\n' > a.tex
           export TEZAUR_SERVER=http://127.0.0.1:1
-          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; import -window root tex-menu.png; pkill texstudio' || true
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; xdotool key Down Down Down; sleep 1; import -window root tex-menu.png; pkill texstudio' || true
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: gui-editor-shots, path: '*-shot.png,tex-menu.png' }
+        with: { name: gui-editor-shots, path: |
+            *-shot.png
+            tex-menu.png
+            kate.log
+            /tmp/lsp-spawn.log
+          if-no-files-found: warn }
