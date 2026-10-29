@@ -1,0 +1,37 @@
+name: ci
+# On every push and pull request: build, unit tests and the whole integration suite (variants/tests/run-all.sh).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: System tools (poppler for PDF tables/equations, pdflatex to build test PDFs, php/vim/pandoc for the plugin tests)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils texlive-latex-base texlive-latex-recommended php-cli vim pandoc zip
+      - run: pip install pynacl lupa genanki ipython ipykernel nbclient nbformat pyyaml playwright && python -m playwright install --with-deps chromium
+      - run: cargo build --release
+      - run: cargo test --release
+      - run: bash variants/build-obsidian.sh && bash variants/build-vscode.sh && bash variants/build-extension.sh
+      - run: bash variants/build-plugins.sh
+      - run: bash variants/tests/run-all.sh
+  cross-build:
+    # the CLI must at least compile and pass unit tests on Windows and macOS (poppler absent there: PDF structure falls back to plain text)
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - run: cargo test --release

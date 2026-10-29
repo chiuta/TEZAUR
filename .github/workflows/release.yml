@@ -137,10 +137,33 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
-      - run: sudo apt-get update && sudo apt-get install -y poppler-utils php-cli vim pandoc && pip install pynacl lupa genanki ipython ipykernel nbclient nbformat pyyaml
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils texlive-latex-base texlive-latex-recommended php-cli vim pandoc zip && pip install pynacl lupa genanki ipython ipykernel nbclient nbformat pyyaml playwright && python -m playwright install --with-deps chromium
       - run: cargo build --release
       - run: bash variants/build-obsidian.sh && bash variants/build-vscode.sh && bash variants/build-extension.sh
       - run: variants/build-plugins.sh
       - run: variants/tests/run-all.sh
+      - run: ./variants/build-deb.sh
       - uses: actions/upload-artifact@v4
-        with: { name: tezaur-plugins, path: dist/tezaur-plugins.zip }
+        with:
+          name: tezaur-plugins
+          path: |
+            dist/tezaur-plugins.zip
+            dist/plugins/*
+            dist/*.deb
+  publish:
+    # on a v* tag: gathers every artifact of this run and attaches it to the GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [cli, deb, extensions, electron, tauri, editors, rpm, windows-installer, capacitor-android, plugins]
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: artifacts }
+      - run: |
+          mkdir out
+          find artifacts -type f \( -name '*.zip' -o -name '*.deb' -o -name '*.rpm' -o -name '*.exe' -o -name '*.msi' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.apk' -o -name '*.vsix' -o -name '*.xpi' -o -name '*.jpl' -o -name '*.tgz' -o -name '*.whl' -o -name '*.alfredworkflow' -o -name 'tezaur' \) -print0 | while IFS= read -r -d '' f; do
+            d=$(basename "$(dirname "$f")"); cp "$f" "out/${d}__$(basename "$f")"
+          done
+          (cd out && sha256sum * > SHA256SUMS.txt); ls -la out
+      - uses: softprops/action-gh-release@v2
+        with: { files: out/*, generate_release_notes: true }

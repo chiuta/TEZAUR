@@ -194,8 +194,11 @@ which is what the portable layout is for.
 
 ## CI
 
-`.github/workflows/portable.yml` builds the Windows PortableApps folder on a GitHub runner (Actions tab → Run
-workflow) and uploads it as a zip. It has not been run yet; the Windows build and tests are unverified until it is.
+- `.github/workflows/ci.yml` — on every push/PR: build, `cargo test`, build all plugins and run the whole integration suite (`variants/tests/run-all.sh`, with poppler and pdflatex installed so the PDF tests run); also builds and tests on Windows and macOS.
+- `.github/workflows/release.yml` — by hand or on a `v*` tag: CLI (3 OS), .deb, .rpm, Electron, Tauri, Windows installer, extensions, Obsidian/VS Code/Office, Capacitor APK, and every plugin/integration (`variants/build-plugins.sh`); on a tag, a final job attaches all artifacts and a `SHA256SUMS.txt` to the GitHub release.
+- `portable.yml`, `android.yml`, `docker.yml`, `pages.yml` — Windows PortableApps folder, Android, Docker image, PWA on GitHub Pages.
+
+**None of these workflows has run on GitHub yet** (only their steps were exercised locally on Linux); expect to fix a path or a missing package on the first run, especially for Windows, macOS, Electron, Tauri, iOS and Android.
 
 ## Deliberately not built
 
