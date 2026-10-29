@@ -6,6 +6,14 @@
 <title>TEZAUR — fiecare afirmație, legată de o pagină</title>
 <meta name="description" content="TEZAUR: asistent local de cercetare pentru teze. Răspunde doar din biblioteca ta, citează pagina și își verifică singur citările. Open source, MIT.">
 <meta name="theme-color" content="#0b0f1a">
+<link rel="canonical" href="https://tezaur.chiuta.ro/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f1a'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='%23e8b53f' font-family='Georgia,serif'%3ET%3C/text%3E%3C/svg%3E">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta property="og:type" content="website"><meta property="og:site_name" content="TEZAUR">
+<meta property="og:title" content="TEZAUR — fiecare afirmație, legată de o pagină">
+<meta property="og:description" content="Asistent local de cercetare pentru teze: răspunde doar din biblioteca ta, citează pagina și își verifică singur citările.">
+<meta property="og:url" content="https://tezaur.chiuta.ro/"><meta property="og:image" content="https://tezaur.chiuta.ro/assets/tutorials/01-first-question.jpg">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 :root{
   --bg:#0b0f1a;--bg2:#121a2b;--ink:#ece6d3;--mute:#9aa3b5;--line:#25314b;
@@ -222,7 +230,7 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 <body>
 <a class="skip" href="#s16">Sari la instalare</a>
 <canvas id="bg" aria-hidden="true"></canvas><div class="vignette"></div>
-<div id="bar"></div><div id="count" aria-live="polite">01 / 16</div>
+<div id="bar"></div><div id="count" aria-live="polite">01 / 20</div>
 <div id="keys"><kbd>↑</kbd><kbd>↓</kbd> navighează · <kbd>F</kbd> ecran complet</div>
 <nav id="dots" aria-label="Slide-uri"></nav>
 
@@ -445,7 +453,7 @@ function mm(s){return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 function tracks(){g.querySelectorAll('video').forEach(v=>{for(const t of v.textTracks)t.mode=(t.language===lang?'showing':'disabled')})}
 function titles(){g.querySelectorAll('figcaption b').forEach(b=>{b.textContent=T[b.dataset.id][lang]})
   g.querySelectorAll('video').forEach(v=>v.setAttribute('aria-label',T[v.dataset.id][lang]));
-  p.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.l===lang))}
+  p.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.dataset.l===lang);b.setAttribute('aria-pressed',b.dataset.l===lang)})}
 L.forEach(([c,n])=>{const b=document.createElement('button');b.className='pill gb';b.textContent=n;b.dataset.l=c;b.onclick=()=>{lang=c;try{localStorage.setItem('tz.vlang',c)}catch(e){}titles();tracks()};p.appendChild(b)});
 Object.keys(T).forEach((id,i)=>{
   const f=document.createElement('figure');f.style.margin='0';

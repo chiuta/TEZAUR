@@ -298,22 +298,33 @@ pub(crate) fn doc_for_key(store: &Store, bib: &BibMap, key: &str) -> Option<usiz
     })
 }
 
-const NUMBER_WORDS: &[&str] = &[
-    "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred", "thousand", "million", "half", "twice",
-    "doi", "doua", "trei", "patru", "cinci", "sase", "sapte", "opt", "noua", "zece", "douazeci", "treizeci", "patruzeci", "cincizeci", "saizeci", "saptezeci", "optzeci", "nouazeci", "suta", "mie", "milion",
-];
-
 /// Numbers (digits or number words) that the sentence states but the cited passage does not contain. A swapped figure keeps almost every other
 /// word the same, so plain overlap cannot see it.
 fn missing_numbers(sentence: &str, passage: &str) -> Vec<String> {
-    // Digit figures are compared as written ("71.3" is one number, not "71" and "3"), so a swapped or re-ordered figure cannot hide
-    // behind digits that appear elsewhere in the passage.
-    let have: std::collections::HashSet<String> = figures(passage).into_iter().collect();
-    let have_words: std::collections::HashSet<String> = norm(passage).split(' ').map(|w| w.to_string()).collect();
+    // Figures are compared by value, not by spelling: "4", "four" and "patru" are the same number, "71.3" is one number (not "71" and "3"),
+    // so a correct citation is not flagged for writing a digit where the source has a word, and a re-ordered figure cannot hide.
+    let canon = |s: &str| -> std::collections::HashSet<String> {
+        let mut v: std::collections::HashSet<String> = figures(s).into_iter().collect();
+        v.extend(norm(s).split(' ').filter_map(word_value).map(String::from));
+        v
+    };
+    let have = canon(passage);
     let mut miss: Vec<String> = figures(sentence).into_iter().filter(|n| !have.contains(n)).collect();
-    miss.extend(norm(sentence).split(' ').filter(|w| NUMBER_WORDS.contains(w) && !have_words.contains(*w)).map(|w| w.to_string()));
+    miss.extend(norm(sentence).split(' ').filter(|w| word_value(w).is_some_and(|v| !have.contains(v))).map(|w| w.to_string()));
     miss.dedup();
     miss
+}
+
+/// Number words (English, Romanian without diacritics) -> the digits they stand for. Only unambiguous words: "o"/"a" are not numbers here.
+fn word_value(w: &str) -> Option<&'static str> {
+    Some(match w {
+        "one" | "unu" | "una" => "1", "two" | "doi" | "doua" | "twice" => "2", "three" | "trei" => "3", "four" | "patru" => "4", "five" | "cinci" => "5",
+        "six" | "sase" => "6", "seven" | "sapte" => "7", "eight" | "opt" => "8", "nine" | "noua" => "9", "ten" | "zece" => "10", "eleven" | "unsprezece" => "11",
+        "twelve" | "doisprezece" => "12", "twenty" | "douazeci" => "20", "thirty" | "treizeci" => "30", "forty" | "patruzeci" => "40", "fifty" | "cincizeci" => "50",
+        "sixty" | "saizeci" => "60", "seventy" | "saptezeci" => "70", "eighty" | "optzeci" => "80", "ninety" | "nouazeci" => "90",
+        "hundred" | "suta" => "100", "thousand" | "mie" => "1000", "million" | "milion" => "1000000", "half" => "0.5",
+        _ => return None,
+    })
 }
 
 /// Digit figures in `s`, normalised: thousands separators removed ("1,240" = "1240" = "1 240"), decimal comma read as a point.
@@ -958,6 +969,14 @@ mod tests {
 
 #[cfg(test)]
 mod figure_tests {
+    #[test]
+    fn digits_and_number_words_are_the_same_figure() {
+        let p = "The authorities shall respond within four months. The period shall not exceed three years.";
+        assert!(super::missing_numbers("They respond within 4 months and 3 years at most.", p).is_empty());
+        assert!(!super::missing_numbers("They respond within 5 months.", p).is_empty());
+        assert!(!super::missing_numbers("The period is 3.5 years.", p).is_empty());
+    }
+
     use super::*;
     #[test]
     fn figures_keep_decimals_and_ignore_thousands_separators() {
