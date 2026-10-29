@@ -212,9 +212,10 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; xdotool key Down Down Down; sleep 1; import -window root tex-menu.png; pkill texstudio' || true
       - uses: actions/upload-artifact@v4
         if: always()
-        with: { name: gui-editor-shots, path: |
+        with:
+          name: gui-editor-shots
+          path: |
             *-shot.png
             tex-menu.png
             kate.log
-            /tmp/lsp-spawn.log
-          if-no-files-found: warn }
+          if-no-files-found: warn
