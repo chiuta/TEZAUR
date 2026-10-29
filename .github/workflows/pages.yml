@@ -69,7 +69,7 @@ jobs:
           mkdir -p repo/flatpak
           bash .github/annotate.sh flatpak-builder --user --force-clean --install-deps-from=flathub --repo=repo/flatpak/repo build flatpak-ci.yml
           flatpak build-update-repo repo/flatpak/repo
-          printf '[Flatpak Repo]\nTitle=TEZAUR\nUrl=https://%s.github.io/%s/flatpak/repo\nHomepage=https://github.com/%s\nComment=Local, citation-grounded research assistant\nDescription=TEZAUR\nGPGKey=\n' "${{ github.repository_owner }}" "${{ github.event.repository.name }}" "${{ github.repository }}" > repo/flatpak/tezaur.flatpakrepo
+          printf '[Flatpak Repo]\nTitle=TEZAUR\nUrl=https://%s.github.io/%s/flatpak/repo\nHomepage=https://github.com/%s\nComment=Local, citation-grounded research assistant\nDescription=TEZAUR\nRuntimeRepo=https://flathub.org/repo/flathub.flatpakrepo\nGPGKey=\n' "${{ github.repository_owner }}" "${{ github.event.repository.name }}" "${{ github.repository }}" > repo/flatpak/tezaur.flatpakrepo
       - name: add the repository over HTTP, install from it, run
         run: |
           (cd repo/flatpak && python3 -m http.server 8090 >/dev/null 2>&1 &) ; sleep 2
@@ -140,6 +140,7 @@ jobs:
         run: |
           URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"
           sudo apt-get update -qq && sudo apt-get install -y -qq flatpak
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak remote-add --user --no-gpg-verify tezaur "$URL/flatpak/repo"
           bash .github/annotate.sh flatpak install --user -y --noninteractive tezaur tf.trom.Tezaur
       - name: f-droid index reachable
