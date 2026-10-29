@@ -129,6 +129,7 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: apt (Debian), dnf (Fedora)
         run: |
           URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"; echo "base: $URL"
