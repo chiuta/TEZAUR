@@ -126,6 +126,33 @@ th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line)}
 th{font:600 12px var(--mono);letter-spacing:.1em;color:var(--gold);text-transform:uppercase}
 td.y{color:var(--green)}td.n{color:var(--red)}td.p{color:var(--amber)}
 .tw{overflow-x:auto}
+
+/* catalog */
+.cat{margin-top:14px}
+.cat-top{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{cursor:pointer;border:1px solid var(--line);background:rgba(18,26,43,.85);color:#cfd3dd;border-radius:999px;padding:7px 13px;font:600 12.5px var(--sans);transition:.2s}
+.tabs button:hover{border-color:var(--gold);color:var(--gold2)}
+.tabs button[aria-selected=true]{background:var(--gold);border-color:var(--gold);color:#201703}
+#find{background:#0a0f1c;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:8px 12px;font:13px var(--sans);min-width:200px}
+.legend2{display:flex;flex-wrap:wrap;gap:6px 18px;margin:12px 0 10px;font-size:12px;color:var(--mute);align-items:center}
+.legend2 b{margin-left:auto;color:var(--gold);font-size:12px}
+.st{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.s-r{background:var(--green);box-shadow:0 0 8px var(--green)}.s-s{background:var(--amber)}.s-w{background:#5b6478}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(205px,1fr));gap:8px;max-height:max(220px,36vh);overflow:auto;padding:2px 6px 2px 2px;scrollbar-color:var(--line) transparent}
+.it{border:1px solid var(--line);background:rgba(14,21,36,.9);border-radius:10px;padding:9px 11px;transition:.2s;animation:pop .35s both}
+.it:hover{border-color:var(--teal);transform:translateY(-2px)}
+.it b{font:600 13px var(--sans);display:flex;align-items:center}
+.it span{display:block;font:11.5px/1.35 var(--mono);color:var(--mute);margin-top:3px;word-break:break-word}
+@keyframes pop{from{opacity:0;transform:scale(.96)}}
+/* mesh */
+.mode{padding:13px 16px}
+.mode b{display:block;color:var(--gold2);font:600 16px var(--serif)}
+.mode span{display:block;font-size:13px;color:#c4c9d6;margin:3px 0 5px}
+.mode code{font-size:12px;color:var(--teal)}
+#mesh{width:100%;height:auto;display:block}
+.nd{transition:.3s}.nd:hover{filter:brightness(1.25)}
+@media(max-width:900px){.meshgrid{grid-template-columns:1fr}}
 /* cta */
 .term{background:#070b14;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
 .term .bar2{display:flex;gap:7px;padding:11px 14px;background:#0f1626;border-bottom:1px solid var(--line)}
@@ -161,9 +188,9 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 </style>
 </head>
 <body>
-<a class="skip" href="#s12">Sari la instalare</a>
+<a class="skip" href="#s16">Sari la instalare</a>
 <canvas id="bg" aria-hidden="true"></canvas><div class="vignette"></div>
-<div id="bar"></div><div id="count" aria-live="polite">01 / 12</div>
+<div id="bar"></div><div id="count" aria-live="polite">01 / 16</div>
 <div id="keys"><kbd>↑</kbd><kbd>↓</kbd> navighează · <kbd>F</kbd> ecran complet</div>
 <nav id="dots" aria-label="Slide-uri"></nav>
 
@@ -353,8 +380,124 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
   </div>
 </section>
 
+
+<!-- 9 CATALOG INSTALARE -->
+<section class="slide" id="s9" data-title="Toate variantele">
+  <div class="wrap">
+    <div class="kicker rv">instalare — toate variantele</div>
+    <h2 class="rv"><span id="ncat">~90</span> de moduri de a-l <em>avea lângă tine.</em></h2>
+    <p class="lead rv" style="font-size:18px">Filtrează după categorie sau caută. Fiecare variantă are o <b>stare onestă</b>: rulată, simulată sau doar scrisă.</p>
+    <div class="cat rv">
+      <div class="cat-top">
+        <div class="tabs" id="tabs" role="tablist" aria-label="Categorii"></div>
+        <input id="find" type="search" placeholder="caută: obsidian, docker, android…" aria-label="Caută o variantă">
+      </div>
+      <div class="legend2">
+        <span><i class="st s-r"></i>rulat aici (artefactul real)</span>
+        <span><i class="st s-s"></i>rulat contra unei simulări a aplicației/serviciului</span>
+        <span><i class="st s-w"></i>scris, nerulat / necompilat</span>
+        <b id="stats" class="mono"></b>
+      </div>
+      <div id="items" class="items" role="list"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 INSTALLER -->
+<section class="slide" id="s10" data-title="Un singur installer">
+  <div class="wrap">
+    <div class="kicker rv">meta-installer</div>
+    <h2 class="rv">O comandă. <em>Detectează tot și instalează peste tot.</em></h2>
+    <div class="grid g2" style="align-items:start;margin-top:14px">
+      <div class="term rv"><div class="bar2"><i></i><i></i><i></i></div>
+<pre id="instterm" data-lines='[["c","# 1. doar scanează — nu modifică nimic"],["p","python3 tezaur-setup.py"],["o","  găsit: Claude Desktop · Cursor · VS Code"],["o","  găsit: Obsidian (vault-uri) · Zotero · Joplin"],["o","  găsit: Neovim · Emacs · Notepad++ · LyX"],["o","  găsit: Jupyter · pandoc · WordPress · DokuWiki"],["o","  găsit: telefon Android (adb) · USB PortableApps"],["o","  găsit: noduri TEZAUR în rețeaua locală"],["c","# 2. instalează, cu jurnal al fiecărei modificări"],["p","python3 tezaur-setup.py install --yes"],["c","# 3. anulare exactă — fișiere, chei JSON, blocuri de text"],["p","python3 tezaur-setup.py uninstall"]]'></pre></div>
+      <div class="rv">
+        <div class="grid" style="gap:12px">
+          <div class="card"><h3>Detectează</h3><p class="small">Claude Desktop/Code, Cursor, Windsurf, VS Code, Vim/Neovim, Emacs, Sublime, Notepad++, vault-uri Obsidian, Joplin, Logseq, Zotero, browsere, pandoc, Jupyter, foldere WordPress/DokuWiki/MediaWiki, telefoane Android, stick-uri PortableApps, gazde ssh, noduri TEZAUR din LAN.</p></div>
+          <div class="card"><h3>Reversibil</h3><p class="small">Copie de siguranță o singură dată, registru în <code>~/.tezaur/installed.json</code>, dezinstalare completă cu <code>uninstall</code>. Opțiuni: <code>--only</code>, <code>--skip</code>, <code>--all</code>, <code>--remote user@host</code>.</p></div>
+          <div class="card" style="border-color:rgba(255,180,84,.5)"><h3 style="color:var(--amber)">Onest</h3><p class="small">Ieșirea de mai sus e ilustrativă. Installer-ul a fost testat într-un <b>director home fals, cu aplicații false</b> — nu pe un sistem real. Rulează întâi scanarea.</p></div>
+        </div>
+      </div>
+    </div>
+    <div class="surf rv" style="margin-top:18px"><span>install.sh</span><span>Install-Tezaur.bat</span><span>uninstall.sh</span><span>Uninstall-Tezaur.bat</span><span>tezaur-setup.py (doar Python standard)</span></div>
+  </div>
+</section>
+
+<!-- 11 MESH -->
+<section class="slide" id="s11" data-title="Mesh P2P">
+  <div class="wrap">
+    <div class="kicker rv">mesh p2p — fără server central</div>
+    <h2 class="rv">Cercetători independenți, <em>conectați direct.</em></h2>
+    <p class="lead rv" style="font-size:18px">Fiecare nod e un TEZAUR obișnuit care <b>alege</b> ce oferă. Fără cont, fără cloud, fără intermediar.</p>
+    <div class="grid g2 meshgrid" style="margin-top:14px;align-items:center">
+      <div class="card rv" style="padding:10px">
+        <svg id="mesh" viewBox="0 0 560 360" role="img" aria-label="Diagramă: laptopuri, server de laborator, telefon și stick USB conectate direct">
+          <defs><radialGradient id="gl"><stop offset="0" stop-color="#e8b53f" stop-opacity=".55"/><stop offset="1" stop-color="#e8b53f" stop-opacity="0"/></radialGradient></defs>
+          <g fill="none" stroke-width="1.6" stroke-linecap="round">
+            <path id="e1" d="M150 100 L410 90" stroke="#3dd6c6" stroke-dasharray="5 6"/>
+            <path id="e2" d="M150 100 L120 270" stroke="#e8b53f"/>
+            <path id="e3" d="M410 90 L440 270" stroke="#9aa3b5" stroke-dasharray="2 7"/>
+            <path id="e4" d="M120 270 L440 270" stroke="#5fd38d" stroke-dasharray="8 5"/>
+            <path id="e5" d="M280 190 L150 100" stroke="#e8b53f"/>
+            <path id="e6" d="M280 190 L410 90" stroke="#e8b53f"/>
+          </g>
+          <g font-family="ui-monospace,Menlo,monospace" font-size="11" text-anchor="middle">
+            <g class="nd"><circle cx="150" cy="100" r="38" fill="url(#gl)"/><circle cx="150" cy="100" r="22" fill="#121a2b" stroke="#e8b53f" stroke-width="2"/><text x="150" y="104" fill="#f6d77e">A</text><text x="150" y="146" fill="#cfd3dd">laptop A</text></g>
+            <g class="nd"><circle cx="410" cy="90" r="38" fill="url(#gl)"/><circle cx="410" cy="90" r="22" fill="#121a2b" stroke="#e8b53f" stroke-width="2"/><text x="410" y="94" fill="#f6d77e">B</text><text x="410" y="136" fill="#cfd3dd">laptop B</text></g>
+            <g class="nd"><circle cx="280" cy="190" r="26" fill="#121a2b" stroke="#3dd6c6" stroke-width="2"/><text x="280" y="194" fill="#3dd6c6">LAN</text><text x="280" y="232" fill="#9aa3b5">descoperire UDP</text></g>
+            <g class="nd"><rect x="88" y="252" width="64" height="40" rx="8" fill="#121a2b" stroke="#5fd38d" stroke-width="2"/><text x="120" y="277" fill="#5fd38d">browser</text><text x="120" y="312" fill="#cfd3dd">colegul tău</text></g>
+            <g class="nd"><rect x="408" y="252" width="64" height="40" rx="8" fill="#121a2b" stroke="#9aa3b5" stroke-width="2"/><text x="440" y="277" fill="#cfd3dd">server</text><text x="440" y="312" fill="#cfd3dd">lab · Tor</text></g>
+            <g class="nd"><rect x="252" y="300" width="56" height="30" rx="6" fill="#121a2b" stroke="#e8b53f" stroke-width="2"/><text x="280" y="320" fill="#f6d77e">USB .tzb</text></g>
+          </g>
+          <g id="pk" fill="#f6d77e"></g>
+          <text x="280" y="22" text-anchor="middle" fill="#9aa3b5" font-family="ui-monospace,Menlo,monospace" font-size="11">fiecare pachet = doar fragmente din documentele partajate</text>
+        </svg>
+      </div>
+      <div class="grid" style="gap:10px">
+        <div class="card mode rv"><b>Căutare federată</b><span>doar fragmentele potrivite, cu eticheta de citare a colegului</span><code>tezaur mesh search "…"</code></div>
+        <div class="card mode rv"><b>Pull</b><span>documentele partajate (text + pagini), re-indexate local; fără duplicate prin hash</span><code>tezaur mesh pull ana</code></div>
+        <div class="card mode rv"><b>Pachet offline .tzb</b><span>stick USB, e-mail, AirDrop — complet fără rețea; funcționează și din browser</span><code>tezaur mesh export x.tzb</code></div>
+        <div class="card mode rv"><b>WebRTC browser↔browser</b><span>canal direct criptat; codurile de invitație le copiezi prin orice canal. În aceeași rețea, fără internet</span><code>panoul „Mesh P2P”</code></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 MESH TRUST -->
+<section class="slide" id="s12" data-title="Mesh: încredere">
+  <div class="wrap">
+    <div class="kicker rv">mesh — încredere și limite</div>
+    <h2 class="rv">Nimic nu e oferit <em>până nu spui tu.</em></h2>
+    <div class="grid g2" style="margin-top:14px;align-items:start">
+      <div class="term rv"><div class="bar2"><i></i><i></i><i></i></div>
+<pre><span class="c"># alegi ce oferi (implicit: nimic)</span>
+<span class="p">$</span> tezaur mesh share smith lisbon
+<span class="c"># adaugi un coleg, cu token</span>
+<span class="p">$</span> tezaur mesh add ana http://192.168.1.20:8787 --token X
+<span class="c"># sau îi găsești în LAN</span>
+<span class="p">$</span> tezaur mesh discover
+<span class="p">$</span> tezaur mesh search "burden of proof"
+<span class="p">$</span> tezaur mesh pull ana
+<span class="c"># peste internet, fără porturi deschise</span>
+<span class="p">$</span> tezaur mesh add lab URL --proxy socks5h://127.0.0.1:9050</pre></div>
+      <div class="grid" style="gap:12px">
+        <div class="card col yes rv"><h3>Ce garantează designul</h3><ul>
+          <li>Un coleg vede <b>doar fragmente</b> din documentele partajate — nu răspunsurile, nu restul bibliotecii, nu modelul tău</li>
+          <li>Documentele primite <b>nu</b> se re-oferă (decât cu <code>--relay</code>)</li>
+          <li>Căi izolate în <code>mesh/&lt;coleg&gt;/</code>; același hash nu se stochează de două ori</li>
+          <li>Pasajele primite sunt marcate <code>[via peer]</code> în citare</li></ul></div>
+        <div class="card col no rv"><h3>Limite, spuse direct</h3><ul>
+          <li>Transport HTTP simplu + token: în afara LAN folosește VPN, Tor sau proxy HTTPS</li>
+          <li>Textul primit e <b>nesigur</b> (injecție de prompt, fapte false): verifică înainte să citezi</li>
+          <li>Drepturile de autor rămân problema ta: partajează notițe și materiale open-access</li>
+          <li>Testat între <b>două servere pe aceeași mașină</b> și două Chromium prin WebRTC. <b>Netestat:</b> mașini diferite, NAT/STUN, Tor, mDNS pe Wi-Fi real</li></ul></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- 9 PRIVACY -->
-<section class="slide" id="s9" data-title="Confidențialitate">
+<section class="slide" id="s13" data-title="Confidențialitate">
   <div class="wrap">
     <div class="kicker rv">trade-free</div>
     <h2 class="rv">Cărțile tale rămân <em>la tine.</em></h2>
@@ -368,7 +511,7 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 </section>
 
 <!-- 10 ONEST -->
-<section class="slide" id="s10" data-title="Adevărul">
+<section class="slide" id="s14" data-title="Adevărul">
   <div class="wrap">
     <div class="kicker rv">recenzie onestă, publicată în repo</div>
     <h2 class="rv">Ce a fost <em>măsurat</em> — și ce nu.</h2>
@@ -383,7 +526,7 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
         <li>Parafraze: <b>0/6</b> recunoscute de audit mecanic</li>
         <li>Negații: ratate (de aici <code>--semantic</code>)</li>
         <li>Niciun model real, niciun serviciu OpenAlex/Crossref real atins în teste</li>
-        <li>Integrările: netestate în aplicațiile reale</li>
+        <li>Integrările în aplicațiile reale și Mesh-ul între mașini diferite: netestate</li>
         <li>Fără utilizatori externi încă</li></ul></div>
     </div>
     <p class="lead rv" style="margin-top:22px;font-size:18px">Auditul <b>nu dovedește adevărul</b>. Îți arată în ce pagină trebuie să deschizi cartea.</p>
@@ -391,7 +534,7 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 </section>
 
 <!-- 11 COMPETITIE -->
-<section class="slide" id="s11" data-title="Poziționare">
+<section class="slide" id="s15" data-title="Poziționare">
   <div class="wrap">
     <div class="kicker rv">poziționare, 28 octombrie 2026</div>
     <h2 class="rv">Nu înlocuiește Zotero. <em>Îl completează cu un strat de audit.</em></h2>
@@ -414,7 +557,7 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 </section>
 
 <!-- 12 CTA -->
-<section class="slide" id="s12" data-title="Instalează">
+<section class="slide" id="s16" data-title="Instalează">
   <div class="wrap">
     <div class="kicker rv">începe simplu</div>
     <h2 class="rv">Pune-ți biblioteca <em>sub control.</em></h2>
@@ -541,6 +684,124 @@ function render(){
 claimEl.addEventListener('input',render);
 $$('.chip').forEach(c=>c.addEventListener('click',()=>{claimEl.value=c.dataset.t;render()}));
 render();
+
+/* ---------- catalog de variante ---------- */
+const CAT=[
+ ['Desktop & CLI','CLI Linux · macOS · Windows','cargo build --release','r'],
+ ['Desktop & CLI','Binar unic Linux x86_64','fără dependențe','r'],
+ ['Desktop & CLI','Pachet .deb','Debian · Ubuntu · Mint','r'],
+ ['Desktop & CLI','Pachet .rpm','Fedora · openSUSE','w'],
+ ['Desktop & CLI','PortableApps.com (stick USB)','test de relocare pe Linux; exe Windows nebuilt','s'],
+ ['Desktop & CLI','Electron','Win · macOS · Linux; rulează sub Xvfb','s'],
+ ['Desktop & CLI','Tauri 2','webview nativ, mic','w'],
+ ['Desktop & CLI','Windows installer (Inno Setup)','','w'],
+ ['Desktop & CLI','Nix flake · modul NixOS','','w'],
+ ['Desktop & CLI','Snap · Flatpak','manifeste cu placeholdere','w'],
+ ['Desktop & CLI','Homebrew · Cask','','w'],
+ ['Desktop & CLI','Scoop · winget · MSIX','','w'],
+ ['Desktop & CLI','AUR (Arch)','','w'],
+ ['Desktop & CLI','Meta-installer tezaur-setup','scanează, instalează, dezinstalează','s'],
+ ['Web & server','Fișier HTML unic (tezaur.html)','deschis în Chromium, contra unui server fals','r'],
+ ['Web & server','PWA instalabilă','service worker + manifest verificate','r'],
+ ['Web & server','tezaur serve','aplicație web + API JSON + OCR + proxy model','r'],
+ ['Web & server','Extensie Chrome · Edge · Brave','încărcată și rulată în Chromium','r'],
+ ['Web & server','Extensie Firefox','doar manifestul','w'],
+ ['Web & server','Docker · Compose','cu Ollama și proxy same-origin','w'],
+ ['Web & server','Helm chart','nerandat','w'],
+ ['Web & server','Podman Quadlet · systemd · launchd','servicii de fundal','w'],
+ ['Web & server','Raspberry Pi','','w'],
+ ['Web & server','Serviciu Tor onion','acces fără porturi deschise','w'],
+ ['Web & server','YunoHost (2 pachete)','','w'],
+ ['Web & server','GitHub Pages','URL public pentru PWA','w'],
+ ['Mobil','Android APK','necompilat (SDK inaccesibil)','w'],
+ ['Mobil','Capacitor Android + iOS','proiect generat și sincronizat','s'],
+ ['Mobil','iPhone / iPad (WKWebView)','necesită Mac','w'],
+ ['Mobil','Termux','','w'],
+ ['Mobil','F-Droid','','w'],
+ ['Mobil','Partajare din Android / PWA share target','parametri testați','s'],
+ ['Mobil','Bot Telegram · Matrix','contra serviciilor false','s'],
+ ['Editoare','Obsidian','răspunsuri cu [[link]] la heading','s'],
+ ['Editoare','VS Code','citează fișier:linie','s'],
+ ['Editoare','Vim','Vim real, fără interfață','r'],
+ ['Editoare','Neovim','Lua în mock `vim`','s'],
+ ['Editoare','Emacs','nu a fost rulat','w'],
+ ['Editoare','Sublime Text','','s'],
+ ['Editoare','Notepad++','PythonScript + NppExec','s'],
+ ['Editoare','LyX','audit .lyx, inserare prin conductă','w'],
+ ['Editoare','TeXstudio · Geany · Kate','configurări','w'],
+ ['Editoare','Helix · Zed · Emacs-eglot · Sublime-LSP','configurări LSP','w'],
+ ['Editoare','Server LSP (orice editor)','completare chei, hover, audit la salvare','r'],
+ ['Editoare','Jupyter · JupyterLab · IPython','magics într-un kernel real','r'],
+ ['Editoare','VS Code notebooks · Colab · Kaggle','','s'],
+ ['Editoare','Streamlit · Gradio · Marimo','compilate, nerulate','w'],
+ ['Editoare','Pandoc / Quarto','filtru Lua rulat','r'],
+ ['Editoare','Word (add-in)','Office.js simulat','s'],
+ ['Editoare','LibreOffice','UNO simulat','s'],
+ ['Editoare','Google Docs','Apps Script simulat','s'],
+ ['Editoare','Zotero 7','plugin netestat','w'],
+ ['Editoare','Zotero (API local) → bibliotecă','contra unui mock','s'],
+ ['Editoare','Joplin · Logseq','','s'],
+ ['Editoare','Calibre','','s'],
+ ['Editoare','Raycast · Alfred','','s'],
+ ['AI & MCP','Server MCP stdio','tools/list, tools/call, erori','r'],
+ ['AI & MCP','MCP peste HTTP (/mcp)','pentru asistenți în cloud','r'],
+ ['AI & MCP','OpenAPI (/openapi.json)','','r'],
+ ['AI & MCP','Claude Desktop · Claude Code','config scrisă într-un home fals','s'],
+ ['AI & MCP','Cursor · Windsurf','','s'],
+ ['AI & MCP','Cline · Roo · Continue','','s'],
+ ['AI & MCP','Gemini CLI · Codex','','s'],
+ ['AI & MCP','LM Studio · Goose · Jan','','s'],
+ ['AI & MCP','Open WebUI · AnythingLLM','instrucțiuni tipărite','w'],
+ ['AI & MCP','Client Python (PyPI)','instalat în venv, nepublicat','s'],
+ ['AI & MCP','Client npm','tarball instalat, nepublicat','s'],
+ ['Echipă & P2P','Mesh P2P — căutare federată','două servere reale','r'],
+ ['Echipă & P2P','Mesh — pull de documente','dedupe, refuz token greșit','r'],
+ ['Echipă & P2P','Mesh — pachete .tzb','Chromium ↔ CLI, ambele sensuri','r'],
+ ['Echipă & P2P','Mesh — WebRTC fără server','două Chromium izolate','r'],
+ ['Echipă & P2P','Mesh — descoperire UDP în LAN','','r'],
+ ['Echipă & P2P','Mesh — proxy SOCKS / Tor','calea SOCKS5 testată','s'],
+ ['Echipă & P2P','DokuWiki · WordPress','contra API-urilor simulate','s'],
+ ['Echipă & P2P','MediaWiki','doar php -l','w'],
+ ['Echipă & P2P','Slack · Discord','semnături HMAC / Ed25519 verificate','s'],
+ ['Echipă & P2P','WhatsApp · e-mail','contra serviciilor false','s'],
+ ['Echipă & P2P','Voce: dictare + citire','nerulat cu microfon','w']
+];
+const STX={r:'rulat',s:'simulat',w:'scris'};
+(function(){
+  const cats=['Toate',...new Set(CAT.map(c=>c[0]))];let cur='Toate',q='';
+  $('#ncat').textContent=CAT.length;
+  const tabs=$('#tabs');
+  cats.forEach(c=>{const b=document.createElement('button');b.type='button';b.role='tab';b.textContent=c;b.setAttribute('aria-selected',c===cur);
+    b.onclick=()=>{cur=c;$$('#tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));draw()};tabs.appendChild(b)});
+  $('#find').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();draw()});
+  function draw(){
+    const L=CAT.filter(c=>(cur==='Toate'||c[0]===cur)&&(!q||(c[1]+' '+c[2]+' '+c[0]).toLowerCase().includes(q)));
+    $('#items').innerHTML=L.map((c,i)=>`<div class="it" role="listitem" style="animation-delay:${Math.min(i,24)*12}ms"><b><i class="st s-${c[3]}" title="${STX[c[3]]}"></i>${esc(c[1])}</b>${c[2]?`<span>${esc(c[2])}</span>`:''}</div>`).join('')||'<p class="small">Nimic potrivit.</p>';
+    const n=k=>L.filter(c=>c[3]===k).length;
+    $('#stats').textContent=`${L.length} variante · ${n('r')} rulate · ${n('s')} simulate · ${n('w')} scrise`;
+  }
+  draw();
+})();
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ---------- terminal installer: tastare la intrarea în slide ---------- */
+(function(){
+  const el=$('#instterm'),lines=JSON.parse(el.dataset.lines),cls={c:'c',p:'p',o:'o'};
+  const render=n=>{el.innerHTML=lines.slice(0,n).map(([k,t])=>k==='p'?`<span class="p">$</span> ${esc(t)}`:`<span class="${cls[k]}">${esc(t)}</span>`).join('\n')};
+  if(reduce){render(lines.length);return}
+  let started=false;
+  new IntersectionObserver((es,o)=>es.forEach(e=>{if(e.isIntersecting&&!started){started=true;let n=0;(function t(){render(++n);if(n<lines.length)setTimeout(t,430)})()}}),{threshold:.5}).observe(el);
+})();
+
+/* ---------- mesh: pachete care circulă pe muchii ---------- */
+(function(){
+  const pk=$('#pk'),ns='http://www.w3.org/2000/svg';
+  ['e1','e2','e3','e4','e5','e6'].forEach((id,i)=>{
+    const c=document.createElementNS(ns,'circle');c.setAttribute('r',4);c.setAttribute('opacity',reduce?0:1);
+    const a=document.createElementNS(ns,'animateMotion');a.setAttribute('dur',(2.6+i*.45)+'s');a.setAttribute('repeatCount','indefinite');a.setAttribute('begin',(i*.4)+'s');
+    a.setAttribute('keyPoints',i%2?'1;0':'0;1');a.setAttribute('keyTimes','0;1');a.setAttribute('calcMode','linear');
+    const m=document.createElementNS(ns,'mpath');m.setAttributeNS('http://www.w3.org/1999/xlink','href','#'+id);a.appendChild(m);c.appendChild(a);pk.appendChild(c)});
+})();
 </script>
 </body>
 </html>
