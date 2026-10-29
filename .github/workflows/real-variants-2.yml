@@ -257,7 +257,7 @@ jobs:
           PY
           export EDITOR_NAME=sublime
           xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'subl doc.md & sleep 30; xdotool key ctrl+grave; sleep 3; import -window root subl-shot.png; pkill sublime_text' || true
-          bash .github/annotate.sh bash -c 'echo DEPS; tail -12 deps.log | cut -c1-200; ls ~/.config/sublime-text/Lib/python38 | head -20 | tr "\n" " "; echo OCR; tesseract subl-shot.png - 2>/dev/null | grep -v "^$" | head -15; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "sublime spawned" /tmp/lsp-spawn.log'
+          bash .github/annotate.sh bash -c 'grep -q "sublime spawned" /tmp/lsp-spawn.log || { echo SPAWN-MISSING; grep -iE "error|no matching|could not|requires" deps.log | sort -u | head -8 | cut -c1-200; ls ~/.config/sublime-text/Lib/python38 | head -25 | tr "\n" " "; echo; exit 1; }'
       - name: Zed (software Vulkan)
         continue-on-error: true
         run: |
