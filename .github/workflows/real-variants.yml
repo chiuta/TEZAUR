@@ -85,8 +85,8 @@ jobs:
       - name: main image
         run: |
           bash .github/annotate.sh docker build -t tezaur:ci .
-          bash .github/annotate.sh bash -c 'docker run -d --name t -p 8787:8787 -e TEZAUR_TOKEN=x tezaur:ci; sleep 5; echo LOGS; docker logs t; docker ps -a; curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health'
-          docker rm -f t
+          bash .github/annotate.sh bash -c 'docker run -d --name tz -p 8787:8787 -e TEZAUR_TOKEN=x tezaur:ci; sleep 5; echo LOGS; docker logs tz; docker ps -a; curl -sf -H "Authorization: Bearer x" http://127.0.0.1:8787/api/health'
+          docker rm -f tz
       - name: static web image (nginx) + compose file
         run: |
           python3 variants/build-web.py variants/docker/site
@@ -180,13 +180,13 @@ jobs:
           bash .github/annotate.sh "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" variants/windows/tezaur.iss
           ls variants/windows
       - name: MSIX package built with makeappx
-        shell: pwsh
+        shell: bash
         run: |
-          $mk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter makeappx.exe | Select-Object -First 1
-          New-Item -ItemType Directory -Force pk | Out-Null
-          Copy-Item variants/deploy/msix/AppxManifest.xml pk/
-          Copy-Item target/release/tezaur.exe pk/
-          & $mk.FullName pack /d pk /p t.msix /nv
+          mkdir -p pk/Assets && cp variants/deploy/msix/AppxManifest.xml pk/ && cp target/release/tezaur.exe pk/TezaurPortable.exe
+          for f in logo logo150 logo44; do cp variants/extension/icon-128.png pk/Assets/$f.png; done
+          MK=$(find "/c/Program Files (x86)/Windows Kits/10/bin" -name makeappx.exe | grep x64 | head -1)
+          bash .github/annotate.sh "$MK" pack /d pk /p t.msix /nv
+          ls -l t.msix
       - name: winget manifests validated
         shell: pwsh
         run: winget validate --manifest variants/packaging/winget

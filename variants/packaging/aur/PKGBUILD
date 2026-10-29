@@ -1,6 +1,6 @@
 # Maintainer: Alexio <alexio@trom.tf>
 pkgname=tezaur
-pkgver=0.1.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Local, citation-grounded research assistant for writing a thesis"
 arch=('x86_64' 'aarch64')
@@ -8,6 +8,7 @@ url="https://trom.tf"
 license=('MIT')
 depends=('gcc-libs')
 makedepends=('cargo')
+options=('!lto')
 optdepends=('poppler: text extraction fallback for difficult PDFs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/OWNER/tezaur/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
