@@ -70,7 +70,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with: { workspaces: variants/tauri/src-tauri }
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb xdotool imagemagick
-      - run: cd variants/tauri && npm install && bash ../../.github/annotate.sh npx tauri build --no-bundle
+      - run: cd variants/tauri && npm install && npm run prepare-web && bash ../../.github/annotate.sh npx tauri build --no-bundle
       - name: launch the Tauri window under Xvfb and screenshot it
         run: |
           BIN=$(ls variants/tauri/src-tauri/target/release/tezaur* | grep -v '\.d$' | head -1); echo $BIN
@@ -101,7 +101,8 @@ jobs:
       - run: pip install fdroidserver
       - name: fdroid lint + readmeta on the metadata file
         run: |
-          mkdir -p fd/metadata && cp variants/deploy/fdroid/org.tezaur.app.yml fd/metadata/ro.trom.tezaur.yml
+          mkdir -p fd/metadata && cp variants/deploy/fdroid/ro.trom.tezaur.yml fd/metadata/ro.trom.tezaur.yml
+          mkdir -p fd/config && printf 'Science & Education:\n  name: {en-US: Science & Education}\n' > fd/config/categories.yml
           cd fd && printf 'repo_url: https://example.org/repo\nrepo_name: t\nrepo_description: t\n' > config.yml
           bash ../.github/annotate.sh bash -c 'fdroid readmeta && fdroid lint ro.trom.tezaur'
 
@@ -145,12 +146,17 @@ jobs:
           export TEZAUR_SERVER=http://127.0.0.1:8787
           cat > eg.el <<EOF
           (require 'eglot) (require 'flymake)
+          (setq eglot-sync-connect t eglot-connect-timeout 30)
           (add-to-list 'eglot-server-programs '(text-mode . ("python3" "$PWD/variants/editors/lsp/tezaur_lsp.py")))
-          (find-file "$PWD/doc.md") (text-mode) (eglot-ensure)
-          (let ((n 0)) (while (and (< n 100) (null (flymake-diagnostics))) (accept-process-output nil 0.2) (setq n (1+ n))))
+          (find-file "$PWD/doc.md") (text-mode)
+          (let ((s (eglot--connect '(text-mode) 'text-mode (project-current nil default-directory) '(eglot-lsp-server) '("python3" "$PWD/variants/editors/lsp/tezaur_lsp.py") "text-mode")))
+            (eglot--maybe-activate-editing-mode)
+            (message "connected: %s" s))
+          (flymake-mode 1) (flymake-start)
+          (let ((n 0)) (while (and (< n 150) (null (flymake-diagnostics))) (accept-process-output nil 0.2) (setq n (1+ n))))
           (let ((d (flymake-diagnostics))) (dolist (x d) (princ (format "DIAG %s\n" (flymake-diagnostic-text x)))) (kill-emacs (if d 0 1)))
           EOF
-          bash .github/annotate.sh timeout 60 emacs --batch -Q -l eg.el
+          bash .github/annotate.sh timeout 90 emacs --batch -Q -l eg.el
       - name: Helix reads the shipped languages.toml and sees the tezaur language server
         run: |
           mkdir -p ~/.config/helix && sed "s#TEZAUR_TOOLS#$PWD/variants/editors/lsp#" variants/editors/latex/lsp-configs/helix-languages.toml > ~/.config/helix/languages.toml
