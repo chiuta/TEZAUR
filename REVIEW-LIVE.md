@@ -1,9 +1,11 @@
 # Recenzie adversarială — tezaur.chiuta.ro (29 oct. 2026)
 
+Actualizat după reparații (commit dd12029+); ultima rulare audit-live: trece pe http și pe chromium/firefox/webkit (cele 13 videoclipuri rulează în toate trei).
+
 Metodă: audit din GitHub Actions (site-ul live nu e accesibil din sandbox) — rularea 40955915164, joburile `http`, `browsers (chromium|firefox|webkit)` din `scripts/audit/*` — plus verificări locale pe aceeași sursă. Fiecare constatare are un filmuleț în `review-videos/` (ro + en). Rândurile marcate EVIDENȚĂ din filmulețe reproduc ce a tipărit CI-ul; comenzile fără marcaj au fost executate cu adevărat.
 
 ## Verdict
-Site-ul funcționează: TLS valid (până 2027-01-27, TLSv1.3), HTTP→HTTPS 301, 0 erori în consolă, 0 cereri eșuate, 13 videoclipuri se încarcă și rulează în Chromium, Firefox și WebKit, fără depășire orizontală la 360 px, încărcare 0,2–0,5 s (Chromium, Fast-3G simulat). Dar am găsit defecte reale; aproape toate sunt reparate; rămân doar cele care nu depind de cod (vezi mai jos).
+Site-ul funcționează: TLS valid (până 2027-01-27, TLSv1.3), HTTP→HTTPS 301, 0 erori în consolă, 0 cereri eșuate, 13 videoclipuri se încarcă și rulează în Chromium, Firefox și WebKit, fără depășire orizontală la 360 px, încărcare 0,2–0,5 s (Chromium, Fast-3G simulat). Dar am găsit defecte reale; toate cele care depind de cod sunt reparate și reverificate live; rămân doar patru antete HTTP și DNS-ul `www`.
 
 ## Defecte confirmate
 | # | Defect | Gravitate | Stare | Film |
