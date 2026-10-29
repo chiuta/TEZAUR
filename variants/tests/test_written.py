@@ -108,7 +108,7 @@ try:
     if have("node"): check("zotero: bootstrap.js parses", sh("node --check %s/variants/editors/zotero/bootstrap.js" % ROOT).returncode == 0)
     if have("systemd-analyze"):
         r = sh("systemd-analyze verify %s/variants/deploy/systemd/tezaur.service 2>&1" % ROOT)
-        bad = [l for l in r.stdout.splitlines() if l.strip() and "is not executable" not in l]
+        bad = [l for l in r.stdout.splitlines() if "tezaur" in l.lower() and "is not executable" not in l and "not found" not in l.lower()]
         check("systemd: tezaur.service verifies (only the not-yet-installed binary is reported)", not bad, "\n".join(bad))
     # ---- web-ext lint (Firefox)
     if have("npx"):

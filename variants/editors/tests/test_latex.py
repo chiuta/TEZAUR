@@ -25,5 +25,5 @@ pipe = os.path.join(d, "lyxpipe"); os.mkfifo(pipe + ".in")
 got = []
 t = threading.Thread(target=lambda: got.append(open(pipe + ".in").read())); t.start()
 r = run("cite", "burden of proof", "--lyx", env={"LYXPIPE": pipe}); t.join(10)
-check("cite --lyx writes a LYXCMD line to the pipe", got and got[0].startswith("LYXCMD:tezaur:self-insert \\cite"), got)
+check("cite --lyx writes a citation-insert LYXCMD line to the pipe", got and got[0].startswith("LYXCMD:tezaur:citation-insert:"), got)
 sys.exit(0 if ok else 1)
