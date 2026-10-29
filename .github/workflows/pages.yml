@@ -1,12 +1,108 @@
 name: pages
-# Publishes the PWA to GitHub Pages: https://OWNER.github.io/REPO/ (installable, works offline after the first visit).
+# GitHub Pages hosts the PWA *and* real package repositories built from this commit:
+#   https://OWNER.github.io/REPO/            PWA (installable, works offline after the first visit)
+#   .../apt/      APT repository      (echo "deb [trusted=yes] URL/apt ./" | sudo tee /etc/apt/sources.list.d/tezaur.list)
+#   .../rpm/      RPM repository      (dnf config-manager --add-repo URL/rpm/tezaur.repo)
+#   .../flatpak/  Flatpak repository  (flatpak remote-add tezaur URL/flatpak/tezaur.flatpakrepo)
+#   .../fdroid/repo  F-Droid repository (add URL/fdroid/repo in the F-Droid app)
+# Each repository is installed from in CI (a container pulls it over HTTP) before it is published.
 on:
   workflow_dispatch:
   push:
     branches: [main]
 permissions: { contents: read, pages: write, id-token: write }
 jobs:
+  apt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils dpkg-dev apt-utils
+      - run: cargo build --release && bash variants/build-deb.sh
+      - name: build the APT repository
+        run: |
+          mkdir -p repo/apt && cp dist/*.deb repo/apt/ && cd repo/apt
+          dpkg-scanpackages --multiversion . > Packages && gzip -k Packages
+          apt-ftparchive release . > Release
+      - name: install from it in a clean Debian container over HTTP
+        run: |
+          (cd repo && python3 -m http.server 8088 >/dev/null 2>&1 &) ; sleep 2
+          bash .github/annotate.sh docker run --rm --network host debian:stable-slim bash -c 'echo "deb [trusted=yes] http://127.0.0.1:8088/apt ./" > /etc/apt/sources.list.d/tezaur.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version && dpkg -s tezaur | grep -E "^(Package|Version)"'
+      - uses: actions/upload-artifact@v4
+        with: { name: repo-apt, path: repo }
+  rpm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y createrepo-c
+      - run: cargo build --release && cargo install cargo-generate-rpm --locked && cargo generate-rpm
+      - name: build the RPM repository
+        run: |
+          mkdir -p repo/rpm && cp target/generate-rpm/*.rpm repo/rpm/ && createrepo_c repo/rpm
+          printf '[tezaur]\nname=TEZAUR\nbaseurl=https://%s.github.io/%s/rpm/\nenabled=1\ngpgcheck=0\n' "${{ github.repository_owner }}" "${{ github.event.repository.name }}" > repo/rpm/tezaur.repo
+      - name: install from it in a clean Fedora container over HTTP
+        run: |
+          (cd repo && python3 -m http.server 8089 >/dev/null 2>&1 &) ; sleep 2
+          bash .github/annotate.sh docker run --rm --network host fedora:latest bash -c 'printf "[tezaur]\nname=t\nbaseurl=http://127.0.0.1:8089/rpm/\nenabled=1\ngpgcheck=0\n" > /etc/yum.repos.d/t.repo && dnf install -y tezaur && tezaur --version && rpm -qi tezaur | head -3'
+      - uses: actions/upload-artifact@v4
+        with: { name: repo-rpm, path: repo }
+  flatpak:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder
+      - run: flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      - name: build into an OSTree repository
+        run: |
+          pip install aiohttp toml tomlkit
+          curl -sSLo fcg.py https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
+          python3 fcg.py Cargo.lock -o cargo-sources.json
+          python3 - <<'PY'
+          import re
+          s = open('variants/packaging/flatpak/tf.trom.Tezaur.yml').read()
+          s = re.sub(r'- type: git\n\s+url: [^\n]+\n(\s+tag: [^\n]+\n)?(\s+branch: [^\n]+\n)?', '- type: dir\n        path: .\n', s)
+          open('flatpak-ci.yml', 'w').write(s)
+          PY
+          bash .github/annotate.sh flatpak-builder --user --force-clean --install-deps-from=flathub --repo=repo/flatpak/repo build flatpak-ci.yml
+          flatpak build-update-repo repo/flatpak/repo
+          printf '[Flatpak Repo]\nTitle=TEZAUR\nUrl=https://%s.github.io/%s/flatpak/repo\nHomepage=https://github.com/%s\nComment=Local, citation-grounded research assistant\nDescription=TEZAUR\nGPGKey=\n' "${{ github.repository_owner }}" "${{ github.event.repository.name }}" "${{ github.repository }}" > repo/flatpak/tezaur.flatpakrepo
+      - name: add the repository over HTTP, install from it, run
+        run: |
+          (cd repo/flatpak && python3 -m http.server 8090 >/dev/null 2>&1 &) ; sleep 2
+          flatpak remote-add --user --no-gpg-verify tezaur-local http://127.0.0.1:8090/repo
+          bash .github/annotate.sh flatpak install --user -y --noninteractive tezaur-local tf.trom.Tezaur
+          bash .github/annotate.sh flatpak run tf.trom.Tezaur --version
+      - uses: actions/upload-artifact@v4
+        with: { name: repo-flatpak, path: repo }
+  fdroid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.9' }
+      - run: pip install fdroidserver
+      - run: cd android && bash ../.github/annotate.sh gradle --no-daemon assembleDebug
+      - name: build the F-Droid repository (index + signed index) from the APK
+        run: |
+          mkdir -p fd/repo fd/metadata && cd fd
+          cp ../android/app/build/outputs/apk/debug/app-debug.apk repo/ro.trom.tezaur_1.apk
+          cp ../variants/deploy/fdroid/ro.trom.tezaur.yml metadata/
+          mkdir -p config && printf 'Science & Education:\n  name: {en-US: Science & Education}\n' > config/categories.yml
+          printf 'repo_url: https://%s.github.io/%s/fdroid/repo\nrepo_name: TEZAUR\nrepo_description: TEZAUR, local citation-grounded research assistant\narchive_older: 0\nkeystore: keystore.p12\nkeystorepass: tezaurci\nkeypass: tezaurci\nrepo_keyalias: tezaur\nkeydname: CN=TEZAUR, O=TROM\n' "${{ github.repository_owner }}" "${{ github.event.repository.name }}" > config.yml
+          keytool -genkey -v -keystore keystore.p12 -storetype PKCS12 -alias tezaur -keyalg RSA -keysize 2048 -validity 10000 -storepass tezaurci -keypass tezaurci -dname "CN=TEZAUR, O=TROM" >/dev/null 2>&1
+          bash ../.github/annotate.sh fdroid update --create-metadata --verbose
+          ls repo; python3 -c "import json;j=json.load(open('repo/index-v1.json'));print([a['packageName'] for a in j['apps']], [p for p in j['packages']])" | tee /tmp/idx.txt
+          grep -q ro.trom.tezaur /tmp/idx.txt
+          mkdir -p ../out/fdroid && cp -r repo ../out/fdroid/
+      - uses: actions/upload-artifact@v4
+        with: { name: repo-fdroid, path: out }
   deploy:
+    needs: [apt, rpm, flatpak, fdroid]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -14,6 +110,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python3 variants/build-pwa.py && mkdir site && cp -r pwa/. site/ && cp -r dist/office site/office 2>/dev/null || true
+      - uses: actions/download-artifact@v4
+        with: { path: repos }
+      - run: |
+          for a in apt rpm; do cp -r repos/repo-$a/* site/ ; done
+          mkdir -p site/flatpak && cp -r repos/repo-flatpak/flatpak/* site/flatpak/
+          cp -r repos/repo-fdroid/fdroid site/
+          find site -maxdepth 2 | head -30
       - uses: actions/upload-pages-artifact@v3
         with: { path: site }
       - id: dep
