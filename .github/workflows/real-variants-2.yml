@@ -173,3 +173,43 @@ jobs:
           mkdir -p ~/.config/geany/filedefs && cat variants/editors/latex/geany-filetypes.latex.conf.snippet > ~/.config/geany/filedefs/filetypes.latex.conf
           echo '\documentclass{article}\begin{document}x\end{document}' > a.tex
           xvfb-run -a bash -c 'geany --no-session --no-plugins a.tex & sleep 6; pgrep -x geany; pkill geany'
+
+  whisper-dictation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y espeak-ng ffmpeg && pip install playwright && python -m playwright install --with-deps chromium
+      - name: spoken sentence -> fake microphone -> Whisper in the page -> question field
+        run: bash .github/annotate.sh python3 variants/tests/test_whisper.py
+
+  editors-gui:
+    # Real GUI editors under Xvfb. Evidence: the editor reads the shipped LSP config and *spawns* tezaur_lsp.py (a wrapper logs the launch, then execs the real server).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y xvfb xdotool imagemagick kate texstudio mesa-vulkan-drivers libvulkan1 libxkbcommon-x11-0
+      - name: wrapper that records that the editor launched the language server
+        run: |
+          mkdir -p tools && cat > tools/tezaur_lsp.py <<PY
+          import os, sys
+          open("/tmp/lsp-spawn.log", "a").write(os.environ.get("EDITOR_NAME", "?") + " spawned tezaur_lsp\n")
+          os.execv(sys.executable, [sys.executable, "$PWD/variants/editors/lsp/tezaur_lsp.py"])
+          PY
+          printf 'See [@ghost2020] and [@lisbon_convention].\n' > doc.md
+      - name: Kate (LSP Client plugin)
+        run: |
+          mkdir -p ~/.config/kate/lspclient
+          sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/kate-lspclient.json > ~/.config/kate/lspclient/settings.json
+          printf '[Kate Plugins]\nlspclientplugin=true\n' >> ~/.config/katerc
+          export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'kate -n doc.md & sleep 20; import -window root kate-shot.png; pkill kate' || true
+          cat /tmp/lsp-spawn.log; grep -q "kate spawned" /tmp/lsp-spawn.log
+      - name: TeXstudio (user command from the shipped instructions, run through its Tools menu)
+        run: |
+          mkdir -p ~/.config/texstudio
+          printf '[texmaker]\nTools\\User\\Tool1=TEZAUR audit|python3 %s/variants/editors/latex/tezaur_tex.py audit %%.tex > %s/texstudio-out.txt\n' "$PWD" "$PWD" > ~/.config/texstudio/texstudio.ini
+          printf '\\documentclass{article}\\begin{document}Penguins sing opera [\\cite{ghost2020}].\\end{document}\n' > a.tex
+          export TEZAUR_SERVER=http://127.0.0.1:1
+          xvfb-run -a -s "-screen 0 1280x800x24" bash -c 'texstudio --no-session a.tex & sleep 15; xdotool key alt+t; sleep 1; import -window root tex-menu.png; pkill texstudio' || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: gui-editor-shots, path: '*-shot.png,tex-menu.png' }

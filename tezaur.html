@@ -116,7 +116,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
     </div>
     <label id="fSem" hidden><input type="checkbox" id="sem" style="width:auto"> a doua opinie de la modelul local pentru fiecare citare (lent; prinde parafraze și negații, dar modelul poate greși)</label>
     <label id="fDec"><input type="checkbox" id="dec" style="width:auto"> descompune întrebarea în mai multe interogări (mai lent)</label>
-    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><button id="mic" class="alt" title="Dictare" hidden>🎤</button><button id="speak" class="alt" title="Citește răspunsul" hidden>🔊</button><span class="small" id="runInfo"></span></div>
+    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><button id="mic" class="alt" title="Dictare" hidden>🎤</button><button id="mic2" class="alt" title="Dictare locală (Whisper, rulează în browser; nimic nu pleacă din calculator)" hidden>🎙️</button><button id="speak" class="alt" title="Citește răspunsul" hidden>🔊</button><span class="small" id="runInfo"></span><span class="small" id="dictst"></span></div>
   </div>
 
   <div class="card" id="resCard" hidden>
@@ -794,6 +794,26 @@ $('mic').onclick=()=>{
 $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return}
   const u=new SpeechSynthesisUtterance(lastText||''),lg=($('lang').value.trim()||navigator.language).slice(0,2).toLowerCase();
   const v=s.getVoices().find(v=>v.localService&&v.lang.toLowerCase().startsWith(lg));if(v){u.voice=v;u.lang=v.lang}s.speak(u)};
+
+/* local dictation: Whisper (transformers.js) runs inside the page; the audio never leaves the machine. The model (~40 MB) is downloaded once and cached by the browser. */
+(()=>{const b=$('mic2');if(!b||!navigator.mediaDevices||!window.MediaRecorder)return;b.hidden=false;
+  const LN={ro:'romanian',en:'english',fr:'french',de:'german',es:'spanish',it:'italian',hu:'hungarian',pt:'portuguese',nl:'dutch',pl:'polish'};
+  let rec=null,chunks=[],asr=null,timer=null;
+  const say=t=>{const e=$('dictst');if(e)e.textContent=t};
+  async function load(){if(asr)return asr;say('se încarcă modelul Whisper (o singură dată)…');
+    const {pipeline,env}=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');env.allowLocalModels=false;
+    asr=await pipeline('automatic-speech-recognition',window.__whisperModel||'Xenova/whisper-tiny');return asr}
+  async function finish(){clearTimeout(timer);b.textContent='🎙️';say('se transcrie local…');
+    try{const blob=new Blob(chunks,{type:rec.mimeType}),ab=await blob.arrayBuffer(),ctx=new AudioContext({sampleRate:16000}),au=await ctx.decodeAudioData(ab);
+      const a=await load(),lg=LN[($('lang').value.trim()||navigator.language).slice(0,2).toLowerCase()];
+      const o=await a(au.getChannelData(0),lg?{language:lg,task:'transcribe'}:{});
+      const t=(o.text||'').trim();if(t)$('q').value=(($('q').value?$('q').value+' ':'')+t).trim();say(t?'gata':'nu s-a auzit nimic')}
+    catch(e){say('dictare locală indisponibilă: '+e.message)}}
+  b.onclick=async()=>{if(rec&&rec.state==='recording'){rec.stop();return}
+    try{const st=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];rec=new MediaRecorder(st);
+      rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=()=>{st.getTracks().forEach(t=>t.stop());finish()};
+      rec.start();b.textContent='⏹';say('înregistrez… apasă din nou pentru a opri');timer=setTimeout(()=>rec.state==='recording'&&rec.stop(),15000)}
+    catch(e){say('microfon indisponibil: '+e.message)}}})();
 
 /* ---------- opened from a share sheet / link: ?q= or ?text= (PWA share target) ---------- */
 (()=>{try{const u=new URL(location.href),p=u.searchParams,q=p.get('q')||p.get('text');if(!q)return;
