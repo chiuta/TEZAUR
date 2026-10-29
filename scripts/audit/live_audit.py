@@ -5,6 +5,7 @@ import json, re, socket, ssl, subprocess, sys, time, urllib.request, urllib.erro
 H = sys.argv[1] if len(sys.argv) > 1 else "tezaur.chiuta.ro"
 BASE = "https://" + H
 def note(t, m): print(f"::notice title={t}::{str(m)[:1500]}".replace("\n", "%0A"), flush=True)
+def warn(t, m): print(f"::warning title={t}::{str(m)[:1500]}".replace("\n", "%0A"), flush=True)
 def bad(t, m): print(f"::error title={t}::{str(m)[:1500]}".replace("\n", "%0A"), flush=True)
 def get(url, headers=None, method="GET", timeout=40, follow=True):
     class NoRedir(urllib.request.HTTPRedirectHandler):
@@ -29,17 +30,28 @@ try:
 except Exception as e: bad("tls", f"TLS handshake to {H} failed: {e}")
 for h in (H, "www." + H):
     try: note("dns", f"{h} -> {socket.gethostbyname_ex(h)[2]}")
-    except Exception as e: bad("dns", f"{h}: {e}")
+    except Exception as e: (warn if h.startswith("www.") else bad)("dns", f"{h}: {e}")
 st, hd, _, _ = get("http://" + H + "/", method="GET", follow=False)
 note("http-redirect", f"http://{H}/ -> {st} {hd.get('location')}") if st in (301, 302, 308) else bad("http-redirect", f"plain HTTP not redirected to HTTPS (status {st})")
 st, hd, _, _ = get("https://www." + H + "/", follow=False)
-note("www", f"https://www.{H}/ -> {st} {hd.get('location')}") if st in (200, 301, 308) else bad("www", f"www subdomain answers {st}")
+note("www", f"https://www.{H}/ -> {st} {hd.get('location')}") if st in (200, 301, 308) else warn("www", f"www subdomain answers {st} (needs a DNS CNAME owned by the domain admin)")
 # ---- main page
 st, hd, body, dt = get(BASE + "/", headers={"Accept-Encoding": "gzip, br"})
+import gzip, zlib
+if hd.get("content-encoding") == "gzip": body = gzip.decompress(body)
+elif hd.get("content-encoding") == "deflate": body = zlib.decompress(body)
 html = body.decode("utf-8", "replace")
 note("index", f"status {st}, {len(body)/1e6:.2f} MB transferred ({hd.get('content-encoding')}), {dt:.2f}s, content-type={hd.get('content-type')}, cache-control={hd.get('cache-control')}")
 for k in ("strict-transport-security", "content-security-policy", "x-content-type-options", "x-frame-options", "referrer-policy", "permissions-policy"):
-    if k not in hd: bad("header-missing", f"{k} absent on /")
+    if k in hd: continue
+    # GitHub Pages cannot set response headers: a <meta> equivalent counts where one exists, the rest is a standing warning
+    meta = {"content-security-policy": 'http-equiv="Content-Security-Policy"', "referrer-policy": 'name="referrer"'}.get(k)
+    if meta and meta in html: note("header-meta", f"{k} absent as header, present as <meta>")
+    else: warn("header-missing", f"{k} absent on / (GitHub Pages cannot set it; needs a proxy/CDN)")
+n_sl = len(re.findall(r'<section class="slide"', html)); ctr = re.findall(r'id="count"[^>]*>([^<]*)', html)
+if not n_sl or not ctr or not ctr[0].strip().endswith(f"/ {n_sl:02d}"): bad("counter", f"static counter {ctr} does not match {n_sl} slides")
+for need in ('rel="canonical"', 'property="og:title"', 'rel="icon"', 'id="vid"'):
+    if need not in html: bad("metadata", f"missing {need}")
 note("slides", f"live HTML: {len(re.findall(r'<section class=\"slide\"', html))} slides, counter literal={re.findall(r'id=\"count\"[^>]*>([^<]*)', html)}, has video section={'id=\"vid\"' in html}")
 # ---- assets
 for path in ["assets/tutorials/05-cli-ingest-search.mp4", "assets/tutorials/05-cli-ingest-search.hu.vtt", "assets/tutorials/05-cli-ingest-search.jpg", "app/", "app/manifest.webmanifest", "app/sw.js", "favicon.ico", "robots.txt", "sitemap.xml", "404.html", "this-page-does-not-exist-xyz", "CNAME", "apt/Packages", "rpm/tezaur.repo", "flatpak/tezaur.flatpakrepo", "fdroid/repo/index-v1.json"]:

@@ -8,6 +8,8 @@
 <meta name="theme-color" content="#0b0f1a">
 <link rel="canonical" href="https://tezaur.chiuta.ro/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f1a'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='%23e8b53f' font-family='Georgia,serif'%3ET%3C/text%3E%3C/svg%3E">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<style id="fb">html:not(.ok){display:none!important}</style><noscript><style>html:not(.ok){display:block!important}</style></noscript><script>if(self===top)document.documentElement.classList.add('ok');else{try{top.location=self.location}catch(e){}}</script>
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta property="og:type" content="website"><meta property="og:site_name" content="TEZAUR">
 <meta property="og:title" content="TEZAUR — fiecare afirmație, legată de o pagină">
@@ -15,6 +17,7 @@
 <meta property="og:url" content="https://tezaur.chiuta.ro/"><meta property="og:image" content="https://tezaur.chiuta.ro/assets/tutorials/01-first-question.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <style>
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 :root{
   --bg:#0b0f1a;--bg2:#121a2b;--ink:#ece6d3;--mute:#9aa3b5;--line:#25314b;
   --gold:#e8b53f;--gold2:#f6d77e;--teal:#3dd6c6;--red:#ff6b6b;--green:#5fd38d;--amber:#ffb454;
@@ -175,10 +178,11 @@ td.y{color:var(--green)}td.n{color:var(--red)}td.p{color:var(--amber)}
 .btn.sec:hover{border-color:var(--teal);color:var(--teal)}
 .cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:26px}
 /* chrome */
-#dots{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;gap:10px}
-#dots a{width:9px;height:9px;border-radius:50%;border:1px solid var(--mute);background:transparent;display:block;transition:.25s}
-#dots a.on{background:var(--gold);border-color:var(--gold);transform:scale(1.35)}
-#dots a:hover{border-color:var(--gold2)}
+#dots{position:fixed;right:10px;top:50%;transform:translateY(-50%);z-index:20;display:flex;flex-direction:column;gap:2px}
+#dots a{width:24px;height:24px;display:block;position:relative}
+#dots a::after{content:'';position:absolute;left:7px;top:7px;width:8px;height:8px;border-radius:50%;border:1px solid var(--mute);background:transparent;transition:.25s}
+#dots a.on::after{background:var(--gold);border-color:var(--gold);transform:scale(1.35)}
+#dots a:hover::after{border-color:var(--gold2)}
 @media(max-width:700px){#dots{display:none}}
 #bar{position:fixed;left:0;top:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--teal));z-index:30;width:0;transition:width .3s}
 #count{position:fixed;left:20px;bottom:16px;z-index:20;font:12px var(--mono);color:var(--mute);letter-spacing:.14em}
@@ -221,7 +225,7 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 #tplay{cursor:pointer}#tplay.on{border-color:var(--gold);color:var(--gold)}
 .tcb{cursor:pointer;background:rgba(18,26,43,.7)}.tcb.on{border-color:var(--gold);color:var(--gold)}
 .tdots{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
-.tdots button{width:14px;height:14px;border-radius:4px;border:0;background:currentColor;opacity:.38;cursor:pointer;padding:0}
+.tdots button{width:24px;height:24px;border-radius:7px;border:0;background:currentColor;background-clip:content-box;opacity:.38;cursor:pointer;padding:5px}
 .tdots button:hover{opacity:.8}.tdots button.on{opacity:1;outline:2px solid var(--ink);outline-offset:2px}
 .tleg{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px}.tleg i{display:inline-block;width:10px;height:10px;border-radius:3px;background:currentColor;margin-right:6px}
 @media(max-width:900px){.tour{grid-template-columns:1fr}.tview{height:auto;min-height:200px;max-height:60vh}.tinfo{min-height:0}.tnav{width:36px;height:36px}}
@@ -230,9 +234,10 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 <body>
 <a class="skip" href="#s16">Sari la instalare</a>
 <canvas id="bg" aria-hidden="true"></canvas><div class="vignette"></div>
-<div id="bar"></div><div id="count" aria-live="polite">01 / 20</div>
+<aside aria-label="Navigare" style="display:contents"><div id="bar"></div><div id="count" aria-live="polite">01 / 20</div>
 <div id="keys"><kbd>↑</kbd><kbd>↓</kbd> navighează · <kbd>F</kbd> ecran complet</div>
-<nav id="dots" aria-label="Slide-uri"></nav>
+<nav id="dots" aria-label="Slide-uri"></nav></aside>
+<main id="main">
 
 <!-- 1 HERO -->
 <section class="slide hero in" id="s1" data-title="TEZAUR">
@@ -466,6 +471,13 @@ Object.keys(T).forEach((id,i)=>{
   f.appendChild(v);f.appendChild(cap);g.appendChild(f);
 });
 titles();
+/* phones: show the first 3 videos, the rest behind a button (keeps the slide short) */
+const sm=matchMedia('(max-width:700px)'),figs=[...g.children],more=document.createElement('button');
+more.className='pill gb';more.style.margin='14px 0 0';more.setAttribute('aria-expanded','false');
+function fold(){const hide=sm.matches&&more.getAttribute('aria-expanded')==='false';figs.forEach((f,i)=>f.hidden=hide&&i>=3);
+  more.hidden=!sm.matches;more.textContent=more.getAttribute('aria-expanded')==='true'?'Mai puține':'Arată toate cele '+figs.length+' tutoriale'}
+more.onclick=()=>{more.setAttribute('aria-expanded',more.getAttribute('aria-expanded')==='true'?'false':'true');fold()};
+g.after(more);sm.addEventListener('change',fold);fold();
 })();
 </script>
 <div id="lb" hidden><img alt=""></div>
@@ -486,7 +498,7 @@ titles();
         <div class="tctl"><button class="pill" id="tplay" type="button">▶ redare automată</button><span class="small" id="thint">← → · click pe imagine = mărire</span></div>
       </div>
     </div>
-    <div class="tdots" id="tdots" role="tablist" aria-label="Alege varianta"></div>
+    <div class="tdots" id="tdots" role="group" aria-label="Alege varianta"></div>
     <div class="tleg small" id="tleg"></div>
     <p class="small" style="margin-top:8px">Fiecare captură e etichetată după ce a rulat cu adevărat. Nicio aplicație terță (Obsidian, Word, Zotero, Slack…) n-a fost pornită: la acelea vezi ieșirea codului nostru sau fișierul livrat, <b>nu</b> o fereastră a aplicației gazdă. Modelul de limbaj din toate capturile este simulat.</p>
   </div>
@@ -529,7 +541,7 @@ titles();
         <span><i class="st s-w"></i>scris, nerulat / necompilat</span>
         <b id="stats" class="mono"></b>
       </div>
-      <div id="items" class="items" role="list"></div>
+      <div id="items" class="items" role="list" tabindex="0" aria-label="Lista variantelor de instalare"></div>
     </div>
   </div>
 </section>
@@ -671,7 +683,7 @@ titles();
     <h2 class="rv">Nu înlocuiește Zotero. <em>Îl completează cu un strat de audit.</em></h2>
     <div class="card tw rv" style="padding:6px 8px">
       <table>
-        <thead><tr><th></th><th>TEZAUR</th><th>RAG local generic</th><th>Cloud academic</th></tr></thead>
+        <thead><tr><th><span class="sr">Criteriu</span></th><th>TEZAUR</th><th>RAG local generic</th><th>Cloud academic</th></tr></thead>
         <tbody>
           <tr><td>Rulează local, gratuit</td><td class="y">da</td><td class="y">da</td><td class="n">nu</td></tr>
           <tr><td>Citare cu pagină</td><td class="y">da</td><td class="y">da</td><td class="y">da</td></tr>
@@ -711,12 +723,16 @@ titles();
     <p class="small rv" style="margin-top:26px">© 2026 Alexio · <a href="https://trom.tf" style="color:var(--gold)">trom.tf</a> · licență MIT · parte din mișcarea trade-free</p>
   </div>
 </section>
+</main>
 
 <script>
 'use strict';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 
+/* keyboard access to horizontally/vertically scrollable code blocks (WCAG 2.1.1) */
+function scrollKeys(){$$('pre,.items,.tw').forEach(e=>{if(e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1){if(!e.hasAttribute('tabindex'))e.tabIndex=0;if((e.tagName==='PRE'||e.classList.contains('tw'))&&!e.hasAttribute('aria-label'))e.setAttribute('aria-label','Cod sau rezultat (derulabil)')}})}
+addEventListener('load',()=>{scrollKeys();setTimeout(scrollKeys,1500)});addEventListener('resize',scrollKeys);
 /* ---------- typed tagline ---------- */
 (function(){
   const el=$('#typed'), full='Fiecare afirmație, legată de o pagină.';
