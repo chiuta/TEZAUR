@@ -122,7 +122,7 @@ try:
         os.chmod(d, 0o755); sd = d + "/ng"; os.makedirs(sd + "/html"); os.makedirs(sd + "/logs")
         subprocess.run([sys.executable, ROOT + "/variants/build-web.py", sd + "/html"], capture_output=True)
         shutil.copy(ROOT + "/pwa/manifest.webmanifest", sd + "/html/")
-        conf = open(ROOT + "/variants/docker/nginx.conf").read().replace("listen 80;", "listen 8862;").replace("/usr/share/nginx/html", sd + "/html").replace("http://ollama:11434/", "http://127.0.0.1:11999/").replace("http://host.docker.internal:1337/v1/", "http://127.0.0.1:1337/v1/")
+        conf = open(ROOT + "/variants/docker/nginx.conf").read().replace("listen 80;", "listen 8862;").replace("/usr/share/nginx/html", sd + "/html").replace("http://ollama:11434", "http://127.0.0.1:11999").replace("http://host.docker.internal:1337", "http://127.0.0.1:1337")
         open(sd + "/site.conf", "w").write(conf)
         open(sd + "/nginx.conf", "w").write("pid %s/nginx.pid; error_log %s/logs/e.log; events{} http{ access_log off; client_body_temp_path %s/b; proxy_temp_path %s/p; fastcgi_temp_path %s/f; uwsgi_temp_path %s/u; scgi_temp_path %s/s; include %s/site.conf; include /etc/nginx/mime.types; }" % ((sd,) * 8))
         r = sh("nginx -t -c %s/nginx.conf 2>&1" % sd)
