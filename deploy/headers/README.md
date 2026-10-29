@@ -11,7 +11,8 @@ GitHub Pages nu permite antete proprii (X-Frame-Options, X-Content-Type-Options,
 ## Ce știu sigur și ce nu
 * Sintaxa `_headers` pentru Cloudflare Pages e din [documentația lor](https://developers.cloudflare.com/pages/configuration/headers/index.md) (limite: 100 de reguli, 2000 de caractere pe linie).
 * Pentru Codeberg: [problema #2864](https://codeberg.org/Codeberg/Community/issues/2864) arată că `Content-Security-Policy` și `X-Frame-Options` au fost adăugate pe lista permisă la 2026-08-26. Lista completă a antetelor permise nu am văzut-o; verifică în manifestul git-pages după deploy ce antete refuză.
-* **Nimic din acest director nu a fost rulat de mine** (nu am server, cont Codeberg sau Cloudflare la dispoziție): sintaxa Caddy/nginx e standard, dar netestată. Testează cu `curl -sI https://tezaur.chiuta.ro/` și cu `python3 scripts/audit/live_audit.py` (verificarea de antete trece dacă lipsesc doar cele nesetate).
+* **Testat local** cu `test-local.sh` (și în CI, `headers-test.yml`): Caddy 2 și nginx reale, plus emulatorul Cloudflare Pages (`wrangler pages dev`), fiecare în fața unui upstream local. Verificat: cele șase antete apar, `www` → 301 către domeniul principal, CSP doar pe `/` (nu pe `/app/`), iar o pagină de pe alt domeniu nu mai poate pune site-ul în iframe (Chromium: „frame-ancestors 'none'”). Deck-ul rulează fără erori și cu subtitrări prin proxy.
+* **Netestat:** Codeberg Pages (am nevoie de un cont și de un depozit acolo) și un deploy real pe domeniul tău (DNS, certificat, GitHub Pages ca upstream). Sintaxa `_headers` e aceeași ca la Cloudflare, dar lista de antete permise la Codeberg nu o știu.
 
 ## Note de aplicare
 * **Varianta 1:** mută înregistrarea DNS A/AAAA a `tezaur.chiuta.ro` către serverul tău (și adaugă `www` ca CNAME/A către el). Lasă fișierul `CNAME` din repo, ca GitHub Pages să accepte cererile proxy-ate. Atenție: tot traficul trece prin serverul tău; dacă pică, pică site-ul.
