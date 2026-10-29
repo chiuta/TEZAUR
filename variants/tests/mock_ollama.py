@@ -8,5 +8,8 @@ class H(http.server.BaseHTTPRequestHandler):
             for t in ["The burden of proof lies with the assessing body ", "[1]. Differences must be substantial ", "[2, 4]. Fabricated claim [9]."]:
                 self.wfile.write((json.dumps({"message": {"content": t}, "done": False}) + "\n").encode())
             self.wfile.write((json.dumps({"message": {"content": ""}, "done": True}) + "\n").encode())
+    def do_GET(self):
+        body = json.dumps({"models": [{"name": "demo-model"}]}).encode() if self.path == '/api/tags' else b'{}'
+        self.send_response(200 if self.path == '/api/tags' else 404); self.send_header('Content-Type', 'application/json'); self.end_headers(); self.wfile.write(body)
     def log_message(self, *a): pass
 http.server.HTTPServer(('127.0.0.1', int(sys.argv[1]) if len(sys.argv) > 1 else 11999), H).serve_forever()
