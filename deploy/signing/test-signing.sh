@@ -15,11 +15,11 @@ createrepo_c -q "$W/r/rpm"
 [ "$("$here/sign.sh" rpm-meta "$W/r/rpm")" = signed ]
 # without a key the script must do nothing and say so
 [ "$(env -u GPG_PRIVATE_KEY "$here/sign.sh" deb "$W/r/apt")" = unsigned ]
-cp -r "$W/r" "$W/bad"; echo "tampered" >> "$W/bad/apt/Packages"
+cp -r "$W/r" "$W/bad"; echo "tampered" >> "$W"/bad/apt/*.deb   # Packages (signed through Release) lists the .deb hash, so apt must refuse this file
 serve() { (cd "$1" && python3 -m http.server "$2" >/dev/null 2>&1 &); }
 serve "$W/r" 8090; serve "$W/bad" 8091; sleep 2
 ok=1
-say() { echo "$1: $2"; }
+say() { echo "$1: $2"; case $2 in PASS) echo "::notice::$1 PASS";; *) echo "::error::$1 $2";; esac; }
 docker run --rm --network host debian:stable-slim bash -c "apt-get update -qq >/dev/null; apt-get install -y -qq gnupg >/dev/null; \
   curl -sf http://127.0.0.1:8090/apt/tezaur.gpg -o /usr/share/keyrings/tezaur.gpg 2>/dev/null || { apt-get install -y -qq curl >/dev/null; curl -sf http://127.0.0.1:8090/apt/tezaur.gpg -o /usr/share/keyrings/tezaur.gpg; }; \
   echo 'deb [signed-by=/usr/share/keyrings/tezaur.gpg] http://127.0.0.1:8090/apt ./' > /etc/apt/sources.list.d/t.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version" && say apt-signed-install PASS || { say apt-signed-install FAIL; ok=0; }
