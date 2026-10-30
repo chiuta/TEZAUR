@@ -626,6 +626,7 @@ async function retrieveSrv(queries,k){
 }
 async function detectServer(){
   if(!/^https?:$/.test(location.protocol))return;
+  if(/(^|\.)(github\.io|chiuta\.ro)$/.test(location.hostname))return; /* known static hosts: there is no tezaur serve to probe, and the 404 would only fill the console */
   try{const u=new URL(location.href),t=u.searchParams.get('token');
     if(t){sessionStorage.setItem('t.token',t);history.replaceState(null,'',u.pathname)}
     S.token=sessionStorage.getItem('t.token')||''}catch(e){}
