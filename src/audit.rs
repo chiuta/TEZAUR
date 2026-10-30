@@ -4,9 +4,9 @@
 //! None of this proves truth. It finds the places a human must open the page.
 
 use crate::bib::BibMap;
-use crate::index::{coverage, fold, Searcher, Store};
+use crate::index::{Searcher, Store, coverage, fold};
 use crate::sha256::{hex, hmac_sha256, sha256_hex};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 
 // ------------------------------------------------------------------ citations
@@ -22,18 +22,17 @@ pub fn extract_cites(text: &str) -> (String, Vec<Vec<Cite>>) {
     let chars: Vec<char> = text.chars().collect();
     let (mut out, mut groups, mut i) = (String::new(), Vec::new(), 0);
     while i < chars.len() {
-        if chars[i] == '[' {
-            if let Some(rel) = chars[i + 1..].iter().position(|&c| c == ']' || c == '[') {
-                if chars[i + 1 + rel] == ']' {
-                    let inner: String = chars[i + 1..i + 1 + rel].iter().collect();
-                    let cites = parse_group(&inner);
-                    if !cites.is_empty() {
-                        out.push('\u{1}');
-                        groups.push(cites);
-                        i += rel + 2;
-                        continue;
-                    }
-                }
+        if chars[i] == '['
+            && let Some(rel) = chars[i + 1..].iter().position(|&c| c == ']' || c == '[')
+            && chars[i + 1 + rel] == ']'
+        {
+            let inner: String = chars[i + 1..i + 1 + rel].iter().collect();
+            let cites = parse_group(&inner);
+            if !cites.is_empty() {
+                out.push('\u{1}');
+                groups.push(cites);
+                i += rel + 2;
+                continue;
             }
         }
         out.push(chars[i]);
@@ -46,24 +45,62 @@ fn parse_group(inner: &str) -> Vec<Cite> {
     let mut v = Vec::new();
     for item in inner.split(';') {
         let item = item.trim();
-        let Some(rest) = item.strip_prefix('@').or_else(|| item.find('@').map(|p| &item[p + 1..])) else { continue };
-        let key: String = rest.chars().take_while(|c| c.is_alphanumeric() || "_:.-/".contains(*c)).collect();
+        let Some(rest) = item
+            .strip_prefix('@')
+            .or_else(|| item.find('@').map(|p| &item[p + 1..]))
+        else {
+            continue;
+        };
+        let key: String = rest
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || "_:.-/".contains(*c))
+            .collect();
         let key = key.trim_end_matches(['.', ':', '-']).to_string();
         if key.is_empty() {
             continue;
         }
         let tail = &rest[key.len()..];
-        let digits: String = tail.chars().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit()).collect();
-        v.push(Cite { key, page: digits.parse().ok() });
+        let digits: String = tail
+            .chars()
+            .skip_while(|c| !c.is_ascii_digit())
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
+        v.push(Cite {
+            key,
+            page: digits.parse().ok(),
+        });
     }
     v
 }
 
 fn is_abbrev(before: &str) -> bool {
-    let w = before.rsplit(|c: char| c.is_whitespace()).next().unwrap_or("").trim_start_matches(['(', '"', '“']);
+    let w = before
+        .rsplit(|c: char| c.is_whitespace())
+        .next()
+        .unwrap_or("")
+        .trim_start_matches(['(', '"', '“']);
     let lw = w.to_lowercase();
-    matches!(lw.as_str(), "al" | "cf" | "vs" | "etc" | "e.g" | "i.e" | "fig" | "eq" | "no" | "dr" | "prof" | "p" | "pp" | "ed" | "eds" | "cap" | "art" | "nr" | "pag")
-        || (w.chars().count() == 1 && w.chars().all(|c| c.is_uppercase()))
+    matches!(
+        lw.as_str(),
+        "al" | "cf"
+            | "vs"
+            | "etc"
+            | "e.g"
+            | "i.e"
+            | "fig"
+            | "eq"
+            | "no"
+            | "dr"
+            | "prof"
+            | "p"
+            | "pp"
+            | "ed"
+            | "eds"
+            | "cap"
+            | "art"
+            | "nr"
+            | "pag"
+    ) || (w.chars().count() == 1 && w.chars().all(|c| c.is_uppercase()))
 }
 
 /// Splits into sentences; a citation marker right after the full stop stays with the sentence it supports.
@@ -105,7 +142,9 @@ pub fn sentences(text: &str) -> Vec<String> {
             out.push(cur.trim().to_string());
         }
     }
-    out.into_iter().filter(|s| s.chars().any(|c| c.is_alphanumeric())).collect()
+    out.into_iter()
+        .filter(|s| s.chars().any(|c| c.is_alphanumeric()))
+        .collect()
 }
 
 fn quotes(s: &str) -> Vec<String> {
@@ -137,17 +176,44 @@ fn quotes(s: &str) -> Vec<String> {
 }
 
 pub fn norm(s: &str) -> String {
-    let t: String = s.chars().flat_map(|c| c.to_lowercase()).map(|c| fold(c)).map(|c| if c.is_alphanumeric() { c } else { ' ' }).collect();
+    let t: String = s
+        .chars()
+        .flat_map(|c| c.to_lowercase())
+        .map(fold)
+        .map(|c| if c.is_alphanumeric() { c } else { ' ' })
+        .collect();
     t.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 // --------------------------------------------------------- LaTeX / LyX input
 
-const CITE_CMDS: &[&str] = &["cite", "citep", "citet", "citealp", "citeauthor", "parencite", "textcite", "autocite", "footcite", "smartcite", "supercite", "nocite"];
+const CITE_CMDS: &[&str] = &[
+    "cite",
+    "citep",
+    "citet",
+    "citealp",
+    "citeauthor",
+    "parencite",
+    "textcite",
+    "autocite",
+    "footcite",
+    "smartcite",
+    "supercite",
+    "nocite",
+];
 
 fn cite_group(keys: &str, post: &str) -> String {
-    let page: String = post.chars().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit()).collect();
-    let ks: Vec<String> = keys.split(',').map(|k| k.trim()).filter(|k| !k.is_empty()).map(|k| format!("@{k}")).collect();
+    let page: String = post
+        .chars()
+        .skip_while(|c| !c.is_ascii_digit())
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    let ks: Vec<String> = keys
+        .split(',')
+        .map(|k| k.trim())
+        .filter(|k| !k.is_empty())
+        .map(|k| format!("@{k}"))
+        .collect();
     if ks.is_empty() {
         return String::new();
     }
@@ -164,7 +230,11 @@ pub fn normalize_markup(text: &str) -> String {
     if text.contains("\\begin_body") && text.contains("\\begin_layout") {
         return lyx_to_md(text);
     }
-    if text.contains("\\cite") || text.contains("\\parencite") || text.contains("\\textcite") || text.contains("\\begin{document}") {
+    if text.contains("\\cite")
+        || text.contains("\\parencite")
+        || text.contains("\\textcite")
+        || text.contains("\\begin{document}")
+    {
         return latex_to_md(text);
     }
     text.to_string()
@@ -172,53 +242,125 @@ pub fn normalize_markup(text: &str) -> String {
 
 fn latex_to_md(src: &str) -> String {
     let body = src.split("\\begin{document}").nth(1).unwrap_or(src);
-    let mut t: String = body.lines().map(|l| { let mut prev = ' '; let mut cut = l.len(); for (i, c) in l.char_indices() { if c == '%' && prev != '\\' { cut = i; break; } prev = c; } &l[..cut] }).collect::<Vec<_>>().join("\n");
+    let mut t: String = body
+        .lines()
+        .map(|l| {
+            let mut prev = ' ';
+            let mut cut = l.len();
+            for (i, c) in l.char_indices() {
+                if c == '%' && prev != '\\' {
+                    cut = i;
+                    break;
+                }
+                prev = c;
+            }
+            &l[..cut]
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
     t = t.replace("``", "“").replace("''", "”").replace("\\\\", " ");
     let cs: Vec<char> = t.chars().collect();
     let (mut out, mut i) = (String::new(), 0);
     while i < cs.len() {
         if cs[i] == '\\' {
             let mut j = i + 1;
-            while j < cs.len() && cs[j].is_ascii_alphabetic() { j += 1; }
+            while j < cs.len() && cs[j].is_ascii_alphabetic() {
+                j += 1;
+            }
             let name: String = cs[i + 1..j].iter().collect();
-            if j < cs.len() && cs[j] == '*' && !name.is_empty() { j += 1; }
+            if j < cs.len() && cs[j] == '*' && !name.is_empty() {
+                j += 1;
+            }
             // optional args
             let mut opts: Vec<String> = Vec::new();
             let mut k = j;
             while k < cs.len() && cs[k] == '[' {
-                if let Some(e) = cs[k..].iter().position(|&c| c == ']') { opts.push(cs[k + 1..k + e].iter().collect()); k += e + 1; } else { break; }
+                if let Some(e) = cs[k..].iter().position(|&c| c == ']') {
+                    opts.push(cs[k + 1..k + e].iter().collect());
+                    k += e + 1;
+                } else {
+                    break;
+                }
             }
             let arg = |from: usize| -> Option<(String, usize)> {
                 if from < cs.len() && cs[from] == '{' {
-                    let mut depth = 0; 
+                    let mut depth = 0;
                     for (n, &c) in cs[from..].iter().enumerate() {
-                        if c == '{' { depth += 1 } else if c == '}' { depth -= 1; if depth == 0 { return Some((cs[from + 1..from + n].iter().collect(), from + n + 1)); } }
+                        if c == '{' {
+                            depth += 1
+                        } else if c == '}' {
+                            depth -= 1;
+                            if depth == 0 {
+                                return Some((
+                                    cs[from + 1..from + n].iter().collect(),
+                                    from + n + 1,
+                                ));
+                            }
+                        }
                     }
                 }
                 None
             };
-            if CITE_CMDS.contains(&name.as_str()) && name != "nocite" {
-                if let Some((keys, end)) = arg(k) {
-                    out.push_str(&cite_group(&keys, opts.last().map(|s| s.as_str()).unwrap_or("")));
-                    i = end;
-                    continue;
+            if CITE_CMDS.contains(&name.as_str())
+                && name != "nocite"
+                && let Some((keys, end)) = arg(k)
+            {
+                out.push_str(&cite_group(
+                    &keys,
+                    opts.last().map(|s| s.as_str()).unwrap_or(""),
+                ));
+                i = end;
+                continue;
+            }
+            if matches!(
+                name.as_str(),
+                "section" | "subsection" | "subsubsection" | "chapter" | "paragraph"
+            ) && let Some((title, end)) = arg(k)
+            {
+                out.push_str(&format!("\n\n# {title}\n\n"));
+                i = end;
+                continue;
+            }
+            if matches!(
+                name.as_str(),
+                "begin"
+                    | "end"
+                    | "label"
+                    | "ref"
+                    | "bibliography"
+                    | "bibliographystyle"
+                    | "usepackage"
+                    | "documentclass"
+                    | "maketitle"
+                    | "newcommand"
+            ) && let Some((_, end)) = arg(k)
+            {
+                out.push(' ');
+                i = end;
+                continue;
+            }
+            if name.is_empty() {
+                // escaped symbol such as \& or \%
+                if j < cs.len() {
+                    out.push(cs[j]);
+                    i = j + 1;
+                } else {
+                    i = j;
                 }
-            }
-            if matches!(name.as_str(), "section" | "subsection" | "subsubsection" | "chapter" | "paragraph") {
-                if let Some((title, end)) = arg(k) { out.push_str(&format!("\n\n# {title}\n\n")); i = end; continue; }
-            }
-            if matches!(name.as_str(), "begin" | "end" | "label" | "ref" | "bibliography" | "bibliographystyle" | "usepackage" | "documentclass" | "maketitle" | "newcommand") {
-                if let Some((_, end)) = arg(k) { out.push(' '); i = end; continue; }
-            }
-            if name.is_empty() { // escaped symbol such as \& or \%
-                if j < cs.len() { out.push(cs[j]); i = j + 1; } else { i = j; }
                 continue;
             }
             i = j; // formatting command: drop the name, keep its argument text
             continue;
         }
-        if cs[i] == '{' || cs[i] == '}' { i += 1; continue; }
-        if cs[i] == '~' { out.push(' '); i += 1; continue; }
+        if cs[i] == '{' || cs[i] == '}' {
+            i += 1;
+            continue;
+        }
+        if cs[i] == '~' {
+            out.push(' ');
+            i += 1;
+            continue;
+        }
         out.push(cs[i]);
         i += 1;
     }
@@ -232,34 +374,72 @@ fn lyx_to_md(src: &str) -> String {
     while let Some(l) = lines.next() {
         let l = l.trim_end();
         if let Some(rest) = l.strip_prefix("\\begin_layout ") {
-            heading = matches!(rest.trim(), "Chapter" | "Section" | "Subsection" | "Subsubsection" | "Part" | "Title" | "Paragraph" | "Section*" | "Subsection*" | "Chapter*");
+            heading = matches!(
+                rest.trim(),
+                "Chapter"
+                    | "Section"
+                    | "Subsection"
+                    | "Subsubsection"
+                    | "Part"
+                    | "Title"
+                    | "Paragraph"
+                    | "Section*"
+                    | "Subsection*"
+                    | "Chapter*"
+            );
             start = true;
-            if !out.is_empty() { out.push_str("\n\n"); }
+            if !out.is_empty() {
+                out.push_str("\n\n");
+            }
             continue;
         }
         if l.starts_with("\\begin_inset CommandInset citation") {
             let (mut key, mut after) = (String::new(), String::new());
             for x in lines.by_ref() {
-                if x.starts_with("\\end_inset") { break; }
-                let q = |p: &str| x.strip_prefix(p).map(|v| v.trim().trim_matches('"').to_string());
-                if let Some(v) = q("key ") { key = v; }
-                if let Some(v) = q("after ") { after = v; }
+                if x.starts_with("\\end_inset") {
+                    break;
+                }
+                let q = |p: &str| {
+                    x.strip_prefix(p)
+                        .map(|v| v.trim().trim_matches('"').to_string())
+                };
+                if let Some(v) = q("key ") {
+                    key = v;
+                }
+                if let Some(v) = q("after ") {
+                    after = v;
+                }
             }
             out.push_str(&cite_group(&key, &after));
             continue;
         }
         if let Some(q) = l.strip_prefix("\\begin_inset Quotes ") {
             let kind = q.trim();
-            out.push(if kind.chars().nth(1) == Some('l') { '“' } else { '”' });
-            for x in lines.by_ref() { if x.starts_with("\\end_inset") { break; } }
+            out.push(if kind.chars().nth(1) == Some('l') {
+                '“'
+            } else {
+                '”'
+            });
+            for x in lines.by_ref() {
+                if x.starts_with("\\end_inset") {
+                    break;
+                }
+            }
             continue;
         }
-        if l.starts_with("\\begin_inset") { // footnotes, floats…: skip nested content except plain text lines
+        if l.starts_with("\\begin_inset") {
+            // footnotes, floats…: skip nested content except plain text lines
             continue;
         }
-        if l.starts_with('\\') || l.starts_with('#') || l.is_empty() { continue; }
-        if heading && start { out.push_str("# "); }
-        if !start && !out.ends_with(' ') && !out.ends_with('“') { out.push(' '); }
+        if l.starts_with('\\') || l.starts_with('#') || l.is_empty() {
+            continue;
+        }
+        if heading && start {
+            out.push_str("# ");
+        }
+        if !start && !out.ends_with(' ') && !out.ends_with('“') {
+            out.push(' ');
+        }
         out.push_str(l);
         start = false;
     }
@@ -293,8 +473,13 @@ impl Finding {
 pub(crate) fn doc_for_key(store: &Store, bib: &BibMap, key: &str) -> Option<usize> {
     let k = key.to_lowercase();
     store.docs.iter().position(|d| {
-        bib.find(&d.path).map(|e| e.key.to_lowercase() == k).unwrap_or(false)
-            || std::path::Path::new(&d.path).file_stem().map(|s| s.to_string_lossy().to_lowercase() == k).unwrap_or(false)
+        bib.find(&d.path)
+            .map(|e| e.key.to_lowercase() == k)
+            .unwrap_or(false)
+            || std::path::Path::new(&d.path)
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_lowercase() == k)
+                .unwrap_or(false)
     })
 }
 
@@ -309,8 +494,16 @@ fn missing_numbers(sentence: &str, passage: &str) -> Vec<String> {
         v
     };
     let have = canon(passage);
-    let mut miss: Vec<String> = figures(sentence).into_iter().filter(|n| !have.contains(n)).collect();
-    miss.extend(norm(sentence).split(' ').filter(|w| word_value(w).is_some_and(|v| !have.contains(v))).map(|w| w.to_string()));
+    let mut miss: Vec<String> = figures(sentence)
+        .into_iter()
+        .filter(|n| !have.contains(n))
+        .collect();
+    miss.extend(
+        norm(sentence)
+            .split(' ')
+            .filter(|w| word_value(w).is_some_and(|v| !have.contains(v)))
+            .map(|w| w.to_string()),
+    );
     miss.dedup();
     miss
 }
@@ -318,11 +511,30 @@ fn missing_numbers(sentence: &str, passage: &str) -> Vec<String> {
 /// Number words (English, Romanian without diacritics) -> the digits they stand for. Only unambiguous words: "o"/"a" are not numbers here.
 fn word_value(w: &str) -> Option<&'static str> {
     Some(match w {
-        "one" | "unu" | "una" => "1", "two" | "doi" | "doua" | "twice" => "2", "three" | "trei" => "3", "four" | "patru" => "4", "five" | "cinci" => "5",
-        "six" | "sase" => "6", "seven" | "sapte" => "7", "eight" | "opt" => "8", "nine" | "noua" => "9", "ten" | "zece" => "10", "eleven" | "unsprezece" => "11",
-        "twelve" | "doisprezece" => "12", "twenty" | "douazeci" => "20", "thirty" | "treizeci" => "30", "forty" | "patruzeci" => "40", "fifty" | "cincizeci" => "50",
-        "sixty" | "saizeci" => "60", "seventy" | "saptezeci" => "70", "eighty" | "optzeci" => "80", "ninety" | "nouazeci" => "90",
-        "hundred" | "suta" => "100", "thousand" | "mie" => "1000", "million" | "milion" => "1000000", "half" => "0.5",
+        "one" | "unu" | "una" => "1",
+        "two" | "doi" | "doua" | "twice" => "2",
+        "three" | "trei" => "3",
+        "four" | "patru" => "4",
+        "five" | "cinci" => "5",
+        "six" | "sase" => "6",
+        "seven" | "sapte" => "7",
+        "eight" | "opt" => "8",
+        "nine" | "noua" => "9",
+        "ten" | "zece" => "10",
+        "eleven" | "unsprezece" => "11",
+        "twelve" | "doisprezece" => "12",
+        "twenty" | "douazeci" => "20",
+        "thirty" | "treizeci" => "30",
+        "forty" | "patruzeci" => "40",
+        "fifty" | "cincizeci" => "50",
+        "sixty" | "saizeci" => "60",
+        "seventy" | "saptezeci" => "70",
+        "eighty" | "optzeci" => "80",
+        "ninety" | "nouazeci" => "90",
+        "hundred" | "suta" => "100",
+        "thousand" | "mie" => "1000",
+        "million" | "milion" => "1000000",
+        "half" => "0.5",
         _ => return None,
     })
 }
@@ -349,7 +561,14 @@ fn figures(s: &str) -> Vec<String> {
                 seps.push(cs[j]);
                 groups.push(String::new());
                 j += 1;
-            } else if matches!(cs[j], ' ' | '\u{a0}' | '\u{202f}') && digit(j + 1) && digit(j + 2) && digit(j + 3) && !digit(j + 4) && groups[0].len() <= 3 && groups.iter().skip(1).all(|g| g.len() == 3) {
+            } else if matches!(cs[j], ' ' | '\u{a0}' | '\u{202f}')
+                && digit(j + 1)
+                && digit(j + 2)
+                && digit(j + 3)
+                && !digit(j + 4)
+                && groups[0].len() <= 3
+                && groups.iter().skip(1).all(|g| g.len() == 3)
+            {
                 seps.push(' ');
                 groups.push(String::new());
                 j += 1;
@@ -357,12 +576,19 @@ fn figures(s: &str) -> Vec<String> {
                 break;
             }
         }
-        let triples = groups.len() > 1 && groups[0].len() <= 3 && groups[1..].iter().all(|g| g.len() == 3) && seps.iter().all(|c| *c == seps[0]);
+        let triples = groups.len() > 1
+            && groups[0].len() <= 3
+            && groups[1..].iter().all(|g| g.len() == 3)
+            && seps.iter().all(|c| *c == seps[0]);
         let thousands = triples && (seps[0] == ' ' || seps[0] == ',' || groups.len() > 2);
         let n = if thousands || groups.len() == 1 {
             groups.concat()
         } else {
-            format!("{}.{}", groups[..groups.len() - 1].concat(), groups[groups.len() - 1])
+            format!(
+                "{}.{}",
+                groups[..groups.len() - 1].concat(),
+                groups[groups.len() - 1]
+            )
         };
         out.push(n);
         i = j.max(i + 1);
@@ -375,13 +601,27 @@ pub const WEAK: f32 = 0.35;
 
 pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
     let text = &normalize_markup(text);
-    let body: String = text.lines().filter(|l| !l.trim_start().starts_with('#')).collect::<Vec<_>>().join("\n");
+    let body: String = text
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
     let (marked, groups) = extract_cites(&body);
     let mut norm_docs: HashMap<usize, String> = HashMap::new();
     let mut doc_text = |d: usize| -> String {
         norm_docs
             .entry(d)
-            .or_insert_with(|| norm(&store.chunks.iter().filter(|c| c.doc == d).map(|c| c.text.as_str()).collect::<Vec<_>>().join(" ")))
+            .or_insert_with(|| {
+                norm(
+                    &store
+                        .chunks
+                        .iter()
+                        .filter(|c| c.doc == d)
+                        .map(|c| c.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                )
+            })
             .clone()
     };
     let mut out = Vec::new();
@@ -396,40 +636,94 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                 gi += 1;
             }
         }
-        let plain: String = s.replace('\u{1}', "").replace(" .", ".").replace(" ,", ",").replace(" ;", ";").trim().to_string();
+        let plain: String = s
+            .replace('\u{1}', "")
+            .replace(" .", ".")
+            .replace(" ,", ",")
+            .replace(" ;", ";")
+            .trim()
+            .to_string();
         let claim = plain.clone();
         // quotations: must exist word-for-word
         for q in quotes(&plain) {
             let nq = norm(&q);
-            let cited_docs: Vec<usize> = cites.iter().filter_map(|c| doc_for_key(store, bib, &c.key)).collect();
+            let cited_docs: Vec<usize> = cites
+                .iter()
+                .filter_map(|c| doc_for_key(store, bib, &c.key))
+                .collect();
             let in_cited = cited_docs.iter().any(|&d| doc_text(d).contains(&nq));
             let (verdict, note) = if in_cited {
-                ("quote-verbatim", "found word-for-word in the cited source".to_string())
+                (
+                    "quote-verbatim",
+                    "found word-for-word in the cited source".to_string(),
+                )
             } else if let Some(d) = (0..store.docs.len()).find(|&d| doc_text(d).contains(&nq)) {
-                ("quote-elsewhere", format!("not in the cited source, but found in {}", store.docs[d].title))
+                (
+                    "quote-elsewhere",
+                    format!(
+                        "not in the cited source, but found in {}",
+                        store.docs[d].title
+                    ),
+                )
             } else {
-                ("quote-not-found", "not found word-for-word anywhere in the library".to_string())
+                (
+                    "quote-not-found",
+                    "not found word-for-word anywhere in the library".to_string(),
+                )
             };
-            out.push(Finding { sentence: q, cite: cites.first().map(|c| c.key.clone()), page: cites.first().and_then(|c| c.page), verdict, support: if in_cited { 1.0 } else { 0.0 }, note, passage: None });
+            out.push(Finding {
+                sentence: q,
+                cite: cites.first().map(|c| c.key.clone()),
+                page: cites.first().and_then(|c| c.page),
+                verdict,
+                support: if in_cited { 1.0 } else { 0.0 },
+                note,
+                passage: None,
+            });
         }
         if cites.is_empty() {
             if plain.split_whitespace().count() >= 14 && !plain.contains('?') {
-                out.push(Finding { sentence: plain, cite: None, page: None, verdict: "uncited", support: 0.0, note: "a long statement with no citation".into(), passage: None });
+                out.push(Finding {
+                    sentence: plain,
+                    cite: None,
+                    page: None,
+                    verdict: "uncited",
+                    support: 0.0,
+                    note: "a long statement with no citation".into(),
+                    passage: None,
+                });
             }
             continue;
         }
         for c in &cites {
-            let f = |verdict, support, note: String| Finding { sentence: claim.clone(), cite: Some(c.key.clone()), page: c.page, verdict, support, note, passage: None };
+            let f = |verdict, support, note: String| Finding {
+                sentence: claim.clone(),
+                cite: Some(c.key.clone()),
+                page: c.page,
+                verdict,
+                support,
+                note,
+                passage: None,
+            };
             let Some(d) = doc_for_key(store, bib, &c.key) else {
-                out.push(f("unknown-source", 0.0, format!("no document in the library matches the key '{}'", c.key)));
+                out.push(f(
+                    "unknown-source",
+                    0.0,
+                    format!("no document in the library matches the key '{}'", c.key),
+                ));
                 continue;
             };
             let doc = &store.docs[d];
-            if let Some(p) = c.page {
-                if doc.pages > 0 && p > doc.pages {
-                    out.push(f("page-out-of-range", 0.0, format!("{} has {} pages", doc.title, doc.pages)));
-                    continue;
-                }
+            if let Some(p) = c.page
+                && doc.pages > 0
+                && p > doc.pages
+            {
+                out.push(f(
+                    "page-out-of-range",
+                    0.0,
+                    format!("{} has {} pages", doc.title, doc.pages),
+                ));
+                continue;
             }
             // Text, EPUB and DOCX sources have no page numbers: a cited page cannot be checked there.
             let paged = store.chunks.iter().any(|ch| ch.doc == d && ch.page > 0);
@@ -444,27 +738,78 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
             };
             let (sup, _) = best(cpage);
             // the passage the sentence matches best (on the cited page if given): used for the figure check
-            let top = store.chunks.iter().filter(|ch| ch.doc == d && cpage.map(|p| ch.page == p).unwrap_or(true))
-                .max_by(|a, b| coverage(&claim, &a.text).partial_cmp(&coverage(&claim, &b.text)).unwrap_or(std::cmp::Ordering::Equal)).map(|ch| ch.text.as_str());
+            let top = store
+                .chunks
+                .iter()
+                .filter(|ch| ch.doc == d && cpage.map(|p| ch.page == p).unwrap_or(true))
+                .max_by(|a, b| {
+                    coverage(&claim, &a.text)
+                        .partial_cmp(&coverage(&claim, &b.text))
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+                .map(|ch| ch.text.as_str());
             let (any, anyp) = best(None);
             let (verdict, note) = if sup >= SUPPORTED {
-                ("supported", format!("{:.0}% of the sentence's terms appear in the cited passage", sup * 100.0))
+                (
+                    "supported",
+                    format!(
+                        "{:.0}% of the sentence's terms appear in the cited passage",
+                        sup * 100.0
+                    ),
+                )
             } else if cpage.is_some() && any >= SUPPORTED && Some(anyp) != cpage {
-                ("wrong-page", format!("the cited page covers {:.0}%, but p. {} in the same source covers {:.0}% — probably p. {}", sup * 100.0, anyp, any * 100.0, anyp))
+                (
+                    "wrong-page",
+                    format!(
+                        "the cited page covers {:.0}%, but p. {} in the same source covers {:.0}% — probably p. {}",
+                        sup * 100.0,
+                        anyp,
+                        any * 100.0,
+                        anyp
+                    ),
+                )
             } else if sup >= WEAK {
-                ("weak", format!("only {:.0}% of the sentence's terms appear in the cited passage", sup * 100.0))
+                (
+                    "weak",
+                    format!(
+                        "only {:.0}% of the sentence's terms appear in the cited passage",
+                        sup * 100.0
+                    ),
+                )
             } else if any >= WEAK {
-                ("weak", format!("the cited passage covers {:.0}%; the best match in the source is {:.0}% (p. {})", sup * 100.0, any * 100.0, anyp))
+                (
+                    "weak",
+                    format!(
+                        "the cited passage covers {:.0}%; the best match in the source is {:.0}% (p. {})",
+                        sup * 100.0,
+                        any * 100.0,
+                        anyp
+                    ),
+                )
             } else {
-                ("unsupported", format!("only {:.0}% of the sentence's terms appear anywhere in this source", any * 100.0))
+                (
+                    "unsupported",
+                    format!(
+                        "only {:.0}% of the sentence's terms appear anywhere in this source",
+                        any * 100.0
+                    ),
+                )
             };
-            if matches!(verdict, "supported" | "weak") {
-                if let Some(t) = top {
-                    let m = missing_numbers(&claim, t);
-                    if !m.is_empty() {
-                        out.push(f("number-mismatch", sup, format!("the sentence states {} but the cited passage does not contain {}", m.join(", "), if m.len() == 1 { "it" } else { "them" })));
-                        continue;
-                    }
+            if matches!(verdict, "supported" | "weak")
+                && let Some(t) = top
+            {
+                let m = missing_numbers(&claim, t);
+                if !m.is_empty() {
+                    out.push(f(
+                        "number-mismatch",
+                        sup,
+                        format!(
+                            "the sentence states {} but the cited passage does not contain {}",
+                            m.join(", "),
+                            if m.len() == 1 { "it" } else { "them" }
+                        ),
+                    ));
+                    continue;
                 }
             }
             let mut fin = f(verdict, sup, note);
@@ -493,7 +838,11 @@ PARTIAL (only part of the sentence is in the passage), CONTRADICTS (the passage 
 
 pub fn parse_sem(text: &str) -> Sem {
     let t = text.trim().to_uppercase();
-    let first: String = t.chars().skip_while(|c| !c.is_alphabetic()).take_while(|c| c.is_alphabetic()).collect();
+    let first: String = t
+        .chars()
+        .skip_while(|c| !c.is_alphabetic())
+        .take_while(|c| c.is_alphabetic())
+        .collect();
     match first.as_str() {
         "SUPPORTS" | "SUPPORTED" => Sem::Supports,
         "PARTIAL" | "PARTIALLY" => Sem::Partial,
@@ -507,35 +856,61 @@ pub fn parse_sem(text: &str) -> Sem {
 /// catch a negation that term overlap accepts (supported → contradicted), and flag overlap without meaning (supported → weak).
 /// Quotations, unknown sources and page errors are left alone: they are decided by exact checks. The model can be wrong; every
 /// changed finding says so in its note. `judge(sentence, passage)` returns None when the model fails (that finding is left as it was).
-pub fn semantic_pass(findings: &mut [Finding], judge: &mut dyn FnMut(&str, &str) -> Option<Sem>) -> (usize, usize) {
+pub fn semantic_pass(
+    findings: &mut [Finding],
+    judge: &mut dyn FnMut(&str, &str) -> Option<Sem>,
+) -> (usize, usize) {
     let (mut checked, mut changed) = (0, 0);
     for f in findings.iter_mut() {
-        if !matches!(f.verdict, "supported" | "weak" | "unsupported" | "number-mismatch") {
+        if !matches!(
+            f.verdict,
+            "supported" | "weak" | "unsupported" | "number-mismatch"
+        ) {
             continue;
         }
         let Some(p) = f.passage.clone() else { continue };
-        let Some(sem) = judge(&f.sentence, &p) else { continue };
+        let Some(sem) = judge(&f.sentence, &p) else {
+            continue;
+        };
         checked += 1;
         let before = f.verdict;
         match sem {
             Sem::Supports => {
                 if before != "supported" {
                     f.verdict = "supported";
-                    f.note = format!("[model] paraphrase confirmed by the local model (term overlap was {:.0}%) — verify by reading", f.support * 100.0);
+                    f.note = format!(
+                        "[model] paraphrase confirmed by the local model (term overlap was {:.0}%) — verify by reading",
+                        f.support * 100.0
+                    );
                 } else {
                     f.note.push_str(" · [model] agrees");
                 }
             }
             Sem::Contradicts => {
                 f.verdict = "contradicted";
-                f.note = format!("[model] the passage seems to say something different or the opposite (term overlap was {:.0}%)", f.support * 100.0);
+                f.note = format!(
+                    "[model] the passage seems to say something different or the opposite (term overlap was {:.0}%)",
+                    f.support * 100.0
+                );
             }
             Sem::Partial | Sem::Unrelated => {
                 if before == "supported" {
                     f.verdict = "weak";
-                    f.note = format!("[model] words overlap ({:.0}%) but the model finds the passage {} the sentence", f.support * 100.0, if sem == Sem::Partial { "only partly supporting" } else { "unrelated to" });
+                    f.note = format!(
+                        "[model] words overlap ({:.0}%) but the model finds the passage {} the sentence",
+                        f.support * 100.0,
+                        if sem == Sem::Partial {
+                            "only partly supporting"
+                        } else {
+                            "unrelated to"
+                        }
+                    );
                 } else {
-                    f.note.push_str(if sem == Sem::Partial { " · [model] partial support" } else { " · [model] finds the passage unrelated" });
+                    f.note.push_str(if sem == Sem::Partial {
+                        " · [model] partial support"
+                    } else {
+                        " · [model] finds the passage unrelated"
+                    });
                 }
             }
             Sem::Unclear => {}
@@ -551,11 +926,36 @@ pub fn audit_markdown(f: &[Finding]) -> String {
     let n = |v: &str| f.iter().filter(|x| x.verdict == v).count();
     let mut s = format!(
         "# Citation audit\n\n{} checks — supported {}, weak {}, contradicted {}, unsupported {}, wrong page {}, figure mismatch {}, unknown source {}, page out of range {}, uncited {}; quotations: verbatim {}, elsewhere {}, not found {}.\n\nThis is a mechanical term-overlap check, not proof. Open the page for everything below.\n\n",
-        f.len(), n("supported"), n("weak"), n("contradicted"), n("unsupported"), n("wrong-page"), n("number-mismatch"), n("unknown-source"), n("page-out-of-range"), n("uncited"), n("quote-verbatim"), n("quote-elsewhere"), n("quote-not-found")
+        f.len(),
+        n("supported"),
+        n("weak"),
+        n("contradicted"),
+        n("unsupported"),
+        n("wrong-page"),
+        n("number-mismatch"),
+        n("unknown-source"),
+        n("page-out-of-range"),
+        n("uncited"),
+        n("quote-verbatim"),
+        n("quote-elsewhere"),
+        n("quote-not-found")
     );
     for x in f.iter().filter(|x| x.is_problem()) {
-        let c = x.cite.as_deref().map(|c| format!(" [@{}{}]", c, x.page.map(|p| format!(", p. {p}")).unwrap_or_default())).unwrap_or_default();
-        s.push_str(&format!("- **{}**{} — {}\n  > {}\n", x.verdict, c, x.note, x.sentence));
+        let c = x
+            .cite
+            .as_deref()
+            .map(|c| {
+                format!(
+                    " [@{}{}]",
+                    c,
+                    x.page.map(|p| format!(", p. {p}")).unwrap_or_default()
+                )
+            })
+            .unwrap_or_default();
+        s.push_str(&format!(
+            "- **{}**{} — {}\n  > {}\n",
+            x.verdict, c, x.note, x.sentence
+        ));
     }
     if !f.iter().any(|x| x.is_problem()) {
         s.push_str("No problems found by this check.\n");
@@ -568,7 +968,11 @@ pub fn audit_markdown(f: &[Finding]) -> String {
 /// Cited keys that resolve to nothing, bibliography entries never cited, library documents never cited. Pure bookkeeping, no model.
 pub fn refs_report(store: &Store, bib: &BibMap, text: &str) -> Value {
     let text = normalize_markup(text);
-    let body: String = text.lines().filter(|l| !l.trim_start().starts_with('#')).collect::<Vec<_>>().join("\n");
+    let body: String = text
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
     let (_, groups) = extract_cites(&body);
     let mut cited: Vec<String> = groups.iter().flatten().map(|c| c.key.clone()).collect();
     cited.sort_by_key(|k| k.to_lowercase());
@@ -576,18 +980,32 @@ pub fn refs_report(store: &Store, bib: &BibMap, text: &str) -> Value {
     let lc: std::collections::HashSet<String> = cited.iter().map(|k| k.to_lowercase()).collect();
     let missing: Vec<&String> = cited
         .iter()
-        .filter(|k| !bib.entries.iter().any(|e| e.key.eq_ignore_ascii_case(k)) && doc_for_key(store, bib, k).is_none())
+        .filter(|k| {
+            !bib.entries.iter().any(|e| e.key.eq_ignore_ascii_case(k))
+                && doc_for_key(store, bib, k).is_none()
+        })
         .collect();
     let no_file: Vec<&String> = cited
         .iter()
-        .filter(|k| bib.entries.iter().any(|e| e.key.eq_ignore_ascii_case(k)) && doc_for_key(store, bib, k).is_none())
+        .filter(|k| {
+            bib.entries.iter().any(|e| e.key.eq_ignore_ascii_case(k))
+                && doc_for_key(store, bib, k).is_none()
+        })
         .collect();
-    let unused_bib: Vec<&str> = bib.entries.iter().filter(|e| !lc.contains(&e.key.to_lowercase())).map(|e| e.key.as_str()).collect();
+    let unused_bib: Vec<&str> = bib
+        .entries
+        .iter()
+        .filter(|e| !lc.contains(&e.key.to_lowercase()))
+        .map(|e| e.key.as_str())
+        .collect();
     let unused_docs: Vec<&str> = store
         .docs
         .iter()
         .filter(|d| {
-            let stem = std::path::Path::new(&d.path).file_stem().map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+            let stem = std::path::Path::new(&d.path)
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
             let key = bib.find(&d.path).map(|e| e.key.to_lowercase());
             !lc.contains(&stem) && !key.map(|k| lc.contains(&k)).unwrap_or(false)
         })
@@ -598,13 +1016,36 @@ pub fn refs_report(store: &Store, bib: &BibMap, text: &str) -> Value {
 }
 
 pub fn refs_markdown(v: &Value) -> String {
-    let list = |k: &str| v[k].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect::<Vec<_>>()).unwrap_or_default();
-    let mut s = format!("# Reference check\n\n{} distinct keys cited.\n\n", list("cited").len());
+    let list = |k: &str| {
+        v[k].as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    };
+    let mut s = format!(
+        "# Reference check\n\n{} distinct keys cited.\n\n",
+        list("cited").len()
+    );
     for (k, label) in [
-        ("missing_everywhere", "Cited but in neither the .bib nor the library"),
-        ("in_bib_but_not_in_library", "Cited, in the .bib, but no file is indexed (nothing to audit against)"),
-        ("bib_never_cited", "In the .bib but never cited in this text"),
-        ("library_never_cited", "Indexed but never cited in this text"),
+        (
+            "missing_everywhere",
+            "Cited but in neither the .bib nor the library",
+        ),
+        (
+            "in_bib_but_not_in_library",
+            "Cited, in the .bib, but no file is indexed (nothing to audit against)",
+        ),
+        (
+            "bib_never_cited",
+            "In the .bib but never cited in this text",
+        ),
+        (
+            "library_never_cited",
+            "Indexed but never cited in this text",
+        ),
     ] {
         let l = list(k);
         if l.is_empty() {
@@ -622,15 +1063,38 @@ pub fn refs_markdown(v: &Value) -> String {
 // ------------------------------------------------------------------- coverage
 
 pub fn outline_headings(text: &str) -> Vec<String> {
-    let strip = |l: &str| l.trim_start_matches(|c: char| c == '#' || c == '-' || c == '*' || c == '•' || c == '.' || c == ')' || c.is_ascii_digit() || c == ' ').trim().to_string();
-    let hashes: Vec<String> = text.lines().filter(|l| l.trim_start().starts_with('#')).map(strip).filter(|s| !s.is_empty()).collect();
+    let strip = |l: &str| {
+        l.trim_start_matches(|c: char| {
+            c == '#'
+                || c == '-'
+                || c == '*'
+                || c == '•'
+                || c == '.'
+                || c == ')'
+                || c.is_ascii_digit()
+                || c == ' '
+        })
+        .trim()
+        .to_string()
+    };
+    let hashes: Vec<String> = text
+        .lines()
+        .filter(|l| l.trim_start().starts_with('#'))
+        .map(strip)
+        .filter(|s| !s.is_empty())
+        .collect();
     if !hashes.is_empty() {
         return hashes;
     }
     text.lines().map(strip).filter(|s| !s.is_empty()).collect()
 }
 
-pub fn coverage_matrix(store: &Store, bib: &BibMap, headings: &[String], emb: &dyn Fn(&str) -> Option<Vec<f32>>) -> Value {
+pub fn coverage_matrix(
+    store: &Store,
+    bib: &BibMap,
+    headings: &[String],
+    emb: &dyn Fn(&str) -> Option<Vec<f32>>,
+) -> Value {
     let searcher = Searcher::new(store);
     let mut rows = Vec::new();
     for h in headings {
@@ -647,7 +1111,13 @@ pub fn coverage_matrix(store: &Store, bib: &BibMap, headings: &[String], emb: &d
         }
         let good: Vec<&(usize, f32)> = docs.iter().filter(|(_, cv)| *cv >= WEAK).collect();
         let best = docs.iter().map(|d| d.1).fold(0.0, f32::max);
-        let status = if good.len() >= 3 && best >= 0.5 { "well-covered" } else if !good.is_empty() { "thin" } else { "empty" };
+        let status = if good.len() >= 3 && best >= 0.5 {
+            "well-covered"
+        } else if !good.is_empty() {
+            "thin"
+        } else {
+            "empty"
+        };
         let names: Vec<Value> = good
             .iter()
             .map(|(d, cv)| {
@@ -662,10 +1132,25 @@ pub fn coverage_matrix(store: &Store, bib: &BibMap, headings: &[String], emb: &d
 }
 
 pub fn coverage_markdown(v: &Value) -> String {
-    let mut s = String::from("# Source coverage of the outline\n\n| Section | Status | Sources | Best match | Which |\n|---|---|---|---|---|\n");
+    let mut s = String::from(
+        "# Source coverage of the outline\n\n| Section | Status | Sources | Best match | Which |\n|---|---|---|---|---|\n",
+    );
     for r in v["rows"].as_array().into_iter().flatten() {
-        let which: Vec<String> = r["docs"].as_array().into_iter().flatten().take(4).map(|d| d["doc"].as_str().unwrap_or("").to_string()).collect();
-        s.push_str(&format!("| {} | {} | {} | {}% | {} |\n", r["heading"].as_str().unwrap_or(""), r["status"].as_str().unwrap_or(""), r["sources"], (r["best"].as_f64().unwrap_or(0.0) * 100.0).round(), which.join("; ")));
+        let which: Vec<String> = r["docs"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .take(4)
+            .map(|d| d["doc"].as_str().unwrap_or("").to_string())
+            .collect();
+        s.push_str(&format!(
+            "| {} | {} | {} | {}% | {} |\n",
+            r["heading"].as_str().unwrap_or(""),
+            r["status"].as_str().unwrap_or(""),
+            r["sources"],
+            (r["best"].as_f64().unwrap_or(0.0) * 100.0).round(),
+            which.join("; ")
+        ));
     }
     s.push_str("\nStatus is by term overlap with your indexed sources: 'empty' means nothing in the library matches the heading's words; it does not prove the topic is absent from the literature.\n");
     s
@@ -675,7 +1160,11 @@ pub fn coverage_markdown(v: &Value) -> String {
 
 pub fn novelty(store: &Store, bib: &BibMap, text: &str) -> Value {
     let searcher = Searcher::new(store);
-    let body: String = text.lines().filter(|l| !l.trim_start().starts_with('#')).collect::<Vec<_>>().join("\n");
+    let body: String = text
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
     let wins = crate::ingest::chunk_words(&extract_cites(&body).0.replace('\u{1}', ""), 60, 0);
     let mut passages = Vec::new();
     let (mut covered, mut partial, mut new) = (0, 0, 0);
@@ -684,11 +1173,33 @@ pub fn novelty(store: &Store, bib: &BibMap, text: &str) -> Value {
         let (cv, near) = hits
             .iter()
             .map(|h| (coverage(w, &store.chunks[h.chunk].text), h.chunk))
-            .fold((0.0f32, None), |a, b| if b.0 > a.0 { (b.0, Some(b.1)) } else { a });
-        let status = if cv >= 0.65 { covered += 1; "covered" } else if cv >= 0.4 { partial += 1; "partial" } else { new += 1; "new" };
+            .fold(
+                (0.0f32, None),
+                |a, b| if b.0 > a.0 { (b.0, Some(b.1)) } else { a },
+            );
+        let status = if cv >= 0.65 {
+            covered += 1;
+            "covered"
+        } else if cv >= 0.4 {
+            partial += 1;
+            "partial"
+        } else {
+            new += 1;
+            "new"
+        };
         let nearest = near.map(|c| {
             let d = &store.docs[store.chunks[c].doc];
-            format!("{}{}", bib.find(&d.path).map(|e| e.cite()).unwrap_or_else(|| d.title.clone()), if store.chunks[c].page > 0 { format!(", p. {}", store.chunks[c].page) } else { String::new() })
+            format!(
+                "{}{}",
+                bib.find(&d.path)
+                    .map(|e| e.cite())
+                    .unwrap_or_else(|| d.title.clone()),
+                if store.chunks[c].page > 0 {
+                    format!(", p. {}", store.chunks[c].page)
+                } else {
+                    String::new()
+                }
+            )
         });
         passages.push(json!({"text": w, "status": status, "overlap": (cv * 100.0).round() / 100.0, "nearest": nearest}));
     }
@@ -699,11 +1210,24 @@ pub fn novelty(store: &Store, bib: &BibMap, text: &str) -> Value {
 pub fn novelty_markdown(v: &Value) -> String {
     let mut s = format!(
         "# What this text adds to your library\n\n{} passages: {} already covered, {} partly covered, {} new ({}%).\n\n'New' means your indexed sources share few of the passage's terms. It says nothing about the wider literature.\n\n",
-        v["passages"].as_array().map(|a| a.len()).unwrap_or(0), v["covered"], v["partial"], v["new"], (v["share_new"].as_f64().unwrap_or(0.0)).round()
+        v["passages"].as_array().map(|a| a.len()).unwrap_or(0),
+        v["covered"],
+        v["partial"],
+        v["new"],
+        (v["share_new"].as_f64().unwrap_or(0.0)).round()
     );
-    for p in v["passages"].as_array().into_iter().flatten().filter(|p| p["status"] == "new") {
+    for p in v["passages"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|p| p["status"] == "new")
+    {
         let t: String = p["text"].as_str().unwrap_or("").chars().take(160).collect();
-        s.push_str(&format!("- {}…  (nearest: {})\n", t, p["nearest"].as_str().unwrap_or("none")));
+        s.push_str(&format!(
+            "- {}…  (nearest: {})\n",
+            t,
+            p["nearest"].as_str().unwrap_or("none")
+        ));
     }
     s
 }
@@ -711,7 +1235,11 @@ pub fn novelty_markdown(v: &Value) -> String {
 // -------------------------------------------------------------------- receipts
 
 pub fn index_fingerprint(store: &Store) -> String {
-    let mut h: Vec<String> = store.docs.iter().map(|d| format!("{:016x}", d.hash)).collect();
+    let mut h: Vec<String> = store
+        .docs
+        .iter()
+        .map(|d| format!("{:016x}", d.hash))
+        .collect();
     h.sort();
     sha256_hex(h.join(",").as_bytes())
 }
@@ -719,19 +1247,29 @@ pub fn index_fingerprint(store: &Store) -> String {
 fn seal(mut body: Value) -> Value {
     let digest = sha256_hex(serde_json::to_string(&body).unwrap().as_bytes());
     body["digest"] = json!(digest);
-    if let Ok(k) = std::env::var("TEZAUR_RECEIPT_KEY") {
-        if !k.is_empty() {
-            body["hmac"] = json!(hex(&hmac_sha256(k.as_bytes(), digest.as_bytes())));
-        }
+    if let Ok(k) = std::env::var("TEZAUR_RECEIPT_KEY")
+        && !k.is_empty()
+    {
+        body["hmac"] = json!(hex(&hmac_sha256(k.as_bytes(), digest.as_bytes())));
     }
     body
 }
 
 pub fn now_secs() -> u64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
-pub fn make_receipt(store: &Store, model: &str, mode: &str, question: &str, hit_chunks: &[usize], answer: &str) -> Value {
+pub fn make_receipt(
+    store: &Store,
+    model: &str,
+    mode: &str,
+    question: &str,
+    hit_chunks: &[usize],
+    answer: &str,
+) -> Value {
     let ex: Vec<Value> = hit_chunks
         .iter()
         .enumerate()
@@ -748,12 +1286,22 @@ pub fn make_receipt(store: &Store, model: &str, mode: &str, question: &str, hit_
     }))
 }
 
-pub fn verify_receipt(store: Option<&Store>, receipt: &Value, answer: Option<&str>) -> (bool, Vec<String>) {
+pub fn verify_receipt(
+    store: Option<&Store>,
+    receipt: &Value,
+    answer: Option<&str>,
+) -> (bool, Vec<String>) {
     let mut lines = Vec::new();
     let mut ok = true;
     let mut body = receipt.clone();
-    let digest = body.as_object_mut().and_then(|o| o.remove("digest")).and_then(|d| d.as_str().map(|s| s.to_string()));
-    let hm = body.as_object_mut().and_then(|o| o.remove("hmac")).and_then(|d| d.as_str().map(|s| s.to_string()));
+    let digest = body
+        .as_object_mut()
+        .and_then(|o| o.remove("digest"))
+        .and_then(|d| d.as_str().map(|s| s.to_string()));
+    let hm = body
+        .as_object_mut()
+        .and_then(|o| o.remove("hmac"))
+        .and_then(|d| d.as_str().map(|s| s.to_string()));
     let calc = sha256_hex(serde_json::to_string(&body).unwrap().as_bytes());
     if digest.as_deref() == Some(calc.as_str()) {
         lines.push("✓ receipt is intact (digest matches its contents)".into());
@@ -771,7 +1319,9 @@ pub fn verify_receipt(store: Option<&Store>, receipt: &Value, answer: Option<&st
                     lines.push("✗ HMAC does not match TEZAUR_RECEIPT_KEY".into());
                 }
             }
-            _ => lines.push("• receipt carries an HMAC, but TEZAUR_RECEIPT_KEY is not set — not checked".into()),
+            _ => lines.push(
+                "• receipt carries an HMAC, but TEZAUR_RECEIPT_KEY is not set — not checked".into(),
+            ),
         }
     }
     if let Some(a) = answer {
@@ -786,15 +1336,26 @@ pub fn verify_receipt(store: Option<&Store>, receipt: &Value, answer: Option<&st
         let (mut found, mut total) = (0, 0);
         for e in body["excerpts"].as_array().into_iter().flatten() {
             total += 1;
-            let (p, pg, h) = (e["path"].as_str().unwrap_or(""), e["page"].as_u64().unwrap_or(0) as usize, e["chunk_sha256"].as_str().unwrap_or(""));
-            if st.chunks.iter().any(|c| c.page == pg && st.docs[c.doc].path == p && sha256_hex(c.text.as_bytes()) == h) {
+            let (p, pg, h) = (
+                e["path"].as_str().unwrap_or(""),
+                e["page"].as_u64().unwrap_or(0) as usize,
+                e["chunk_sha256"].as_str().unwrap_or(""),
+            );
+            if st.chunks.iter().any(|c| {
+                c.page == pg && st.docs[c.doc].path == p && sha256_hex(c.text.as_bytes()) == h
+            }) {
                 found += 1;
             } else {
-                lines.push(format!("✗ excerpt {} ({}, p. {}) is not in this index as recorded", e["n"], p, pg));
+                lines.push(format!(
+                    "✗ excerpt {} ({}, p. {}) is not in this index as recorded",
+                    e["n"], p, pg
+                ));
             }
         }
         if found == total {
-            lines.push(format!("✓ all {total} excerpts exist unchanged in the current index"));
+            lines.push(format!(
+                "✓ all {total} excerpts exist unchanged in the current index"
+            ));
         } else {
             ok = false;
         }
@@ -817,10 +1378,17 @@ fn civil(secs: u64) -> String {
 
 /// A plain statement of AI use, assembled from receipts. The author must confirm the checking claim.
 pub fn declaration(receipts: &[Value], ro: bool) -> String {
-    let mut models: Vec<String> = receipts.iter().filter_map(|r| r["model"].as_str().map(|s| s.to_string())).collect();
+    let mut models: Vec<String> = receipts
+        .iter()
+        .filter_map(|r| r["model"].as_str().map(|s| s.to_string()))
+        .collect();
     models.sort();
     models.dedup();
-    let mut docs: Vec<String> = receipts.iter().flat_map(|r| r["excerpts"].as_array().cloned().unwrap_or_default()).filter_map(|e| e["path"].as_str().map(|s| s.to_string())).collect();
+    let mut docs: Vec<String> = receipts
+        .iter()
+        .flat_map(|r| r["excerpts"].as_array().cloned().unwrap_or_default())
+        .filter_map(|e| e["path"].as_str().map(|s| s.to_string()))
+        .collect();
     docs.sort();
     docs.dedup();
     let (mut lo, mut hi) = (u64::MAX, 0u64);
@@ -829,14 +1397,36 @@ pub fn declaration(receipts: &[Value], ro: bool) -> String {
         lo = lo.min(t);
         hi = hi.max(t);
     }
-    let period = if receipts.is_empty() { String::new() } else if civil(lo) == civil(hi) { civil(lo) } else { format!("{} – {}", civil(lo), civil(hi)) };
-    let mut s = if ro {
-        format!("# Declarație privind utilizarea instrumentelor de inteligență artificială\n\nÎn elaborarea acestei lucrări am folosit TEZAUR, un instrument local care caută în sursele proprii și formulează răspunsuri cu un model de limbaj rulat pe calculatorul meu ({}). Perioada: {}. Interogări înregistrate: {}. Răspunsurile s-au bazat exclusiv pe pasaje din {} documente din biblioteca proprie; nu a fost trimis niciun text către servicii externe.\n\n[AUTOR: confirmați că ați verificat personal fiecare citare în sursă și că argumentația și textul final vă aparțin.]\n\nChitanțe (rezumat SHA-256):\n", models.join(", "), period, receipts.len(), docs.len())
+    let period = if receipts.is_empty() {
+        String::new()
+    } else if civil(lo) == civil(hi) {
+        civil(lo)
     } else {
-        format!("# AI-use statement\n\nWhile preparing this work I used TEZAUR, a local tool that searches my own sources and drafts answers with a language model running on my own computer ({}). Period: {}. Logged queries: {}. Answers were grounded only in passages from {} documents of my own library; no text was sent to an external service.\n\n[AUTHOR: confirm that you personally checked every citation against its source and that the argument and final text are your own.]\n\nReceipts (SHA-256 digests):\n", models.join(", "), period, receipts.len(), docs.len())
+        format!("{} – {}", civil(lo), civil(hi))
+    };
+    let mut s = if ro {
+        format!(
+            "# Declarație privind utilizarea instrumentelor de inteligență artificială\n\nÎn elaborarea acestei lucrări am folosit TEZAUR, un instrument local care caută în sursele proprii și formulează răspunsuri cu un model de limbaj rulat pe calculatorul meu ({}). Perioada: {}. Interogări înregistrate: {}. Răspunsurile s-au bazat exclusiv pe pasaje din {} documente din biblioteca proprie; nu a fost trimis niciun text către servicii externe.\n\n[AUTOR: confirmați că ați verificat personal fiecare citare în sursă și că argumentația și textul final vă aparțin.]\n\nChitanțe (rezumat SHA-256):\n",
+            models.join(", "),
+            period,
+            receipts.len(),
+            docs.len()
+        )
+    } else {
+        format!(
+            "# AI-use statement\n\nWhile preparing this work I used TEZAUR, a local tool that searches my own sources and drafts answers with a language model running on my own computer ({}). Period: {}. Logged queries: {}. Answers were grounded only in passages from {} documents of my own library; no text was sent to an external service.\n\n[AUTHOR: confirm that you personally checked every citation against its source and that the argument and final text are your own.]\n\nReceipts (SHA-256 digests):\n",
+            models.join(", "),
+            period,
+            receipts.len(),
+            docs.len()
+        )
     };
     for r in receipts {
-        s.push_str(&format!("- {} — {}\n", civil(r["created"].as_u64().unwrap_or(0)), r["digest"].as_str().unwrap_or("")));
+        s.push_str(&format!(
+            "- {} — {}\n",
+            civil(r["created"].as_u64().unwrap_or(0)),
+            r["digest"].as_str().unwrap_or("")
+        ));
     }
     s
 }
@@ -848,25 +1438,59 @@ mod tests {
 
     fn st() -> Store {
         let mut s = Store::default();
-        s.docs.push(Doc { path: "Library/smith2019.txt".into(), title: "smith2019".into(), hash: 7, pages: 10 });
-        s.docs.push(Doc { path: "Library/doe2020.txt".into(), title: "doe2020".into(), hash: 9, pages: 4 });
-        let t = |d, p, x: &str| Chunk { doc: d, page: p, text: x.into(), emb: None };
+        s.docs.push(Doc {
+            path: "Library/smith2019.txt".into(),
+            title: "smith2019".into(),
+            hash: 7,
+            pages: 10,
+        });
+        s.docs.push(Doc {
+            path: "Library/doe2020.txt".into(),
+            title: "doe2020".into(),
+            hash: 9,
+            pages: 4,
+        });
+        let t = |d, p, x: &str| Chunk {
+            doc: d,
+            page: p,
+            text: x.into(),
+            emb: None,
+        };
         s.chunks.push(t(0, 3, "The burden of proof lies with the competent authority when it refuses recognition of the diploma."));
         s.chunks.push(t(0, 5, "Compensation measures include an aptitude test or an adaptation period for the migrant professional."));
-        s.chunks.push(t(1, 2, "Mutual trust between member states underpins automatic recognition of qualifications."));
+        s.chunks.push(t(
+            1,
+            2,
+            "Mutual trust between member states underpins automatic recognition of qualifications.",
+        ));
         s
     }
 
     #[test]
     fn parses_pandoc_cites() {
-        let (m, g) = extract_cites("A claim [@smith2019, p. 3; @doe2020]. Not a cite [1] or [see here].");
+        let (m, g) =
+            extract_cites("A claim [@smith2019, p. 3; @doe2020]. Not a cite [1] or [see here].");
         assert_eq!(m.matches('\u{1}').count(), 1);
-        assert_eq!(g[0], vec![Cite { key: "smith2019".into(), page: Some(3) }, Cite { key: "doe2020".into(), page: None }]);
+        assert_eq!(
+            g[0],
+            vec![
+                Cite {
+                    key: "smith2019".into(),
+                    page: Some(3)
+                },
+                Cite {
+                    key: "doe2020".into(),
+                    page: None
+                }
+            ]
+        );
     }
 
     #[test]
     fn splits_sentences_keeping_late_markers() {
-        let (m, _) = extract_cites("First claim here. [@a] Second one, see Smith et al. for more [@b]. Third.");
+        let (m, _) = extract_cites(
+            "First claim here. [@a] Second one, see Smith et al. for more [@b]. Third.",
+        );
         let s = sentences(&m);
         assert_eq!(s.len(), 3, "{s:?}");
         assert!(s[0].contains('\u{1}') && s[1].contains('\u{1}') && !s[2].contains('\u{1}'));
@@ -882,17 +1506,32 @@ mod tests {
         assert!(!m.contains("comment") && !m.contains("\\emph"), "{m}");
         let lyx = "#LyX 2.3\n\\begin_header\n\\end_header\n\n\\begin_body\n\n\\begin_layout Section\nIntro\n\\end_layout\n\n\\begin_layout Standard\nThe burden of proof lies with the authority\n\\begin_inset CommandInset citation\nLatexCommand cite\nafter \"p. 3\"\nkey \"smith2019\"\nliteral \"false\"\n\n\\end_inset\n\n.\n\\end_layout\n\n\\end_body";
         let m = normalize_markup(lyx);
-        assert!(m.contains("# Intro") && m.contains("[@smith2019, p. 3]"), "{m}");
-        let f = audit(&st(), &BibMap::default(), &format!("{}", tex.replace("\\parencite[p.~3]{smith2019}", "\\parencite[p.~3]{smith2019}")));
-        assert!(f.iter().any(|x| x.verdict == "supported" || x.verdict == "weak"), "{f:?}");
+        assert!(
+            m.contains("# Intro") && m.contains("[@smith2019, p. 3]"),
+            "{m}"
+        );
+        let f = audit(&st(), &BibMap::default(), tex);
+        assert!(
+            f.iter()
+                .any(|x| x.verdict == "supported" || x.verdict == "weak"),
+            "{f:?}"
+        );
     }
 
     #[test]
     fn swapped_figures_are_caught() {
         let store = st();
-        let f = audit(&store, &BibMap::default(), "The burden of proof lies with the competent authority when it refuses recognition within ten days [@smith2019, p. 3].");
+        let f = audit(
+            &store,
+            &BibMap::default(),
+            "The burden of proof lies with the competent authority when it refuses recognition within ten days [@smith2019, p. 3].",
+        );
         assert!(f.iter().any(|x| x.verdict == "number-mismatch"), "{f:?}");
-        let g = audit(&store, &BibMap::default(), "The burden of proof lies with the competent authority when it refuses recognition [@smith2019, p. 3].");
+        let g = audit(
+            &store,
+            &BibMap::default(),
+            "The burden of proof lies with the competent authority when it refuses recognition [@smith2019, p. 3].",
+        );
         assert!(g.iter().all(|x| x.verdict == "supported"), "{g:?}");
     }
 
@@ -913,19 +1552,39 @@ mod tests {
         assert!(v.contains(&"unsupported"), "{v:?}");
         assert!(v.contains(&"unknown-source"), "{v:?}");
         assert!(v.contains(&"page-out-of-range"), "{v:?}");
-        assert!(v.contains(&"quote-verbatim") && v.contains(&"quote-not-found"), "{v:?}");
+        assert!(
+            v.contains(&"quote-verbatim") && v.contains(&"quote-not-found"),
+            "{v:?}"
+        );
     }
 
     #[test]
     fn coverage_and_novelty() {
         let store = st();
         let bib = BibMap::default();
-        let c = coverage_matrix(&store, &bib, &["burden of proof".into(), "quantum chromodynamics lattice".into()], &|_| None);
+        let c = coverage_matrix(
+            &store,
+            &bib,
+            &[
+                "burden of proof".into(),
+                "quantum chromodynamics lattice".into(),
+            ],
+            &|_| None,
+        );
         assert_eq!(c["rows"][0]["status"], "thin");
         assert_eq!(c["rows"][1]["status"], "empty");
-        let n = novelty(&store, &bib, "The burden of proof lies with the competent authority when it refuses recognition of the diploma. Penguins migrate across the frozen southern ocean every winter and nobody here has written about it at all.");
+        let n = novelty(
+            &store,
+            &bib,
+            "The burden of proof lies with the competent authority when it refuses recognition of the diploma. Penguins migrate across the frozen southern ocean every winter and nobody here has written about it at all.",
+        );
         assert!(n["covered"].as_u64().unwrap() >= 1 || n["partial"].as_u64().unwrap() >= 1);
-        assert!(n["new"].as_u64().unwrap() + n["covered"].as_u64().unwrap() + n["partial"].as_u64().unwrap() >= 1);
+        assert!(
+            n["new"].as_u64().unwrap()
+                + n["covered"].as_u64().unwrap()
+                + n["partial"].as_u64().unwrap()
+                >= 1
+        );
     }
 
     #[test]
@@ -949,11 +1608,28 @@ mod tests {
 
     #[test]
     fn semantic_pass_rescues_and_catches() {
-        let mk = |v: &'static str, sup: f32| Finding { sentence: "S".into(), cite: Some("k".into()), page: None, verdict: v, support: sup, note: String::new(), passage: Some("P".into()) };
-        let mut fs = vec![mk("weak", 0.4), mk("supported", 0.9), mk("supported", 0.8), mk("unsupported", 0.1), mk("unknown-source", 0.0)];
+        let mk = |v: &'static str, sup: f32| Finding {
+            sentence: "S".into(),
+            cite: Some("k".into()),
+            page: None,
+            verdict: v,
+            support: sup,
+            note: String::new(),
+            passage: Some("P".into()),
+        };
+        let mut fs = vec![
+            mk("weak", 0.4),
+            mk("supported", 0.9),
+            mk("supported", 0.8),
+            mk("unsupported", 0.1),
+            mk("unknown-source", 0.0),
+        ];
         let answers = [Sem::Supports, Sem::Contradicts, Sem::Partial, Sem::Unclear];
         let mut i = 0;
-        let (checked, changed) = semantic_pass(&mut fs, &mut |_, _| { i += 1; Some(answers[i - 1]) });
+        let (checked, changed) = semantic_pass(&mut fs, &mut |_, _| {
+            i += 1;
+            Some(answers[i - 1])
+        });
         assert_eq!((checked, changed), (4, 3));
         assert_eq!(fs[0].verdict, "supported");
         assert_eq!(fs[1].verdict, "contradicted");
@@ -972,7 +1648,10 @@ mod figure_tests {
     #[test]
     fn digits_and_number_words_are_the_same_figure() {
         let p = "The authorities shall respond within four months. The period shall not exceed three years.";
-        assert!(super::missing_numbers("They respond within 4 months and 3 years at most.", p).is_empty());
+        assert!(
+            super::missing_numbers("They respond within 4 months and 3 years at most.", p)
+                .is_empty()
+        );
         assert!(!super::missing_numbers("They respond within 5 months.", p).is_empty());
         assert!(!super::missing_numbers("The period is 3.5 years.", p).is_empty());
     }
@@ -981,12 +1660,18 @@ mod figure_tests {
     #[test]
     fn figures_keep_decimals_and_ignore_thousands_separators() {
         assert_eq!(figures("took 71.3 days"), vec!["71.3"]);
-        assert_eq!(figures("1,240 and 1240 and 1 240"), vec!["1240", "1240", "1240"]);
+        assert_eq!(
+            figures("1,240 and 1240 and 1 240"),
+            vec!["1240", "1240", "1240"]
+        );
         assert_eq!(figures("a rate of 0,91 in 2024."), vec!["0.91", "2024"]);
     }
     #[test]
     fn reordered_digits_are_a_mismatch() {
-        assert_eq!(missing_numbers("The time was 3.71 days", "The time was 71.3 days"), vec!["3.71"]);
+        assert_eq!(
+            missing_numbers("The time was 3.71 days", "The time was 71.3 days"),
+            vec!["3.71"]
+        );
         assert!(missing_numbers("The time was 71.3 days.", "mean time 71.3 days").is_empty());
         assert!(missing_numbers("There were 1,240 cases", "1240 applications").is_empty());
     }

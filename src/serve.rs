@@ -2,13 +2,13 @@
 //! index (so the page gets native PDF/EPUB reading, OCR and embeddings), index download/upload for syncing between
 //! machines, named workspaces, and a same-origin proxy to the model server (no CORS setup anywhere).
 
-use std::io::Read as _;
 use crate::bib::BibMap;
-use crate::index::{coverage, Searcher, Store};
-use crate::{embed_pending, embed_query, ingest, mesh, prompt, Ctx};
-use anyhow::{bail, Result};
-use serde_json::{json, Value};
+use crate::index::{Searcher, Store, coverage};
+use crate::{Ctx, embed_pending, embed_query, ingest, mesh, prompt};
+use anyhow::{Result, bail};
+use serde_json::{Value, json};
 use std::collections::HashSet;
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 
@@ -37,7 +37,9 @@ fn pct_decode(s: &str) -> String {
         match b[i] {
             b'+' => out.push(b' '),
             b'%' if i + 2 < b.len() => {
-                let h = std::str::from_utf8(&b[i + 1..i + 3]).ok().and_then(|x| u8::from_str_radix(x, 16).ok());
+                let h = std::str::from_utf8(&b[i + 1..i + 3])
+                    .ok()
+                    .and_then(|x| u8::from_str_radix(x, 16).ok());
                 match h {
                     Some(v) => {
                         out.push(v);
@@ -71,16 +73,25 @@ fn get<'a>(p: &'a [(String, String)], k: &str) -> Option<&'a str> {
 }
 
 fn safe_name(s: &str) -> String {
-    s.chars().filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_')).take(40).collect()
+    s.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+        .take(40)
+        .collect()
 }
 
 fn json_resp(code: u16, v: Value) -> Response<std::io::Cursor<Vec<u8>>> {
-    Response::from_data(v.to_string().into_bytes()).with_status_code(StatusCode(code)).with_header(hdr("Content-Type", "application/json; charset=utf-8"))
+    Response::from_data(v.to_string().into_bytes())
+        .with_status_code(StatusCode(code))
+        .with_header(hdr("Content-Type", "application/json; charset=utf-8"))
 }
 
 /// (index file, library base folder) for a workspace; the default workspace is the CLI's own index.
 fn workspace(ctx: &Ctx, o: &Opts, ws: Option<&str>) -> Result<(PathBuf, PathBuf)> {
-    match (ws.map(safe_name).filter(|w| !w.is_empty() && w != "default"), &o.workspaces) {
+    match (
+        ws.map(safe_name)
+            .filter(|w| !w.is_empty() && w != "default"),
+        &o.workspaces,
+    ) {
         (Some(w), Some(dir)) => {
             std::fs::create_dir_all(dir.join(&w))?;
             Ok((dir.join(format!("{w}.idx")), dir.join(&w)))
@@ -92,17 +103,21 @@ fn workspace(ctx: &Ctx, o: &Opts, ws: Option<&str>) -> Result<(PathBuf, PathBuf)
 
 fn list_workspaces(ctx: &Ctx, o: &Opts) -> Vec<String> {
     let mut v = vec!["default".to_string()];
-    if let Some(d) = &o.workspaces {
-        if let Ok(rd) = std::fs::read_dir(d) {
-            let mut w: Vec<String> = rd
-                .flatten()
-                .filter_map(|e| e.path().file_stem().map(|s| (e.path(), s.to_string_lossy().to_string())))
-                .filter(|(p, _)| p.extension().is_some_and(|x| x == "idx"))
-                .map(|(_, s)| s)
-                .collect();
-            w.sort();
-            v.extend(w);
-        }
+    if let Some(d) = &o.workspaces
+        && let Ok(rd) = std::fs::read_dir(d)
+    {
+        let mut w: Vec<String> = rd
+            .flatten()
+            .filter_map(|e| {
+                e.path()
+                    .file_stem()
+                    .map(|s| (e.path(), s.to_string_lossy().to_string()))
+            })
+            .filter(|(p, _)| p.extension().is_some_and(|x| x == "idx"))
+            .map(|(_, s)| s)
+            .collect();
+        w.sort();
+        v.extend(w);
     }
     let _ = ctx;
     v
@@ -119,7 +134,9 @@ fn authorised(req: &Request, o: &Opts, params: &[(String, String)]) -> bool {
         return true;
     }
     let want = format!("Bearer {t}");
-    req.headers().iter().any(|h| h.field.equiv("Authorization") && ct_eq(h.value.as_str(), &want))
+    req.headers()
+        .iter()
+        .any(|h| h.field.equiv("Authorization") && ct_eq(h.value.as_str(), &want))
 }
 
 /// Without a token the server trusts whoever can reach it, so a web page must not be able to reach it through DNS rebinding:
@@ -128,8 +145,19 @@ fn host_ok(req: &Request, o: &Opts) -> bool {
     if o.token.is_some() {
         return true;
     }
-    let Some(h) = req.headers().iter().find(|h| h.field.equiv("Host")).map(|h| h.value.as_str().to_lowercase()) else { return true };
-    let name = if let Some(r) = h.strip_prefix('[') { r.split(']').next().unwrap_or("").to_string() } else { h.split(':').next().unwrap_or("").to_string() };
+    let Some(h) = req
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Host"))
+        .map(|h| h.value.as_str().to_lowercase())
+    else {
+        return true;
+    };
+    let name = if let Some(r) = h.strip_prefix('[') {
+        r.split(']').next().unwrap_or("").to_string()
+    } else {
+        h.split(':').next().unwrap_or("").to_string()
+    };
     name == "localhost" || name.parse::<std::net::IpAddr>().is_ok() || name == o.bind.to_lowercase()
 }
 
@@ -140,51 +168,124 @@ fn origin_ok(req: &Request, o: &Opts) -> bool {
     if o.token.is_some() || matches!(req.method(), Method::Get | Method::Head | Method::Options) {
         return true;
     }
-    let Some(origin) = req.headers().iter().find(|h| h.field.equiv("Origin")).map(|h| h.value.as_str().to_string()) else { return true };
-    let host = req.headers().iter().find(|h| h.field.equiv("Host")).map(|h| h.value.as_str().to_lowercase()).unwrap_or_default();
+    let Some(origin) = req
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Origin"))
+        .map(|h| h.value.as_str().to_string())
+    else {
+        return true;
+    };
+    let host = req
+        .headers()
+        .iter()
+        .find(|h| h.field.equiv("Host"))
+        .map(|h| h.value.as_str().to_lowercase())
+        .unwrap_or_default();
     let name = |hp: &str| -> String {
         let hp = hp.trim_end_matches('/');
-        if let Some(r) = hp.strip_prefix('[') { r.split(']').next().unwrap_or("").to_string() } else { hp.split(':').next().unwrap_or("").to_string() }
+        if let Some(r) = hp.strip_prefix('[') {
+            r.split(']').next().unwrap_or("").to_string()
+        } else {
+            hp.split(':').next().unwrap_or("").to_string()
+        }
     };
-    let oh = name(origin.split("://").nth(1).unwrap_or("").split('/').next().unwrap_or(""));
+    let oh = name(
+        origin
+            .split("://")
+            .nth(1)
+            .unwrap_or("")
+            .split('/')
+            .next()
+            .unwrap_or(""),
+    );
     // Origin "null" (sandboxed frames, file://) is refused: an attacker can produce it too. Loopback origins (the desktop shells) pass.
-    let loopback = oh == "localhost" || oh.parse::<std::net::IpAddr>().map(|ip| ip.is_loopback()).unwrap_or(false);
+    let loopback = oh == "localhost"
+        || oh
+            .parse::<std::net::IpAddr>()
+            .map(|ip| ip.is_loopback())
+            .unwrap_or(false);
     !oh.is_empty() && (loopback || oh == name(&host))
 }
 
 fn bib_for(ctx: &Ctx, base: &Path) -> BibMap {
-    BibMap::load(&[base.to_path_buf()], &ctx.bib_files, if ctx.data.is_some() { 3 } else { 1 })
+    BibMap::load(
+        &[base.to_path_buf()],
+        &ctx.bib_files,
+        if ctx.data.is_some() { 3 } else { 1 },
+    )
 }
 
-fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, String)], req: &mut Request) -> Result<Response<std::io::Cursor<Vec<u8>>>> {
+fn api(
+    ctx: &Ctx,
+    o: &Opts,
+    method: &Method,
+    path: &str,
+    params: &[(String, String)],
+    req: &mut Request,
+) -> Result<Response<std::io::Cursor<Vec<u8>>>> {
     let (index, base) = workspace(ctx, o, get(params, "ws"))?;
     match (method, path) {
         (Method::Get, "/api/health") => {
             let store = Store::load(&index)?;
-            Ok(json_resp(200, json!({
-                "ok": true, "server": true, "version": env!("CARGO_PKG_VERSION"),
-                "workspaces": list_workspaces(ctx, o), "docs": store.docs.len(), "chunks": store.chunks.len(),
-                "embeddings": store.embed_model, "model": ctx.llm.model, "api": format!("{:?}", ctx.llm.api).to_lowercase(),
-                "ocr": std::process::Command::new("tesseract").arg("--version").output().is_ok(),
-            })))
+            Ok(json_resp(
+                200,
+                json!({
+                    "ok": true, "server": true, "version": env!("CARGO_PKG_VERSION"),
+                    "workspaces": list_workspaces(ctx, o), "docs": store.docs.len(), "chunks": store.chunks.len(),
+                    "embeddings": store.embed_model, "model": ctx.llm.model, "api": format!("{:?}", ctx.llm.api).to_lowercase(),
+                    "ocr": std::process::Command::new("tesseract").arg("--version").output().is_ok(),
+                }),
+            ))
         }
         (Method::Get, "/api/sources") => {
             let store = Store::load(&index)?;
             let bib = bib_for(ctx, &base);
-            let docs: Vec<Value> = store.docs.iter().enumerate().map(|(i, d)| {
-                json!({"path": d.path, "title": d.title, "pages": d.pages,
+            let docs: Vec<Value> = store
+                .docs
+                .iter()
+                .enumerate()
+                .map(|(i, d)| {
+                    json!({"path": d.path, "title": d.title, "pages": d.pages,
                        "chunks": store.chunks.iter().filter(|c| c.doc == i).count(),
                        "cite": bib.find(&d.path).map(|e| e.cite())})
-            }).collect();
-            let keys: Vec<Value> = bib.entries.iter().map(|e| json!({"key": e.key, "cite": e.cite(), "title": e.title, "year": e.year})).collect();
-            Ok(json_resp(200, json!({"docs": docs, "bib": bib.entries.len(), "keys": keys})))
+                })
+                .collect();
+            let keys: Vec<Value> = bib
+                .entries
+                .iter()
+                .map(|e| json!({"key": e.key, "cite": e.cite(), "title": e.title, "year": e.year}))
+                .collect();
+            Ok(json_resp(
+                200,
+                json!({"docs": docs, "bib": bib.entries.len(), "keys": keys}),
+            ))
         }
         (Method::Get, "/api/bib") => {
             let bib = bib_for(ctx, &base);
             Ok(match get(params, "fmt").unwrap_or("csl") {
-                "ris" => Response::from_data(bib.entries.iter().map(|e| e.to_ris()).collect::<Vec<_>>().join("\n").into_bytes()).with_header(hdr("Content-Type", "application/x-research-info-systems")),
-                "bibtex" => Response::from_data(bib.entries.iter().map(|e| e.to_bibtex()).collect::<Vec<_>>().join("\n").into_bytes()).with_header(hdr("Content-Type", "application/x-bibtex")),
-                _ => Response::from_data(serde_json::to_vec(&bib.entries.iter().map(|e| e.to_csl()).collect::<Vec<_>>())?).with_header(hdr("Content-Type", "application/json")),
+                "ris" => Response::from_data(
+                    bib.entries
+                        .iter()
+                        .map(|e| e.to_ris())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                        .into_bytes(),
+                )
+                .with_header(hdr("Content-Type", "application/x-research-info-systems")),
+                "bibtex" => Response::from_data(
+                    bib.entries
+                        .iter()
+                        .map(|e| e.to_bibtex())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                        .into_bytes(),
+                )
+                .with_header(hdr("Content-Type", "application/x-bibtex")),
+                _ => Response::from_data(serde_json::to_vec(
+                    &bib.entries.iter().map(|e| e.to_csl()).collect::<Vec<_>>(),
+                )?)
+                .with_header(hdr("Content-Type", "application/json")),
             })
         }
         (Method::Get, "/api/search") | (Method::Post, "/api/search") => {
@@ -192,13 +293,23 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
             if q.is_empty() {
                 bail!("missing q");
             }
-            let k = get(params, "k").and_then(|v| v.parse().ok()).unwrap_or(8usize).clamp(1, 40);
+            let k = get(params, "k")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(8usize)
+                .clamp(1, 40);
             let store = Store::load(&index)?;
             let bib = bib_for(ctx, &base);
-            let allow: Option<HashSet<usize>> = get(params, "paths").filter(|p| !p.is_empty()).map(|p| {
-                let want: HashSet<&str> = p.split('\n').collect();
-                store.docs.iter().enumerate().filter(|(_, d)| want.contains(d.path.as_str())).map(|(i, _)| i).collect()
-            });
+            let allow: Option<HashSet<usize>> =
+                get(params, "paths").filter(|p| !p.is_empty()).map(|p| {
+                    let want: HashSet<&str> = p.split('\n').collect();
+                    store
+                        .docs
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, d)| want.contains(d.path.as_str()))
+                        .map(|(i, _)| i)
+                        .collect()
+                });
             let emb = embed_query(ctx, &store, &q);
             let hits = Searcher::new(&store).search(&q, emb.as_deref(), k, 3, allow.as_ref());
             let out: Vec<Value> = hits.iter().enumerate().map(|(i, h)| {
@@ -221,42 +332,71 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
             if q.is_empty() {
                 bail!("missing q");
             }
-            let k = get(params, "k").and_then(|v| v.parse().ok()).unwrap_or(8usize).clamp(1, 30);
+            let k = get(params, "k")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(8usize)
+                .clamp(1, 30);
             let store = Store::load(&index)?;
             let bib = bib_for(ctx, &base);
-            Ok(json_resp(200, crate::ask_json(ctx, &store, &bib, get(params, "mode").unwrap_or("ask"), &q, k, get(params, "lang"))?))
+            Ok(json_resp(
+                200,
+                crate::ask_json(
+                    ctx,
+                    &store,
+                    &bib,
+                    get(params, "mode").unwrap_or("ask"),
+                    &q,
+                    k,
+                    get(params, "lang"),
+                )?,
+            ))
         }
-        (Method::Post, "/api/audit") | (Method::Post, "/api/coverage") | (Method::Post, "/api/novelty") | (Method::Post, "/api/refs") => {
+        (Method::Post, "/api/audit")
+        | (Method::Post, "/api/coverage")
+        | (Method::Post, "/api/novelty")
+        | (Method::Post, "/api/refs") => {
             let text = get(params, "text").unwrap_or("").to_string();
             if text.trim().is_empty() {
                 bail!("missing text");
             }
             let store = Store::load(&index)?;
             let bib = bib_for(ctx, &base);
-            Ok(json_resp(200, match path {
-                "/api/audit" => {
-                    let mut f = crate::audit::audit(&store, &bib, &text);
-                    let semantic = matches!(get(params, "semantic"), Some("1") | Some("true"));
-                    let judged = if semantic { Some(crate::semantic_audit(ctx, &mut f)) } else { None };
-                    json!({"findings": f.iter().map(|x| x.to_json()).collect::<Vec<_>>(), "problems": f.iter().filter(|x| x.is_problem()).count(), "markdown": crate::audit::audit_markdown(&f),
+            Ok(json_resp(
+                200,
+                match path {
+                    "/api/audit" => {
+                        let mut f = crate::audit::audit(&store, &bib, &text);
+                        let semantic = matches!(get(params, "semantic"), Some("1") | Some("true"));
+                        let judged = if semantic {
+                            Some(crate::semantic_audit(ctx, &mut f))
+                        } else {
+                            None
+                        };
+                        json!({"findings": f.iter().map(|x| x.to_json()).collect::<Vec<_>>(), "problems": f.iter().filter(|x| x.is_problem()).count(), "markdown": crate::audit::audit_markdown(&f),
                            "semantic": judged.map(|(c, ch)| json!({"judged": c, "changed": ch, "model": ctx.llm.model}))})
-                }
-                "/api/refs" => {
-                    let mut v = crate::audit::refs_report(&store, &bib, &text);
-                    v["markdown"] = json!(crate::audit::refs_markdown(&v));
-                    v
-                }
-                "/api/coverage" => {
-                    let mut v = crate::audit::coverage_matrix(&store, &bib, &crate::audit::outline_headings(&text), &|h| crate::embed_query(ctx, &store, h));
-                    v["markdown"] = json!(crate::audit::coverage_markdown(&v));
-                    v
-                }
-                _ => {
-                    let mut v = crate::audit::novelty(&store, &bib, &text);
-                    v["markdown"] = json!(crate::audit::novelty_markdown(&v));
-                    v
-                }
-            }))
+                    }
+                    "/api/refs" => {
+                        let mut v = crate::audit::refs_report(&store, &bib, &text);
+                        v["markdown"] = json!(crate::audit::refs_markdown(&v));
+                        v
+                    }
+                    "/api/coverage" => {
+                        let mut v = crate::audit::coverage_matrix(
+                            &store,
+                            &bib,
+                            &crate::audit::outline_headings(&text),
+                            &|h| crate::embed_query(ctx, &store, h),
+                        );
+                        v["markdown"] = json!(crate::audit::coverage_markdown(&v));
+                        v
+                    }
+                    _ => {
+                        let mut v = crate::audit::novelty(&store, &bib, &text);
+                        v["markdown"] = json!(crate::audit::novelty_markdown(&v));
+                        v
+                    }
+                },
+            ))
         }
         (Method::Post, "/api/receipt") => {
             let r: Value = serde_json::from_str(get(params, "receipt").unwrap_or("{}"))?;
@@ -267,8 +407,11 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
         (Method::Get, "/api/mesh/info") => {
             let c = mesh::load_cfg(&base);
             let store = Store::load(&index)?;
-            Ok(json_resp(200, json!({"id": c.id, "name": c.name, "shared": mesh::shared_docs(&c, &store).len(),
-                                     "peers": c.peers.iter().map(|p| &p.name).collect::<Vec<_>>(), "relay": c.relay})))
+            Ok(json_resp(
+                200,
+                json!({"id": c.id, "name": c.name, "shared": mesh::shared_docs(&c, &store).len(),
+                                     "peers": c.peers.iter().map(|p| &p.name).collect::<Vec<_>>(), "relay": c.relay}),
+            ))
         }
         (Method::Get, "/api/mesh/manifest") => {
             let c = mesh::load_cfg(&base);
@@ -278,7 +421,10 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
             let c = mesh::load_cfg(&base);
             let store = Store::load(&index)?;
             let want = get(params, "path").unwrap_or("");
-            match store.doc_by_path(want).filter(|&i| mesh::is_shared(&c, &store.docs[i])) {
+            match store
+                .doc_by_path(want)
+                .filter(|&i| mesh::is_shared(&c, &store.docs[i]))
+            {
                 Some(i) => Ok(json_resp(200, mesh::doc_payload(&store, i))),
                 None => bail!("no such shared document"),
             }
@@ -289,31 +435,53 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
             if q.is_empty() {
                 bail!("missing q");
             }
-            let k = get(params, "k").and_then(|v| v.parse().ok()).unwrap_or(8usize).clamp(1, 40);
+            let k = get(params, "k")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(8usize)
+                .clamp(1, 40);
             let store = Store::load(&index)?;
-            Ok(json_resp(200, json!({"node": c.name, "hits": mesh::shared_search(&c, &store, &bib_for(ctx, &base), &q, k)})))
+            Ok(json_resp(
+                200,
+                json!({"node": c.name, "hits": mesh::shared_search(&c, &store, &bib_for(ctx, &base), &q, k)}),
+            ))
         }
         (Method::Get, "/api/mesh/bundle") => {
             let c = mesh::load_cfg(&base);
             let store = Store::load(&index)?;
             let bytes = mesh::bundle_export(&c, &store, &bib_for(ctx, &base), false)?;
-            Ok(Response::from_data(bytes).with_header(hdr("Content-Type", "application/zip")).with_header(hdr("Content-Disposition", "attachment; filename=\"share.tzb\"")))
+            Ok(Response::from_data(bytes)
+                .with_header(hdr("Content-Type", "application/zip"))
+                .with_header(hdr(
+                    "Content-Disposition",
+                    "attachment; filename=\"share.tzb\"",
+                )))
         }
         (Method::Get, "/api/mesh/peers") => {
             let c = mesh::load_cfg(&base);
-            Ok(json_resp(200, json!({"peers": c.peers.iter().map(|p| json!({"name": p.name, "url": p.url, "proxy": p.proxy})).collect::<Vec<_>>()})))
+            Ok(json_resp(
+                200,
+                json!({"peers": c.peers.iter().map(|p| json!({"name": p.name, "url": p.url, "proxy": p.proxy})).collect::<Vec<_>>()}),
+            ))
         }
         (Method::Post, "/api/mesh/peers") => {
             let mut b = String::new();
             std::io::Read::take(req.as_reader(), MAX_TEXT).read_to_string(&mut b)?;
             let v: Value = serde_json::from_str(&b)?;
-            let (name, url) = (v["name"].as_str().unwrap_or("").trim(), v["url"].as_str().unwrap_or("").trim());
+            let (name, url) = (
+                v["name"].as_str().unwrap_or("").trim(),
+                v["url"].as_str().unwrap_or("").trim(),
+            );
             if name.is_empty() || !(url.starts_with("http://") || url.starts_with("https://")) {
                 bail!("need name and an http(s) url");
             }
             let mut c = mesh::load_cfg(&base);
             c.peers.retain(|p| p.name != name);
-            c.peers.push(mesh::Peer { name: name.into(), url: url.into(), token: v["token"].as_str().map(String::from), proxy: v["proxy"].as_str().map(String::from) });
+            c.peers.push(mesh::Peer {
+                name: name.into(),
+                url: url.into(),
+                token: v["token"].as_str().map(String::from),
+                proxy: v["proxy"].as_str().map(String::from),
+            });
             mesh::save_cfg(&base, &c)?;
             Ok(json_resp(200, json!({"ok": true})))
         }
@@ -322,9 +490,16 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
             let want = get(params, "peer");
             let mut store = Store::load(&index)?;
             let (mut added, mut held, mut errors) = (0, 0, Vec::new());
-            for p in c.peers.iter().filter(|p| want.map(|w| w == p.name).unwrap_or(true)) {
+            for p in c
+                .peers
+                .iter()
+                .filter(|p| want.map(|w| w == p.name).unwrap_or(true))
+            {
                 match mesh::pull(&mut store, p) {
-                    Ok((a, h)) => { added += a; held += h; }
+                    Ok((a, h)) => {
+                        added += a;
+                        held += h;
+                    }
                     Err(e) => errors.push(format!("{e:#}")),
                 }
             }
@@ -333,7 +508,10 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
                 embed_pending(ctx, &mut store, &index);
                 store.save(&index)?;
             }
-            Ok(json_resp(200, json!({"added": added, "already_held": held, "errors": errors})))
+            Ok(json_resp(
+                200,
+                json!({"added": added, "already_held": held, "errors": errors}),
+            ))
         }
         (Method::Post, "/api/mesh/import") => {
             let mut b = Vec::new();
@@ -345,20 +523,39 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
                 embed_pending(ctx, &mut store, &index);
                 store.save(&index)?;
             }
-            Ok(json_resp(200, json!({"added": added, "already_held": skipped, "from": origin})))
+            Ok(json_resp(
+                200,
+                json!({"added": added, "already_held": skipped, "from": origin}),
+            ))
         }
         (Method::Get, "/api/read") => {
             let want = get(params, "path").unwrap_or("");
             let store = Store::load(&index)?;
             let bib = bib_for(ctx, &base);
-            let Some(di) = store.docs.iter().position(|d| d.path == want) else { bail!("no such document") };
+            let Some(di) = store.docs.iter().position(|d| d.path == want) else {
+                bail!("no such document")
+            };
             let d = &store.docs[di];
-            let name = bib.find(&d.path).map(|e| e.cite()).unwrap_or_else(|| d.title.clone());
-            let chunks: Vec<Value> = store.chunks.iter().filter(|c| c.doc == di).map(|c| json!({"page": c.page, "text": c.text})).collect();
-            Ok(json_resp(200, json!({"title": d.title, "label": name, "chunks": chunks})))
+            let name = bib
+                .find(&d.path)
+                .map(|e| e.cite())
+                .unwrap_or_else(|| d.title.clone());
+            let chunks: Vec<Value> = store
+                .chunks
+                .iter()
+                .filter(|c| c.doc == di)
+                .map(|c| json!({"page": c.page, "text": c.text}))
+                .collect();
+            Ok(json_resp(
+                200,
+                json!({"title": d.title, "label": name, "chunks": chunks}),
+            ))
         }
         (Method::Post, "/api/ingest") => {
-            let name = Path::new(get(params, "name").unwrap_or("upload.txt")).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+            let name = Path::new(get(params, "name").unwrap_or("upload.txt"))
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
             if name.is_empty() || !ingest::is_supported(Path::new(&name)) {
                 bail!("unsupported or missing file name");
             }
@@ -386,7 +583,9 @@ fn api(ctx: &Ctx, o: &Opts, method: &Method, path: &str, params: &[(String, Stri
         (Method::Delete, "/api/doc") => {
             let want = get(params, "path").unwrap_or("");
             let mut store = Store::load(&index)?;
-            let Some(di) = store.doc_by_path(want) else { bail!("no such document") };
+            let Some(di) = store.doc_by_path(want) else {
+                bail!("no such document")
+            };
             store.remove_doc(di);
             store.save(&index)?;
             Ok(json_resp(200, json!({"removed": want})))
@@ -410,30 +609,60 @@ fn proxy(host: String, key: Option<String>, mut req: Request, tail: String) {
     if let Some(k) = key {
         r = r.set("Authorization", &format!("Bearer {k}"));
     }
-    let res = if body.is_empty() && method == "GET" { r.call() } else { r.send_bytes(&body) };
+    let res = if body.is_empty() && method == "GET" {
+        r.call()
+    } else {
+        r.send_bytes(&body)
+    };
     let resp = match res {
         Ok(x) => x,
         Err(ureq::Error::Status(_, x)) => x,
         Err(e) => {
-            let _ = req.respond(json_resp(502, json!({"error": format!("cannot reach the model server at {host}: {e}")})));
+            let _ = req.respond(json_resp(
+                502,
+                json!({"error": format!("cannot reach the model server at {host}: {e}")}),
+            ));
             return;
         }
     };
     let status = resp.status();
-    let ct = resp.header("Content-Type").unwrap_or("application/octet-stream").to_string();
+    let ct = resp
+        .header("Content-Type")
+        .unwrap_or("application/octet-stream")
+        .to_string();
     let reader = resp.into_reader();
-    let _ = req.respond(Response::new(StatusCode(status), vec![hdr("Content-Type", &ct), hdr("Cache-Control", "no-cache")], reader, None, None));
+    let _ = req.respond(Response::new(
+        StatusCode(status),
+        vec![hdr("Content-Type", &ct), hdr("Cache-Control", "no-cache")],
+        reader,
+        None,
+        None,
+    ));
 }
 
 pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
     let local = o.bind == "127.0.0.1" || o.bind == "localhost" || o.bind == "::1";
     if !local && o.token.is_none() {
-        bail!("binding to {} exposes your library to the network — add --token SECRET", o.bind);
+        bail!(
+            "binding to {} exposes your library to the network — add --token SECRET",
+            o.bind
+        );
     }
-    let server = Server::http(format!("{}:{}", o.bind, o.port)).map_err(|e| anyhow::anyhow!("cannot listen on {}:{} — {e}", o.bind, o.port))?;
+    let server = Server::http(format!("{}:{}", o.bind, o.port))
+        .map_err(|e| anyhow::anyhow!("cannot listen on {}:{} — {e}", o.bind, o.port))?;
     let host = ctx.llm.host().to_string();
     let key = ctx.llm.key().map(String::from);
-    eprintln!("TEZAUR on http://{}:{}/{}  (index {}; model server {})", o.bind, o.port, o.token.as_ref().map(|t| format!("?token={t}")).unwrap_or_default(), ctx.index.display(), host);
+    eprintln!(
+        "TEZAUR on http://{}:{}/{}  (index {}; model server {})",
+        o.bind,
+        o.port,
+        o.token
+            .as_ref()
+            .map(|t| format!("?token={t}"))
+            .unwrap_or_default(),
+        ctx.index.display(),
+        host
+    );
     if !local || std::env::var("TEZAUR_MESH_BEACON").is_ok() {
         mesh::start_beacon(&mesh::load_cfg(&ctx.base), o.port, mesh::DISCOVERY_PORT);
     }
@@ -441,14 +670,29 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
         let (path, params) = split_url(req.url());
         let method = req.method().clone();
         if method == Method::Get && (path == "/" || path == "/index.html") {
-            let _ = req.respond(Response::from_string(HTML).with_header(hdr("Content-Type", "text/html; charset=utf-8")));
+            let _ = req.respond(
+                Response::from_string(HTML)
+                    .with_header(hdr("Content-Type", "text/html; charset=utf-8")),
+            );
             continue;
         }
         if method == Method::Options && path.starts_with("/api/mesh/") {
-            let _ = req.respond(Response::empty(204).with_header(hdr("Access-Control-Allow-Origin", "*")).with_header(hdr("Access-Control-Allow-Headers", "Authorization, Content-Type")).with_header(hdr("Access-Control-Allow-Methods", "GET, POST, OPTIONS")));
+            let _ = req.respond(
+                Response::empty(204)
+                    .with_header(hdr("Access-Control-Allow-Origin", "*"))
+                    .with_header(hdr(
+                        "Access-Control-Allow-Headers",
+                        "Authorization, Content-Type",
+                    ))
+                    .with_header(hdr("Access-Control-Allow-Methods", "GET, POST, OPTIONS")),
+            );
             continue;
         }
-        if req.body_length().map(|n| n as u64 > MAX_UPLOAD).unwrap_or(false) {
+        if req
+            .body_length()
+            .map(|n| n as u64 > MAX_UPLOAD)
+            .unwrap_or(false)
+        {
             let _ = req.respond(json_resp(413, json!({"error": "request body too large"})));
             continue;
         }
@@ -465,7 +709,9 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
             continue;
         }
         if method == Method::Get && path == "/openapi.json" {
-            let _ = req.respond(Response::from_string(OPENAPI).with_header(hdr("Content-Type", "application/json")));
+            let _ = req.respond(
+                Response::from_string(OPENAPI).with_header(hdr("Content-Type", "application/json")),
+            );
             continue;
         }
         if method == Method::Post && path == "/mcp" {
@@ -473,14 +719,23 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
             let mut b = String::new();
             let _ = std::io::Read::take(req.as_reader(), MAX_TEXT).read_to_string(&mut b);
             let resp = match crate::mcp_handle(ctx, &b) {
-                Some(r) => Response::from_string(r).with_header(hdr("Content-Type", "application/json")).with_status_code(200),
+                Some(r) => Response::from_string(r)
+                    .with_header(hdr("Content-Type", "application/json"))
+                    .with_status_code(200),
                 None => Response::from_string("").with_status_code(202),
             };
             let _ = req.respond(resp);
             continue;
         }
         if let Some(tail) = path.strip_prefix("/llm") {
-            let tail = format!("{}{}", tail, req.url().split_once('?').map(|(_, q)| format!("?{q}")).unwrap_or_default());
+            let tail = format!(
+                "{}{}",
+                tail,
+                req.url()
+                    .split_once('?')
+                    .map(|(_, q)| format!("?{q}"))
+                    .unwrap_or_default()
+            );
             let (h, k) = (host.clone(), key.clone());
             std::thread::spawn(move || proxy(h, k, req, tail));
             continue;
@@ -488,7 +743,8 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
         if path == "/api/index" && (method == Method::Get || method == Method::Put) {
             let r = workspace(ctx, o, get(&params, "ws")).and_then(|(index, _)| {
                 if method == Method::Get {
-                    Ok(Response::from_data(std::fs::read(&index)?).with_header(hdr("Content-Type", "application/octet-stream")))
+                    Ok(Response::from_data(std::fs::read(&index)?)
+                        .with_header(hdr("Content-Type", "application/octet-stream")))
                 } else {
                     let mut b = Vec::new();
                     std::io::Read::take(req.as_reader(), MAX_UPLOAD).read_to_end(&mut b)?;
@@ -500,7 +756,8 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
                         bail!("not a valid TEZAUR index: {e}");
                     }
                     std::fs::rename(&tmp, &index)?;
-                    Ok(Response::from_data(b"{\"ok\":true}".to_vec()).with_header(hdr("Content-Type", "application/json")))
+                    Ok(Response::from_data(b"{\"ok\":true}".to_vec())
+                        .with_header(hdr("Content-Type", "application/json")))
                 }
             });
             match r {
@@ -515,21 +772,47 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
         }
         // JSON bodies are accepted for POST /api/ask and /api/search (no URL-encoding needed in clients).
         let mut params = params;
-        if method == Method::Post && matches!(path.as_str(), "/api/ask" | "/api/search" | "/api/audit" | "/api/coverage" | "/api/novelty" | "/api/refs" | "/api/receipt") {
+        if method == Method::Post
+            && matches!(
+                path.as_str(),
+                "/api/ask"
+                    | "/api/search"
+                    | "/api/audit"
+                    | "/api/coverage"
+                    | "/api/novelty"
+                    | "/api/refs"
+                    | "/api/receipt"
+            )
+        {
             let mut b = String::new();
             let _ = std::io::Read::take(req.as_reader(), MAX_TEXT).read_to_string(&mut b);
             if let Ok(Value::Object(m)) = serde_json::from_str::<Value>(&b) {
                 for (k, v) in m {
-                    let val = match v { Value::String(x) => x, Value::Number(n) => n.to_string(), Value::Array(a) => a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join("\n"), o @ Value::Object(_) => o.to_string(), _ => continue };
+                    let val = match v {
+                        Value::String(x) => x,
+                        Value::Number(n) => n.to_string(),
+                        Value::Array(a) => a
+                            .iter()
+                            .filter_map(|x| x.as_str())
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                        o @ Value::Object(_) => o.to_string(),
+                        _ => continue,
+                    };
                     params.push((k, val));
                 }
             }
         }
         // A bug in one request handler must not take the whole server (and everyone's session) down.
-        let mut resp = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| api(ctx, o, &method, &path, &params, &mut req))) {
+        let mut resp = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            api(ctx, o, &method, &path, &params, &mut req)
+        })) {
             Ok(Ok(r)) => r,
             Ok(Err(e)) => json_resp(400, json!({"error": format!("{e:#}")})),
-            Err(_) => json_resp(500, json!({"error": "internal error (the request was dropped; the server is still running)"})),
+            Err(_) => json_resp(
+                500,
+                json!({"error": "internal error (the request was dropped; the server is still running)"}),
+            ),
         };
         if path.starts_with("/api/mesh/") {
             resp = resp.with_header(hdr("Access-Control-Allow-Origin", "*"));
@@ -545,7 +828,9 @@ mod tests {
 
     #[test]
     fn decodes_urls_and_params() {
-        let (p, q) = split_url("/api/search?q=burden+of%20proof&k=3&paths=Library%2Fa.txt%0ALibrary%2Fb.pdf&x=%C8%98");
+        let (p, q) = split_url(
+            "/api/search?q=burden+of%20proof&k=3&paths=Library%2Fa.txt%0ALibrary%2Fb.pdf&x=%C8%98",
+        );
         assert_eq!(p, "/api/search");
         assert_eq!(get(&q, "q"), Some("burden of proof"));
         assert_eq!(get(&q, "paths"), Some("Library/a.txt\nLibrary/b.pdf"));

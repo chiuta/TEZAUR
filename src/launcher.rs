@@ -17,7 +17,11 @@ use std::time::{Duration, Instant};
 const OLLAMA_ADDR: &str = "127.0.0.1:11434";
 
 fn exe_name(base: &str) -> String {
-    if cfg!(windows) { format!("{base}.exe") } else { base.to_string() }
+    if cfg!(windows) {
+        format!("{base}.exe")
+    } else {
+        base.to_string()
+    }
 }
 
 fn ollama_up() -> bool {
@@ -69,7 +73,10 @@ fn main() {
     let tezaur = app.join("Tezaur").join(exe_name("tezaur"));
 
     if !tezaur.exists() {
-        eprintln!("Cannot find {}\nThe package looks incomplete — re-extract it.", tezaur.display());
+        eprintln!(
+            "Cannot find {}\nThe package looks incomplete — re-extract it.",
+            tezaur.display()
+        );
         pause_and_exit(1);
     }
     let _ = std::fs::create_dir_all(&data);

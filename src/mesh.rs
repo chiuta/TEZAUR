@@ -12,10 +12,10 @@
 //! Documents received from others are re-offered only if `relay` is true.
 
 use crate::bib::BibMap;
-use crate::index::{coverage, Chunk, Doc, Searcher, Store};
-use anyhow::{bail, Context, Result};
+use crate::index::{Chunk, Doc, Searcher, Store, coverage};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -55,18 +55,28 @@ pub fn cfg_path(base: &Path) -> PathBuf {
 fn random_id() -> String {
     use std::hash::{BuildHasher, Hasher};
     let mut h = std::collections::hash_map::RandomState::new().build_hasher();
-    h.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0));
+    h.write_u128(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0),
+    );
     h.write_u32(std::process::id());
     format!("{:016x}", h.finish())
 }
 
 pub fn load_cfg(base: &Path) -> Cfg {
-    let mut c: Cfg = std::fs::read(cfg_path(base)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default();
+    let mut c: Cfg = std::fs::read(cfg_path(base))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default();
     if c.id.is_empty() {
         c.id = random_id();
     }
     if c.name.is_empty() {
-        c.name = std::env::var("HOSTNAME").or_else(|_| std::env::var("COMPUTERNAME")).unwrap_or_else(|_| format!("node-{}", &c.id[..6]));
+        c.name = std::env::var("HOSTNAME")
+            .or_else(|_| std::env::var("COMPUTERNAME"))
+            .unwrap_or_else(|_| format!("node-{}", &c.id[..6]));
     }
     c
 }
@@ -78,7 +88,17 @@ pub fn save_cfg(base: &Path, c: &Cfg) -> Result<()> {
 }
 
 pub fn safe_origin(s: &str) -> String {
-    let v: String = s.chars().map(|c| if c.is_alphanumeric() || matches!(c, '-' | '_' | '.') { c } else { '_' }).take(40).collect();
+    let v: String = s
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '_' | '.') {
+                c
+            } else {
+                '_'
+            }
+        })
+        .take(40)
+        .collect();
     if v.is_empty() { "peer".into() } else { v }
 }
 
@@ -94,7 +114,13 @@ pub fn is_shared(c: &Cfg, d: &Doc) -> bool {
 }
 
 pub fn shared_docs(c: &Cfg, store: &Store) -> Vec<usize> {
-    store.docs.iter().enumerate().filter(|(_, d)| is_shared(c, d)).map(|(i, _)| i).collect()
+    store
+        .docs
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| is_shared(c, d))
+        .map(|(i, _)| i)
+        .collect()
 }
 
 pub fn manifest(c: &Cfg, store: &Store) -> Value {
@@ -111,13 +137,22 @@ pub fn manifest(c: &Cfg, store: &Store) -> Value {
 
 pub fn doc_payload(store: &Store, i: usize) -> Value {
     let d = &store.docs[i];
-    let chunks: Vec<Value> = store.chunks.iter().filter(|c| c.doc == i).map(|c| json!({"page": c.page, "text": c.text})).collect();
+    let chunks: Vec<Value> = store
+        .chunks
+        .iter()
+        .filter(|c| c.doc == i)
+        .map(|c| json!({"page": c.page, "text": c.text}))
+        .collect();
     json!({"path": d.path, "title": d.title, "hash": d.hash.to_string(), "pages": d.pages, "chunks": chunks})
 }
 
 /// Insert a received document. Returns false when an identical document (same hash) is already held.
 pub fn merge_doc(store: &mut Store, origin: &str, p: &Value) -> Result<bool> {
-    let hash: u64 = p["hash"].as_str().and_then(|s| s.parse().ok()).or_else(|| p["hash"].as_u64()).context("document without hash")?;
+    let hash: u64 = p["hash"]
+        .as_str()
+        .and_then(|s| s.parse().ok())
+        .or_else(|| p["hash"].as_u64())
+        .context("document without hash")?;
     let path = p["path"].as_str().context("document without path")?;
     let title = p["title"].as_str().unwrap_or(path);
     let chunks = p["chunks"].as_array().context("document without chunks")?;
@@ -128,18 +163,36 @@ pub fn merge_doc(store: &mut Store, origin: &str, p: &Value) -> Result<bool> {
         return Ok(false);
     }
     // Received paths are namespaced and sanitised: a peer must not be able to name a path outside mesh/.
-    let rel: Vec<String> = path.split(['/', '\\']).filter(|s| !s.is_empty() && *s != "." && *s != "..").map(|s| s.to_string()).collect();
+    let rel: Vec<String> = path
+        .split(['/', '\\'])
+        .filter(|s| !s.is_empty() && *s != "." && *s != "..")
+        .map(|s| s.to_string())
+        .collect();
     let origin = safe_origin(origin);
-    let local = if rel.first().map(|s| s == "mesh").unwrap_or(false) { rel.join("/") } else { format!("mesh/{origin}/{}", rel.join("/")) };
+    let local = if rel.first().map(|s| s == "mesh").unwrap_or(false) {
+        rel.join("/")
+    } else {
+        format!("mesh/{origin}/{}", rel.join("/"))
+    };
     if let Some(old) = store.doc_by_path(&local) {
         store.remove_doc(old);
     }
     let di = store.docs.len();
-    store.docs.push(Doc { path: local, title: format!("{title} [via {origin}]"), hash, pages: p["pages"].as_u64().unwrap_or(0) as usize });
+    store.docs.push(Doc {
+        path: local,
+        title: format!("{title} [via {origin}]"),
+        hash,
+        pages: p["pages"].as_u64().unwrap_or(0) as usize,
+    });
     for c in chunks {
         let text = c["text"].as_str().unwrap_or("").to_string();
         if !text.is_empty() {
-            store.chunks.push(Chunk { doc: di, page: c["page"].as_u64().unwrap_or(0) as usize, text, emb: None });
+            store.chunks.push(Chunk {
+                doc: di,
+                page: c["page"].as_u64().unwrap_or(0) as usize,
+                text,
+                emb: None,
+            });
         }
     }
     Ok(true)
@@ -148,11 +201,16 @@ pub fn merge_doc(store: &mut Store, origin: &str, p: &Value) -> Result<bool> {
 // ------------------------------------------------------------------ bundles (offline exchange)
 
 pub fn bundle_export(c: &Cfg, store: &Store, bib: &BibMap, all: bool) -> Result<Vec<u8>> {
-    let idx: Vec<usize> = if all { (0..store.docs.len()).collect() } else { shared_docs(c, store) };
+    let idx: Vec<usize> = if all {
+        (0..store.docs.len()).collect()
+    } else {
+        shared_docs(c, store)
+    };
     let mut buf = Vec::new();
     {
         let mut z = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let o = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        let o = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
         let mut refs = String::new();
         for (n, &i) in idx.iter().enumerate() {
             z.start_file(format!("docs/{n:05}.json"), o)?;
@@ -178,18 +236,33 @@ pub fn bundle_export(c: &Cfg, store: &Store, bib: &BibMap, all: bool) -> Result<
 }
 
 /// Returns (added, skipped, origin name).
-pub fn bundle_import(store: &mut Store, base: &Path, data: &[u8]) -> Result<(usize, usize, String)> {
-    let mut z = zip::ZipArchive::new(std::io::Cursor::new(data)).context("not a TEZAUR bundle (zip expected)")?;
+pub fn bundle_import(
+    store: &mut Store,
+    base: &Path,
+    data: &[u8],
+) -> Result<(usize, usize, String)> {
+    let mut z = zip::ZipArchive::new(std::io::Cursor::new(data))
+        .context("not a TEZAUR bundle (zip expected)")?;
     let man: Value = {
         let mut s = String::new();
-        crate::ingest::read_capped(&mut z.by_name("manifest.json").context("no manifest.json — not a TEZAUR bundle")?, &mut s)?;
+        crate::ingest::read_capped(
+            &mut z
+                .by_name("manifest.json")
+                .context("no manifest.json — not a TEZAUR bundle")?,
+            &mut s,
+        )?;
         serde_json::from_str(&s)?
     };
     if man["format"] != "tezaur-bundle/1" {
         bail!("unknown bundle format {}", man["format"]);
     }
     let origin = safe_origin(man["node"]["name"].as_str().unwrap_or("bundle"));
-    let names: Vec<String> = z.file_names().flatten().map(|n| n.to_string()).filter(|n| n.starts_with("docs/") && n.ends_with(".json")).collect();
+    let names: Vec<String> = z
+        .file_names()
+        .flatten()
+        .map(|n| n.to_string())
+        .filter(|n| n.starts_with("docs/") && n.ends_with(".json"))
+        .collect();
     let (mut added, mut skipped) = (0, 0);
     for n in names {
         let mut s = String::new();
@@ -229,7 +302,11 @@ fn call(p: &Peer, path: &str) -> Result<ureq::Response> {
     }
     r.call().map_err(|e| match e {
         ureq::Error::Status(401, _) => anyhow::anyhow!("peer {} refused the token", p.name),
-        ureq::Error::Status(c, r) => anyhow::anyhow!("peer {} answered {c}: {}", p.name, r.into_string().unwrap_or_default()),
+        ureq::Error::Status(c, r) => anyhow::anyhow!(
+            "peer {} answered {c}: {}",
+            p.name,
+            r.into_string().unwrap_or_default()
+        ),
         e => anyhow::anyhow!("cannot reach peer {} at {}: {e}", p.name, p.url),
     })
 }
@@ -269,7 +346,11 @@ pub fn pull(store: &mut Store, p: &Peer) -> Result<(usize, usize)> {
         }
         let path = d["path"].as_str().unwrap_or("");
         let payload: Value = json_capped(call(p, &format!("/api/mesh/doc?path={}", pct(path)))?)?;
-        if merge_doc(store, &origin, &payload)? { added += 1 } else { held += 1 }
+        if merge_doc(store, &origin, &payload)? {
+            added += 1
+        } else {
+            held += 1
+        }
     }
     Ok((added, held))
 }
@@ -284,7 +365,8 @@ pub fn federated_search(peers: &[Peer], q: &str, k: usize) -> (Vec<Value>, Vec<S
         .map(|p| {
             let q = q.to_string();
             std::thread::spawn(move || -> Result<Vec<Value>> {
-                let v: Value = json_capped(call(&p, &format!("/api/mesh/search?q={}&k={k}", pct(&q)))?)?;
+                let v: Value =
+                    json_capped(call(&p, &format!("/api/mesh/search?q={}&k={k}", pct(&q)))?)?;
                 let mut hits = v["hits"].as_array().cloned().unwrap_or_default();
                 for h in &mut hits {
                     h["peer"] = json!(p.name);
@@ -300,7 +382,12 @@ pub fn federated_search(peers: &[Peer], q: &str, k: usize) -> (Vec<Value>, Vec<S
             Err(_) => errs.push("peer thread panicked".into()),
         }
     }
-    all.sort_by(|a, b| b["score"].as_f64().partial_cmp(&a["score"].as_f64()).unwrap_or(std::cmp::Ordering::Equal));
+    all.sort_by(|a, b| {
+        b["score"]
+            .as_f64()
+            .partial_cmp(&a["score"].as_f64())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     all.truncate(k);
     (all, errs)
 }
@@ -349,18 +436,23 @@ pub fn discover(target: &str, wait: Duration) -> Result<Vec<Value>> {
     let sock = std::net::UdpSocket::bind("0.0.0.0:0")?;
     sock.set_broadcast(true)?;
     sock.set_read_timeout(Some(Duration::from_millis(250)))?;
-    sock.send_to(PROBE, target).with_context(|| format!("sending to {target}"))?;
+    sock.send_to(PROBE, target)
+        .with_context(|| format!("sending to {target}"))?;
     let end = std::time::Instant::now() + wait;
     let mut found: Vec<Value> = Vec::new();
     let mut buf = [0u8; 1024];
     while std::time::Instant::now() < end {
-        if let Ok((n, from)) = sock.recv_from(&mut buf) {
-            if let Ok(mut v) = serde_json::from_slice::<Value>(&buf[..n]) {
-                if v["tezaur"] == 1 && !found.iter().any(|f| f["id"] == v["id"]) {
-                    v["url"] = json!(format!("http://{}:{}", from.ip(), v["port"].as_u64().unwrap_or(8787)));
-                    found.push(v);
-                }
-            }
+        if let Ok((n, from)) = sock.recv_from(&mut buf)
+            && let Ok(mut v) = serde_json::from_slice::<Value>(&buf[..n])
+            && v["tezaur"] == 1
+            && !found.iter().any(|f| f["id"] == v["id"])
+        {
+            v["url"] = json!(format!(
+                "http://{}:{}",
+                from.ip(),
+                v["port"].as_u64().unwrap_or(8787)
+            ));
+            found.push(v);
         }
     }
     Ok(found)
@@ -372,19 +464,37 @@ mod tests {
 
     fn store_with(path: &str, text: &str, hash: u64) -> Store {
         let mut s = Store::default();
-        s.docs.push(Doc { path: path.into(), title: "T".into(), hash, pages: 1 });
-        s.chunks.push(Chunk { doc: 0, page: 1, text: text.into(), emb: None });
+        s.docs.push(Doc {
+            path: path.into(),
+            title: "T".into(),
+            hash,
+            pages: 1,
+        });
+        s.chunks.push(Chunk {
+            doc: 0,
+            page: 1,
+            text: text.into(),
+            emb: None,
+        });
         s
     }
 
     #[test]
     fn sharing_is_opt_in_and_relay_is_off_by_default() {
         let mut c = Cfg::default();
-        let d = Doc { path: "Library/Smith.pdf".into(), title: "On proof".into(), hash: 1, pages: 1 };
+        let d = Doc {
+            path: "Library/Smith.pdf".into(),
+            title: "On proof".into(),
+            hash: 1,
+            pages: 1,
+        };
         assert!(!is_shared(&c, &d));
         c.share = vec!["smith".into()];
         assert!(is_shared(&c, &d));
-        let m = Doc { path: "mesh/ana/Smith.pdf".into(), ..d.clone() };
+        let m = Doc {
+            path: "mesh/ana/Smith.pdf".into(),
+            ..d.clone()
+        };
         assert!(!is_shared(&c, &m));
         c.relay = true;
         assert!(is_shared(&c, &m));
@@ -392,8 +502,17 @@ mod tests {
 
     #[test]
     fn bundle_roundtrip_dedupes_by_hash_and_sanitises_paths() {
-        let a = store_with("Library/a.txt", "the burden of proof lies on the claimant", 42);
-        let c = Cfg { id: "x".into(), name: "ana".into(), share: vec!["*".into()], ..Default::default() };
+        let a = store_with(
+            "Library/a.txt",
+            "the burden of proof lies on the claimant",
+            42,
+        );
+        let c = Cfg {
+            id: "x".into(),
+            name: "ana".into(),
+            share: vec!["*".into()],
+            ..Default::default()
+        };
         let bytes = bundle_export(&c, &a, &BibMap::default(), false).unwrap();
         let mut b = Store::default();
         let dir = std::env::temp_dir().join("tezaur-mesh-test");
@@ -407,12 +526,19 @@ mod tests {
         let evil = json!({"path": "../../etc/passwd", "title": "x", "hash": "7", "pages": 0, "chunks": [{"page": 0, "text": "hi"}]});
         merge_doc(&mut b, "bob/../x", &evil).unwrap();
         let lp = &b.docs.last().unwrap().path;
-        assert!(lp.starts_with("mesh/bob_.._x/") && lp.split('/').all(|c| c != ".."), "{lp}");
+        assert!(
+            lp.starts_with("mesh/bob_.._x/") && lp.split('/').all(|c| c != ".."),
+            "{lp}"
+        );
     }
 
     #[test]
     fn beacon_answers_probe() {
-        let c = Cfg { id: "abc".into(), name: "n1".into(), ..Default::default() };
+        let c = Cfg {
+            id: "abc".into(),
+            name: "n1".into(),
+            ..Default::default()
+        };
         start_beacon(&c, 9999, 38788);
         std::thread::sleep(Duration::from_millis(200));
         let f = discover("127.0.0.1:38788", Duration::from_millis(800)).unwrap();

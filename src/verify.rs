@@ -22,13 +22,17 @@ pub enum Verdict {
 pub fn parse_scores(text: &str, n: usize) -> Vec<Option<u8>> {
     let mut out = vec![None; n];
     for line in text.lines() {
-        let digits: Vec<&str> = line.split(|c: char| !c.is_ascii_digit()).filter(|s| !s.is_empty()).collect();
-        if digits.len() >= 2 {
-            if let (Ok(i), Ok(s)) = (digits[0].parse::<usize>(), digits[1].parse::<u8>()) {
-                if i >= 1 && i <= n && s <= 10 {
-                    out[i - 1] = Some(s);
-                }
-            }
+        let digits: Vec<&str> = line
+            .split(|c: char| !c.is_ascii_digit())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if digits.len() >= 2
+            && let (Ok(i), Ok(s)) = (digits[0].parse::<usize>(), digits[1].parse::<u8>())
+            && i >= 1
+            && i <= n
+            && s <= 10
+        {
+            out[i - 1] = Some(s);
         }
     }
     out
@@ -48,7 +52,11 @@ pub fn rerank_order(text: &str, n: usize) -> Option<Vec<usize>> {
 
 pub fn parse_verdict(text: &str) -> Verdict {
     let t = text.trim().to_uppercase();
-    let first: String = t.chars().skip_while(|c| !c.is_alphabetic()).take_while(|c| c.is_alphabetic()).collect();
+    let first: String = t
+        .chars()
+        .skip_while(|c| !c.is_alphabetic())
+        .take_while(|c| c.is_alphabetic())
+        .collect();
     match first.as_str() {
         "SUPPORTED" => Verdict::Supported,
         "PARTIAL" | "PARTIALLY" => Verdict::Partial,
@@ -76,14 +84,20 @@ pub fn cite_sentences(answer: &str, n_hits: usize, max: usize) -> Vec<(String, V
             } else if c == ']' {
                 depth -= 1;
             }
-            let end = matches!(c, '.' | '?' | '!') && depth <= 0 && chars.get(i + 1).map_or(true, |n| n.is_whitespace() || *n == '[');
+            let end = matches!(c, '.' | '?' | '!')
+                && depth <= 0
+                && chars
+                    .get(i + 1)
+                    .is_none_or(|n| n.is_whitespace() || *n == '[');
             // a citation right after the full stop belongs to this sentence: "claim. [1]"
             if end {
                 let mut j = i + 1;
                 while j < chars.len() && chars[j].is_whitespace() {
                     j += 1;
                 }
-                if chars.get(j) == Some(&'[') && chars.get(j + 1).map_or(false, |d| d.is_ascii_digit()) {
+                if chars.get(j) == Some(&'[')
+                    && chars.get(j + 1).is_some_and(|d| d.is_ascii_digit())
+                {
                     i += 1;
                     continue;
                 }
@@ -103,7 +117,10 @@ fn push_sentence(out: &mut Vec<(String, Vec<usize>)>, s: &str, n_hits: usize) {
     if s.is_empty() {
         return;
     }
-    let nums: Vec<usize> = cited_numbers(s).into_iter().filter(|&n| n >= 1 && n <= n_hits).collect();
+    let nums: Vec<usize> = cited_numbers(s)
+        .into_iter()
+        .filter(|&n| n >= 1 && n <= n_hits)
+        .collect();
     if !nums.is_empty() {
         out.push((s.to_string(), nums));
     }
@@ -130,7 +147,10 @@ mod tests {
     fn parses_verdicts() {
         assert_eq!(parse_verdict("SUPPORTED"), Verdict::Supported);
         assert_eq!(parse_verdict("  Partial."), Verdict::Partial);
-        assert_eq!(parse_verdict("The sentence is UNSUPPORTED by the excerpt"), Verdict::Unsupported);
+        assert_eq!(
+            parse_verdict("The sentence is UNSUPPORTED by the excerpt"),
+            Verdict::Unsupported
+        );
         assert_eq!(parse_verdict("¯\\_(ツ)_/¯"), Verdict::Unclear);
     }
 
@@ -139,7 +159,10 @@ mod tests {
         let a = "The authority bears the burden [1]. Costs may be imposed [2, 3]. No citation here. Ghost claim [9].\nSecond line. With trailing cite. [2]";
         let s = cite_sentences(a, 3, 10);
         assert_eq!(s.len(), 3);
-        assert_eq!(s[0], ("The authority bears the burden [1].".to_string(), vec![1]));
+        assert_eq!(
+            s[0],
+            ("The authority bears the burden [1].".to_string(), vec![1])
+        );
         assert_eq!(s[1].1, vec![2, 3]);
         assert_eq!(s[2].0, "With trailing cite. [2]");
         assert_eq!(cite_sentences(a, 3, 1).len(), 1);

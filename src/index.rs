@@ -36,10 +36,14 @@ pub struct Store {
 impl Store {
     pub fn load(path: &Path) -> Result<Store> {
         if !path.exists() {
-            return Ok(Store { source: Some(path.to_path_buf()), ..Store::default() });
+            return Ok(Store {
+                source: Some(path.to_path_buf()),
+                ..Store::default()
+            });
         }
         let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
-        let mut st: Store = bincode::deserialize(&bytes).context("index file is corrupt or from another version")?;
+        let mut st: Store = bincode::deserialize(&bytes)
+            .context("index file is corrupt or from another version")?;
         st.source = Some(path.to_path_buf());
         Ok(st)
     }
@@ -142,7 +146,10 @@ impl Bm25 {
                 *tf.entry(t.as_str()).or_default() += 1;
             }
             for (t, n) in tf {
-                postings.entry(t.to_string()).or_default().push((i as u32, n));
+                postings
+                    .entry(t.to_string())
+                    .or_default()
+                    .push((i as u32, n));
             }
         }
         let avg = if lens.is_empty() {
@@ -150,7 +157,11 @@ impl Bm25 {
         } else {
             lens.iter().sum::<u32>() as f32 / lens.len() as f32
         };
-        Bm25 { postings, lens, avg }
+        Bm25 {
+            postings,
+            lens,
+            avg,
+        }
     }
 
     /// Top-`n` chunk indices with BM25 scores, best first. `keep` filters candidates before ranking.
@@ -164,7 +175,9 @@ impl Bm25 {
             if !seen.insert(t.clone()) {
                 continue;
             }
-            let Some(plist) = self.postings.get(&t) else { continue };
+            let Some(plist) = self.postings.get(&t) else {
+                continue;
+            };
             let df = plist.len() as f32;
             let idf = ((big_n - df + 0.5) / (df + 0.5) + 1.0).ln();
             for &(ci, tf) in plist {
@@ -174,7 +187,11 @@ impl Bm25 {
                 *acc.entry(ci).or_default() += s;
             }
         }
-        let mut v: Vec<(usize, f32)> = acc.into_iter().map(|(i, s)| (i as usize, s)).filter(|(i, _)| keep(*i)).collect();
+        let mut v: Vec<(usize, f32)> = acc
+            .into_iter()
+            .map(|(i, s)| (i as usize, s))
+            .filter(|(i, _)| keep(*i))
+            .collect();
         v.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap().then(a.0.cmp(&b.0)));
         v.truncate(n);
         v
@@ -201,7 +218,12 @@ pub fn normalize(v: &mut [f32]) {
     }
 }
 
-fn dense_search(chunks: &[Chunk], q: &[f32], n: usize, keep: &dyn Fn(usize) -> bool) -> Vec<(usize, f32)> {
+fn dense_search(
+    chunks: &[Chunk],
+    q: &[f32],
+    n: usize,
+    keep: &dyn Fn(usize) -> bool,
+) -> Vec<(usize, f32)> {
     let mut v: Vec<(usize, f32)> = chunks
         .iter()
         .enumerate()
@@ -238,7 +260,12 @@ pub struct Searcher<'a> {
 /// request. Keep the last one, keyed by what the library contains (document hashes, paths and total size), so an edit rebuilds it.
 fn library_key(st: &Store) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325;
-    let mut eat = |b: &[u8]| for &x in b { h ^= x as u64; h = h.wrapping_mul(0x100000001b3); };
+    let mut eat = |b: &[u8]| {
+        for &x in b {
+            h ^= x as u64;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+    };
     for d in &st.docs {
         eat(d.path.as_bytes());
         eat(&d.hash.to_le_bytes());
@@ -248,16 +275,20 @@ fn library_key(st: &Store) -> u64 {
     h
 }
 
-static BM25_CACHE: std::sync::Mutex<Option<(u64, std::sync::Arc<Bm25>)>> = std::sync::Mutex::new(None);
+static BM25_CACHE: std::sync::Mutex<Option<(u64, std::sync::Arc<Bm25>)>> =
+    std::sync::Mutex::new(None);
 
 impl<'a> Searcher<'a> {
     pub fn new(store: &'a Store) -> Self {
         let key = library_key(store);
         let mut g = BM25_CACHE.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((k, b)) = g.as_ref() {
-            if *k == key {
-                return Searcher { store, bm25: b.clone() };
-            }
+        if let Some((k, b)) = g.as_ref()
+            && *k == key
+        {
+            return Searcher {
+                store,
+                bm25: b.clone(),
+            };
         }
         // Second level: the on-disk cache next to the index, so a fresh CLI process does not re-tokenise the library.
         let disk = store.source.as_ref().map(|p| {
@@ -265,24 +296,22 @@ impl<'a> Searcher<'a> {
             f.push(".bm25");
             std::path::PathBuf::from(f)
         });
-        if let Some(dp) = &disk {
-            if let Ok(bytes) = std::fs::read(dp) {
-                if let Ok((k, b)) = bincode::deserialize::<(u64, Bm25)>(&bytes) {
-                    if k == key {
-                        let b = std::sync::Arc::new(b);
-                        *g = Some((key, b.clone()));
-                        return Searcher { store, bm25: b };
-                    }
-                }
-            }
+        if let Some(dp) = &disk
+            && let Ok(bytes) = std::fs::read(dp)
+            && let Ok((k, b)) = bincode::deserialize::<(u64, Bm25)>(&bytes)
+            && k == key
+        {
+            let b = std::sync::Arc::new(b);
+            *g = Some((key, b.clone()));
+            return Searcher { store, bm25: b };
         }
         let b = std::sync::Arc::new(Bm25::new(&store.chunks));
-        if let Some(dp) = &disk {
-            if let Ok(bytes) = bincode::serialize(&(key, &*b)) {
-                let tmp = dp.with_extension("bm25tmp");
-                if std::fs::write(&tmp, bytes).is_ok() {
-                    let _ = std::fs::rename(&tmp, dp);
-                }
+        if let Some(dp) = &disk
+            && let Ok(bytes) = bincode::serialize(&(key, &*b))
+        {
+            let tmp = dp.with_extension("bm25tmp");
+            if std::fs::write(&tmp, bytes).is_ok() {
+                let _ = std::fs::rename(&tmp, dp);
             }
         }
         *g = Some((key, b.clone()));
@@ -313,8 +342,16 @@ impl<'a> Searcher<'a> {
                 *fused.entry(ci).or_default() += 1.0 / (RRF + rank as f32 + 1.0);
             }
         }
-        let mut v: Vec<Hit> = fused.into_iter().map(|(chunk, score)| Hit { chunk, score }).collect();
-        v.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap().then(a.chunk.cmp(&b.chunk)));
+        let mut v: Vec<Hit> = fused
+            .into_iter()
+            .map(|(chunk, score)| Hit { chunk, score })
+            .collect();
+        v.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap()
+                .then(a.chunk.cmp(&b.chunk))
+        });
         let mut per_doc: HashMap<usize, usize> = HashMap::new();
         let mut out = Vec::new();
         for h in v {
@@ -339,16 +376,29 @@ mod tests {
 
     fn mk(texts: &[&str]) -> Store {
         let mut s = Store::default();
-        s.docs.push(Doc { path: "a".into(), title: "A".into(), hash: 0, pages: 1 });
+        s.docs.push(Doc {
+            path: "a".into(),
+            title: "A".into(),
+            hash: 0,
+            pages: 1,
+        });
         for t in texts {
-            s.chunks.push(Chunk { doc: 0, page: 1, text: t.to_string(), emb: None });
+            s.chunks.push(Chunk {
+                doc: 0,
+                page: 1,
+                text: t.to_string(),
+                emb: None,
+            });
         }
         s
     }
 
     #[test]
     fn folds_romanian_diacritics() {
-        assert_eq!(tokenize("Științific ȘI țară"), tokenize("stiintific si tara"));
+        assert_eq!(
+            tokenize("Științific ȘI țară"),
+            tokenize("stiintific si tara")
+        );
     }
 
     #[test]
@@ -365,7 +415,10 @@ mod tests {
 
     #[test]
     fn prefix_stemming_matches_inflections() {
-        let s = mk(&["recunoașterea calificărilor profesionale", "ceva fără legătură"]);
+        let s = mk(&[
+            "recunoașterea calificărilor profesionale",
+            "ceva fără legătură",
+        ]);
         let r = Searcher::new(&s).search("recunoastere calificare profesionala", None, 2, 10, None);
         assert_eq!(r[0].chunk, 0);
     }
@@ -389,8 +442,18 @@ mod tests {
     #[test]
     fn only_filter_restricts_documents() {
         let mut s = mk(&["alpha one", "alpha two"]);
-        s.docs.push(Doc { path: "b".into(), title: "B".into(), hash: 0, pages: 1 });
-        s.chunks.push(Chunk { doc: 1, page: 1, text: "alpha three".into(), emb: None });
+        s.docs.push(Doc {
+            path: "b".into(),
+            title: "B".into(),
+            hash: 0,
+            pages: 1,
+        });
+        s.chunks.push(Chunk {
+            doc: 1,
+            page: 1,
+            text: "alpha three".into(),
+            emb: None,
+        });
         let allow: std::collections::HashSet<usize> = [1].into_iter().collect();
         let r = Searcher::new(&s).search("alpha", None, 10, 10, Some(&allow));
         assert_eq!(r.len(), 1);
@@ -407,8 +470,18 @@ mod tests {
     #[test]
     fn remove_doc_remaps_ids() {
         let mut s = mk(&["x"]);
-        s.docs.push(Doc { path: "b".into(), title: "B".into(), hash: 0, pages: 1 });
-        s.chunks.push(Chunk { doc: 1, page: 1, text: "y".into(), emb: None });
+        s.docs.push(Doc {
+            path: "b".into(),
+            title: "B".into(),
+            hash: 0,
+            pages: 1,
+        });
+        s.chunks.push(Chunk {
+            doc: 1,
+            page: 1,
+            text: "y".into(),
+            emb: None,
+        });
         s.remove_doc(0);
         assert_eq!(s.chunks.len(), 1);
         assert_eq!(s.chunks[0].doc, 0);

@@ -263,7 +263,7 @@ async function ingest(files){
   build();renderLib();await persist();
   if(msgs.length)$('status').innerHTML+='<br><span class="err">'+msgs.map(esc).join('<br>')+'</span>';
 }
-$('addFiles').onclick=()=>$('fFiles').click();$('addDir').onclick=()=>$('fDir').click();
+$('addFiles').onclick=()=>$('fFiles').click();$("fDir").webkitdirectory=true;$('addDir').onclick=()=>$('fDir').click();
 $('fFiles').onchange=e=>{ingest(e.target.files);e.target.value=''};$('fDir').onchange=e=>{ingest(e.target.files);e.target.value=''};
 $('selAll').onclick=()=>{S.only=new Set(S.docs.map((_,i)=>i));renderLib()};$('selNone').onclick=()=>{S.only=new Set();renderLib()};
 $('clearAll').onclick=async()=>{if(!confirm('Ștergi toată biblioteca din acest '+(S.server?'spațiu de lucru de pe server?':'browser?')))return;

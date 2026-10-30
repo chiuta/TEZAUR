@@ -7,26 +7,26 @@
 //! Portable: when run from a PortableApps.com-style folder (App\Tezaur\tezaur.exe + Data\),
 //! the index, library and settings all live in Data\ and nothing is written elsewhere.
 
+mod audit;
 mod bib;
+mod eval;
+mod export;
 mod index;
 mod ingest;
 mod llm;
+mod mesh;
+mod online;
+mod pdfx;
 mod portable;
 mod prompt;
 mod serve;
-mod verify;
-mod export;
-mod mesh;
 mod sha256;
-mod audit;
-mod eval;
-mod pdfx;
-mod online;
+mod verify;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use bib::BibMap;
 use clap::{Parser, Subcommand, ValueEnum};
-use index::{coverage, Hit, Searcher, Store};
+use index::{Hit, Searcher, Store, coverage};
 use llm::{Api, Llm};
 use std::cell::RefCell;
 use std::collections::HashSet;
@@ -34,7 +34,11 @@ use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
-#[command(name = "tezaur", version, about = "Local thesis-writing assistant grounded in your own library")]
+#[command(
+    name = "tezaur",
+    version,
+    about = "Local thesis-writing assistant grounded in your own library"
+)]
 struct Cli {
     /// Index file. Default: Data/tezaur.idx when portable, else ./tezaur.idx.
     #[arg(long, env = "TEZAUR_INDEX", global = true)]
@@ -50,7 +54,12 @@ struct Cli {
     #[arg(long, env = "TEZAUR_API_KEY", hide_env_values = true, global = true)]
     api_key: Option<String>,
     /// Generation model id as the server names it (`tezaur models` lists them).
-    #[arg(long, env = "TEZAUR_MODEL", default_value = "llama3.1:8b", global = true)]
+    #[arg(
+        long,
+        env = "TEZAUR_MODEL",
+        default_value = "llama3.1:8b",
+        global = true
+    )]
     model: String,
     /// Embedding model for hybrid retrieval, e.g. bge-m3 (multilingual) or nomic-embed-text.
     /// Optional: without it, retrieval is BM25 only and needs no model at all.
@@ -101,23 +110,47 @@ enum MeshCmd {
     /// Name this node.
     Name { name: String },
     /// Offer documents to peers: `*` = everything, otherwise text that appears in the path or title. Empty list = share nothing.
-    Share { patterns: Vec<String>, /// Also re-offer documents received from other peers.
-        #[arg(long)] relay: bool },
+    Share {
+        patterns: Vec<String>,
+        /// Also re-offer documents received from other peers.
+        #[arg(long)]
+        relay: bool,
+    },
     /// Add or replace a peer (a running `tezaur serve`, e.g. http://192.168.1.20:8787).
-    Add { name: String, url: String, #[arg(long)] token: Option<String>, /// e.g. socks5://127.0.0.1:9050 for a Tor onion address
-        #[arg(long)] proxy: Option<String> },
+    Add {
+        name: String,
+        url: String,
+        #[arg(long)]
+        token: Option<String>,
+        /// e.g. socks5://127.0.0.1:9050 for a Tor onion address
+        #[arg(long)]
+        proxy: Option<String>,
+    },
     /// Forget a peer.
     Rm { name: String },
     /// Copy the shared documents of one peer (or all) into your index.
     Pull { name: Option<String> },
     /// Search peers (nothing is copied; only matching snippets come back).
-    Search { query: Vec<String>, #[arg(short, default_value_t = 8)] k: usize },
+    Search {
+        query: Vec<String>,
+        #[arg(short, default_value_t = 8)]
+        k: usize,
+    },
     /// Write a bundle (.tzb) of the shared documents for USB / e-mail exchange. --all ignores the sharing rules.
-    Export { file: PathBuf, #[arg(long)] all: bool },
+    Export {
+        file: PathBuf,
+        #[arg(long)]
+        all: bool,
+    },
     /// Read a bundle written by `mesh export`.
     Import { file: PathBuf },
     /// Find TEZAUR servers on the local network (UDP broadcast). Servers answer when bound to a network address.
-    Discover { #[arg(long, default_value = "255.255.255.255:8788")] target: String, #[arg(long, default_value_t = 2)] seconds: u64 },
+    Discover {
+        #[arg(long, default_value = "255.255.255.255:8788")]
+        target: String,
+        #[arg(long, default_value_t = 2)]
+        seconds: u64,
+    },
 }
 
 /// What kind of text `draft` should write.
@@ -440,12 +473,15 @@ impl Ctx {
     /// Re-read per command so a freshly exported .bib is picked up without restarting.
     fn load_bib(&self) -> BibMap {
         let depth = if self.data.is_some() { 3 } else { 1 };
-        BibMap::load(&[self.base.clone()], &self.bib_files, depth)
+        BibMap::load(std::slice::from_ref(&self.base), &self.bib_files, depth)
     }
 }
 
 pub(crate) fn embed_query(ctx: &Ctx, store: &Store, q: &str) -> Option<Vec<f32>> {
-    let model = ctx.embed_model.clone().or_else(|| store.embed_model.clone())?;
+    let model = ctx
+        .embed_model
+        .clone()
+        .or_else(|| store.embed_model.clone())?;
     if store.embed_model.as_deref() != Some(model.as_str()) {
         eprintln!("note: index was not built with embedding model '{model}'; using BM25 only");
         return None;
@@ -469,7 +505,12 @@ fn allowed_docs(ctx: &Ctx, store: &Store, bib: &BibMap) -> Option<HashSet<usize>
         .filter(|(_, d)| {
             d.title.to_lowercase().contains(&q)
                 || d.path.to_lowercase().contains(&q)
-                || bib.find(&d.path).map(|e| e.cite().to_lowercase().contains(&q) || e.key.to_lowercase().contains(&q)).unwrap_or(false)
+                || bib
+                    .find(&d.path)
+                    .map(|e| {
+                        e.cite().to_lowercase().contains(&q) || e.key.to_lowercase().contains(&q)
+                    })
+                    .unwrap_or(false)
         })
         .map(|(i, _)| i)
         .collect();
@@ -480,7 +521,14 @@ fn allowed_docs(ctx: &Ctx, store: &Store, bib: &BibMap) -> Option<HashSet<usize>
 }
 
 /// Retrieve for several queries, merge by best rank, cap at k. `per_doc` limits passages per document.
-fn retrieve(ctx: &Ctx, store: &Store, bib: &BibMap, queries: &[String], k: usize, per_doc: usize) -> Vec<Hit> {
+fn retrieve(
+    ctx: &Ctx,
+    store: &Store,
+    bib: &BibMap,
+    queries: &[String],
+    k: usize,
+    per_doc: usize,
+) -> Vec<Hit> {
     if ctx.rerank {
         // Fetch a wider pool, let the model order it, keep the best k.
         let pool = retrieve_inner(ctx, store, bib, queries, k * 2, per_doc);
@@ -491,7 +539,14 @@ fn retrieve(ctx: &Ctx, store: &Store, bib: &BibMap, queries: &[String], k: usize
     retrieve_inner(ctx, store, bib, queries, k, per_doc)
 }
 
-fn retrieve_inner(ctx: &Ctx, store: &Store, bib: &BibMap, queries: &[String], k: usize, per_doc: usize) -> Vec<Hit> {
+fn retrieve_inner(
+    ctx: &Ctx,
+    store: &Store,
+    bib: &BibMap,
+    queries: &[String],
+    k: usize,
+    per_doc: usize,
+) -> Vec<Hit> {
     let allow = allowed_docs(ctx, store, bib);
     let s = Searcher::new(store);
     let per = k.max(4);
@@ -501,7 +556,11 @@ fn retrieve_inner(ctx: &Ctx, store: &Store, bib: &BibMap, queries: &[String], k:
         let hits = s.search(q, emb.as_deref(), per, per_doc, allow.as_ref());
         // Without embeddings, term overlap is a fair relevance signal; warn when it is poor.
         if emb.is_none() && !hits.is_empty() {
-            let best = hits.iter().take(3).map(|h| coverage(q, &store.chunks[h.chunk].text)).fold(0.0, f32::max);
+            let best = hits
+                .iter()
+                .take(3)
+                .map(|h| coverage(q, &store.chunks[h.chunk].text))
+                .fold(0.0, f32::max);
             if best < 0.4 {
                 eprintln!(
                     "⚠ weak match for \"{q}\": the best passage covers only {:.0}% of its terms — the answer may lack support; rephrase or add sources",
@@ -516,10 +575,11 @@ fn retrieve_inner(ctx: &Ctx, store: &Store, bib: &BibMap, queries: &[String], k:
     let mut i = 0;
     while merged.len() < k && rounds.iter().any(|r| i < r.len()) {
         for r in &rounds {
-            if let Some(h) = r.get(i) {
-                if !merged.iter().any(|m| m.chunk == h.chunk) && merged.len() < k {
-                    merged.push(h.clone());
-                }
+            if let Some(h) = r.get(i)
+                && !merged.iter().any(|m| m.chunk == h.chunk)
+                && merged.len() < k
+            {
+                merged.push(h.clone());
             }
         }
         i += 1;
@@ -532,18 +592,38 @@ fn retrieve_inner(ctx: &Ctx, store: &Store, bib: &BibMap, queries: &[String], k:
 fn export_pdf(md: &str, title: Option<&str>, bib: Option<&Path>, out: &Path) -> Result<()> {
     let dir = std::env::temp_dir().join(format!("tezaur-pdf-{}", std::process::id()));
     std::fs::create_dir_all(&dir)?;
-    let stem = bib.filter(|b| b.extension().map(|e| e == "bib").unwrap_or(false)).and_then(|b| b.file_stem()).map(|s| s.to_string_lossy().to_string());
+    let stem = bib
+        .filter(|b| b.extension().map(|e| e == "bib").unwrap_or(false))
+        .and_then(|b| b.file_stem())
+        .map(|s| s.to_string_lossy().to_string());
     if let (Some(b), Some(st)) = (bib, &stem) {
         std::fs::copy(b, dir.join(format!("{st}.bib")))?;
     }
-    std::fs::write(dir.join("doc.tex"), export::to_tex(md, title, stem.as_deref()))?;
+    std::fs::write(
+        dir.join("doc.tex"),
+        export::to_tex(md, title, stem.as_deref()),
+    )?;
     let run = |prog: &str, arg: &str| -> Result<bool> {
-        match std::process::Command::new(prog).args(if prog == "pdflatex" { vec!["-interaction=nonstopmode", "-halt-on-error", arg] } else { vec![arg] }).current_dir(&dir).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status() {
+        match std::process::Command::new(prog)
+            .args(if prog == "pdflatex" {
+                vec!["-interaction=nonstopmode", "-halt-on-error", arg]
+            } else {
+                vec![arg]
+            })
+            .current_dir(&dir)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+        {
             Ok(s) => Ok(s.success()),
-            Err(_) => bail!("PDF export needs LaTeX (`{prog}` not found on PATH); alternatively export --to docx/odt/html"),
+            Err(_) => bail!(
+                "PDF export needs LaTeX (`{prog}` not found on PATH); alternatively export --to docx/odt/html"
+            ),
         }
     };
-    if !run("pdflatex", "doc.tex")? { bail!("pdflatex failed; keep the .tex with `export --to tex` and inspect it"); }
+    if !run("pdflatex", "doc.tex")? {
+        bail!("pdflatex failed; keep the .tex with `export --to tex` and inspect it");
+    }
     if stem.is_some() {
         run("bibtex", "doc")?;
         run("pdflatex", "doc.tex")?;
@@ -558,8 +638,14 @@ fn zotero_bibtex(port: u16) -> Result<(String, usize)> {
     let mut all = String::new();
     let mut n = 0usize;
     for page in 0..200 {
-        let url = format!("http://127.0.0.1:{port}/api/users/0/items?format=bibtex&limit=100&start={}", page * 100);
-        let body = ureq::get(&url).set("Zotero-API-Version", "3").call()?.into_string()?;
+        let url = format!(
+            "http://127.0.0.1:{port}/api/users/0/items?format=bibtex&limit=100&start={}",
+            page * 100
+        );
+        let body = ureq::get(&url)
+            .set("Zotero-API-Version", "3")
+            .call()?
+            .into_string()?;
         let items = body.matches("\n@").count() + usize::from(body.trim_start().starts_with('@'));
         if body.trim().is_empty() || items == 0 {
             break;
@@ -583,7 +669,11 @@ fn rerank_hits(ctx: &Ctx, store: &Store, query: &str, hits: Vec<Hit>) -> Vec<Hit
         let t: String = store.chunks[h.chunk].text.chars().take(700).collect();
         p.push_str(&format!("[{}] {}\n\n", i + 1, t));
     }
-    eprintln!("[re-ranking {} passages with {}]", hits.len(), ctx.llm.model);
+    eprintln!(
+        "[re-ranking {} passages with {}]",
+        hits.len(),
+        ctx.llm.model
+    );
     match ctx.llm.chat(verify::SYSTEM_RERANK, &p, |_| {}) {
         Ok(t) => match verify::rerank_order(&t, hits.len()) {
             Some(order) => order.into_iter().map(|i| hits[i].clone()).collect(),
@@ -624,12 +714,19 @@ fn verify_answer(ctx: &Ctx, store: &Store, hits: &[Hit], answer: &str) {
     if sents.is_empty() {
         return;
     }
-    eprintln!("[verifying {} cited sentences — the model can be wrong here too]", sents.len());
+    eprintln!(
+        "[verifying {} cited sentences — the model can be wrong here too]",
+        sents.len()
+    );
     let (mut ok, mut checked) = (0usize, 0usize);
     for (s, nums) in &sents {
         let mut u = String::from("EXCERPTS:\n");
         for n in nums {
-            let t: String = store.chunks[hits[n - 1].chunk].text.chars().take(1200).collect();
+            let t: String = store.chunks[hits[n - 1].chunk]
+                .text
+                .chars()
+                .take(1200)
+                .collect();
             u.push_str(&format!("[{n}] {t}\n\n"));
         }
         u.push_str(&format!("SENTENCE: {s}"));
@@ -652,13 +749,31 @@ fn verify_answer(ctx: &Ctx, store: &Store, hits: &[Hit], answer: &str) {
     eprintln!("verify: {ok}/{checked} cited sentences fully supported");
 }
 
-fn generate(ctx: &Ctx, store: &Store, bib: &BibMap, hits: &[Hit], task: &str, lang: Option<&str>) -> Result<String> {
+fn generate(
+    ctx: &Ctx,
+    store: &Store,
+    bib: &BibMap,
+    hits: &[Hit],
+    task: &str,
+    lang: Option<&str>,
+) -> Result<String> {
     if hits.is_empty() {
-        bail!("nothing relevant found in the index — ingest more material, rephrase, or clear /only");
+        bail!(
+            "nothing relevant found in the index — ingest more material, rephrase, or clear /only"
+        );
     }
     let user = prompt::user_prompt(store, bib, hits, task, lang);
-    let ctx_note = if ctx.llm.api == Api::Ollama { format!(", ctx {}", ctx.llm.num_ctx) } else { String::new() };
-    eprintln!("[{} excerpts, model {}{} — local generation can be slow]", hits.len(), ctx.llm.model, ctx_note);
+    let ctx_note = if ctx.llm.api == Api::Ollama {
+        format!(", ctx {}", ctx.llm.num_ctx)
+    } else {
+        String::new()
+    };
+    eprintln!(
+        "[{} excerpts, model {}{} — local generation can be slow]",
+        hits.len(),
+        ctx.llm.model,
+        ctx_note
+    );
     let out = ctx.llm.chat(prompt::SYSTEM, &user, |t| {
         print!("{t}");
         let _ = std::io::stdout().flush();
@@ -684,15 +799,41 @@ fn report(ctx: &Ctx, store: &Store, bib: &BibMap, hits: &[Hit], answer: &str) ->
 }
 
 /// Non-printing ask/compare/gaps for the HTTP API: answer, checked references, warnings and the excerpts used.
-fn ask_json(ctx: &Ctx, store: &Store, bib: &BibMap, mode: &str, q: &str, k: usize, lang: Option<&str>) -> Result<serde_json::Value> {
+fn ask_json(
+    ctx: &Ctx,
+    store: &Store,
+    bib: &BibMap,
+    mode: &str,
+    q: &str,
+    k: usize,
+    lang: Option<&str>,
+) -> Result<serde_json::Value> {
     let (queries, per_doc, task) = match mode {
-        "compare" => (vec![q.to_string()], 2, format!("Compare how the different sources address the question below. Group the sources by position or finding and cite the excerpts for each group. Then state plainly where the sources agree, where they disagree and why, and say so if only one source addresses a point. Do not settle disagreements with outside knowledge.\n\nQUESTION: {q}")),
-        "gaps" => (
-            vec![q.to_string(), format!("{q} limitations and criticism"), format!("{q} further research needed, open questions, future work")],
-            3,
-            format!("Using only the excerpts, map the state of the library on \"{q}\": (a) what it establishes well, (b) points that are weakly supported or contradictory, (c) questions the excerpts raise but do not answer, (d) kinds of sources that seem to be missing. Cite excerpts for (a)–(c); for (d) write 'not in excerpts'. State explicitly that this view is limited to the retrieved excerpts."),
+        "compare" => (
+            vec![q.to_string()],
+            2,
+            format!(
+                "Compare how the different sources address the question below. Group the sources by position or finding and cite the excerpts for each group. Then state plainly where the sources agree, where they disagree and why, and say so if only one source addresses a point. Do not settle disagreements with outside knowledge.\n\nQUESTION: {q}"
+            ),
         ),
-        _ => (vec![q.to_string()], 4, format!("Answer the question below as precisely as the excerpts allow.\n\nQUESTION: {q}")),
+        "gaps" => (
+            vec![
+                q.to_string(),
+                format!("{q} limitations and criticism"),
+                format!("{q} further research needed, open questions, future work"),
+            ],
+            3,
+            format!(
+                "Using only the excerpts, map the state of the library on \"{q}\": (a) what it establishes well, (b) points that are weakly supported or contradictory, (c) questions the excerpts raise but do not answer, (d) kinds of sources that seem to be missing. Cite excerpts for (a)–(c); for (d) write 'not in excerpts'. State explicitly that this view is limited to the retrieved excerpts."
+            ),
+        ),
+        _ => (
+            vec![q.to_string()],
+            4,
+            format!(
+                "Answer the question below as precisely as the excerpts allow.\n\nQUESTION: {q}"
+            ),
+        ),
     };
     let hits = retrieve(ctx, store, bib, &queries, k, per_doc);
     if hits.is_empty() {
@@ -705,8 +846,17 @@ fn ask_json(ctx: &Ctx, store: &Store, bib: &BibMap, mode: &str, q: &str, k: usiz
         let c = &store.chunks[h.chunk];
         serde_json::json!({"n": i + 1, "label": prompt::label(store, bib, h), "page": c.page, "path": store.docs[c.doc].path, "text": c.text})
     }).collect();
-    let receipt = audit::make_receipt(store, &ctx.llm.model, mode, q, &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(), &answer);
-    Ok(serde_json::json!({"answer": answer, "references": r.references, "warnings": r.warnings, "excerpts": excerpts, "receipt": receipt}))
+    let receipt = audit::make_receipt(
+        store,
+        &ctx.llm.model,
+        mode,
+        q,
+        &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(),
+        &answer,
+    );
+    Ok(
+        serde_json::json!({"answer": answer, "references": r.references, "warnings": r.warnings, "excerpts": excerpts, "receipt": receipt}),
+    )
 }
 
 /// Ask the model for 2–4 search queries covering different aspects of the question.
@@ -717,7 +867,9 @@ fn decompose(ctx: &Ctx, question: &str) -> Vec<String> {
                 .lines()
                 .map(|l| {
                     l.trim()
-                        .trim_start_matches(|c: char| c.is_ascii_digit() || matches!(c, '-' | '*' | '•' | '.' | ')' | ' '))
+                        .trim_start_matches(|c: char| {
+                            c.is_ascii_digit() || matches!(c, '-' | '*' | '•' | '.' | ')' | ' ')
+                        })
                         .trim()
                         .trim_matches('"')
                         .to_string()
@@ -727,7 +879,13 @@ fn decompose(ctx: &Ctx, question: &str) -> Vec<String> {
                 .collect();
             v.insert(0, question.to_string());
             v.dedup();
-            eprintln!("search queries: {}", v.iter().map(|q| format!("“{q}”")).collect::<Vec<_>>().join(" · "));
+            eprintln!(
+                "search queries: {}",
+                v.iter()
+                    .map(|q| format!("“{q}”"))
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            );
             v
         }
         Err(e) => {
@@ -746,7 +904,12 @@ fn find_doc(store: &Store, bib: &BibMap, q: &str) -> Result<usize> {
         .filter(|(_, d)| {
             d.title.to_lowercase().contains(&ql)
                 || d.path.to_lowercase().contains(&ql)
-                || bib.find(&d.path).map(|e| e.cite().to_lowercase().contains(&ql) || e.key.to_lowercase().contains(&ql)).unwrap_or(false)
+                || bib
+                    .find(&d.path)
+                    .map(|e| {
+                        e.cite().to_lowercase().contains(&ql) || e.key.to_lowercase().contains(&ql)
+                    })
+                    .unwrap_or(false)
         })
         .map(|(i, _)| i)
         .collect();
@@ -754,8 +917,15 @@ fn find_doc(store: &Store, bib: &BibMap, q: &str) -> Result<usize> {
         0 => bail!("no document matches '{q}' (see /sources)"),
         1 => Ok(m[0]),
         n => {
-            let list: Vec<String> = m.iter().take(8).map(|&i| format!("  - {}  ({})", store.docs[i].title, store.docs[i].path)).collect();
-            bail!("'{q}' matches {n} documents — be more specific:\n{}", list.join("\n"))
+            let list: Vec<String> = m
+                .iter()
+                .take(8)
+                .map(|&i| format!("  - {}  ({})", store.docs[i].title, store.docs[i].path))
+                .collect();
+            bail!(
+                "'{q}' matches {n} documents — be more specific:\n{}",
+                list.join("\n")
+            )
         }
     }
 }
@@ -767,15 +937,27 @@ fn embed_pending(ctx: &Ctx, store: &mut Store, index: &Path) {
     // A failure here must never lose the documents just indexed: keyword search still works.
     if let Some(em) = &ctx.embed_model {
         if store.embed_model.as_deref().is_some_and(|m| m != em) {
-            eprintln!("index uses '{}' — dropping old vectors to switch to '{em}'", store.embed_model.as_ref().unwrap());
+            eprintln!(
+                "index uses '{}' — dropping old vectors to switch to '{em}'",
+                store.embed_model.as_ref().unwrap()
+            );
             store.chunks.iter_mut().for_each(|c| c.emb = None);
             store.embed_model = None;
         }
-        let todo: Vec<usize> = (0..store.chunks.len()).filter(|&i| store.chunks[i].emb.is_none()).collect();
+        let todo: Vec<usize> = (0..store.chunks.len())
+            .filter(|&i| store.chunks[i].emb.is_none())
+            .collect();
         let mut stopped: Option<String> = None;
         for (b, batch) in todo.chunks(32).enumerate() {
-            eprint!("\rembedding {}/{} ", (b * 32 + batch.len()).min(todo.len()), todo.len());
-            let texts: Vec<String> = batch.iter().map(|&i| store.chunks[i].text.clone()).collect();
+            eprint!(
+                "\rembedding {}/{} ",
+                (b * 32 + batch.len()).min(todo.len()),
+                todo.len()
+            );
+            let texts: Vec<String> = batch
+                .iter()
+                .map(|&i| store.chunks[i].text.clone())
+                .collect();
             match ctx.llm.embed(em, &texts) {
                 Ok(vecs) => {
                     store.embed_model = Some(em.clone());
@@ -796,18 +978,24 @@ fn embed_pending(ctx: &Ctx, store: &mut Store, index: &Path) {
             eprintln!();
         }
         if let Some(e) = stopped {
-            eprintln!("⚠ embedding stopped: {e}\n  Keyword search still works. Fix the model/server and run /ingest again to resume.");
+            eprintln!(
+                "⚠ embedding stopped: {e}\n  Keyword search still works. Fix the model/server and run /ingest again to resume."
+            );
         }
     }
 }
 
 fn ingest_paths(ctx: &Ctx, paths: &[PathBuf], force: bool) -> Result<()> {
     let mut store = Store::load(&ctx.index)?;
-    let files = ingest::collect_files(&paths);
+    let files = ingest::collect_files(paths);
     if files.is_empty() {
         eprintln!(
             "no supported files found (pdf, docx, epub, txt, md, html, tex) in: {}",
-            paths.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")
+            paths
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
         );
     }
     let (mut added, mut same, mut failed) = (0usize, 0usize, 0usize);
@@ -858,7 +1046,14 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             ingest_paths(ctx, &paths, *force)?;
         }
 
-        Cmd::Export { input, to, output, title, bib_name, bibfile } => {
+        Cmd::Export {
+            input,
+            to,
+            output,
+            title,
+            bib_name,
+            bibfile,
+        } => {
             let md = std::fs::read_to_string(input)?;
             let ext = match to {
                 ExportTo::Tex => "tex",
@@ -870,21 +1065,34 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             };
             let out = output.clone().unwrap_or_else(|| input.with_extension(ext));
             match to {
-                ExportTo::Tex => std::fs::write(&out, export::to_tex(&md, title.as_deref(), bib_name.as_deref()))?,
+                ExportTo::Tex => std::fs::write(
+                    &out,
+                    export::to_tex(&md, title.as_deref(), bib_name.as_deref()),
+                )?,
                 ExportTo::Html => std::fs::write(&out, export::to_html(&md, title.as_deref()))?,
                 ExportTo::Docx => std::fs::write(&out, export::to_docx(&md, title.as_deref())?)?,
                 ExportTo::Pdf => export_pdf(&md, title.as_deref(), bibfile.as_deref(), &out)?,
                 ExportTo::Odt | ExportTo::Epub => {
                     let mut c = std::process::Command::new("pandoc");
-                    c.arg(input).arg("-o").arg(&out).arg("--from").arg("markdown");
-                    if let Some(t) = title { c.arg("--metadata").arg(format!("title={t}")); }
+                    c.arg(input)
+                        .arg("-o")
+                        .arg(&out)
+                        .arg("--from")
+                        .arg("markdown");
+                    if let Some(t) = title {
+                        c.arg("--metadata").arg(format!("title={t}"));
+                    }
                     if let Some(b) = bibfile {
                         c.arg("--citeproc").arg("--bibliography").arg(b);
                     }
                     match c.status() {
                         Ok(st) if st.success() => {}
-                        Ok(st) => bail!("pandoc failed ({st}). For PDF it also needs a LaTeX engine (pdflatex)."),
-                        Err(_) => bail!("this format needs pandoc (https://pandoc.org) on PATH; alternatively export --to tex/docx/html"),
+                        Ok(st) => bail!(
+                            "pandoc failed ({st}). For PDF it also needs a LaTeX engine (pdflatex)."
+                        ),
+                        Err(_) => bail!(
+                            "this format needs pandoc (https://pandoc.org) on PATH; alternatively export --to tex/docx/html"
+                        ),
                     }
                 }
             }
@@ -897,31 +1105,59 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 bail!("no .bib entries found next to the index or via --bib");
             }
             let text = match to {
-                BibTo::Ris => bib.entries.iter().map(|e| e.to_ris()).collect::<Vec<_>>().join("\n"),
-                BibTo::Bibtex => bib.entries.iter().map(|e| e.to_bibtex()).collect::<Vec<_>>().join("\n"),
-                BibTo::CslJson => serde_json::to_string_pretty(&bib.entries.iter().map(|e| e.to_csl()).collect::<Vec<_>>())?,
+                BibTo::Ris => bib
+                    .entries
+                    .iter()
+                    .map(|e| e.to_ris())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                BibTo::Bibtex => bib
+                    .entries
+                    .iter()
+                    .map(|e| e.to_bibtex())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+                BibTo::CslJson => serde_json::to_string_pretty(
+                    &bib.entries.iter().map(|e| e.to_csl()).collect::<Vec<_>>(),
+                )?,
             };
             match output {
-                Some(p) => { std::fs::write(p, text)?; eprintln!("wrote {} ({} entries)", p.display(), bib.entries.len()); }
+                Some(p) => {
+                    std::fs::write(p, text)?;
+                    eprintln!("wrote {} ({} entries)", p.display(), bib.entries.len());
+                }
                 None => println!("{text}"),
             }
         }
 
         Cmd::Zotero { data, port, force } => {
-            let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from);
-            let data = data.clone().or_else(|| home.map(|h| h.join("Zotero"))).ok_or_else(|| anyhow::anyhow!("cannot find the Zotero folder — pass --data"))?;
+            let home = std::env::var_os("HOME")
+                .or_else(|| std::env::var_os("USERPROFILE"))
+                .map(PathBuf::from);
+            let data = data
+                .clone()
+                .or_else(|| home.map(|h| h.join("Zotero")))
+                .ok_or_else(|| anyhow::anyhow!("cannot find the Zotero folder — pass --data"))?;
             match zotero_bibtex(*port) {
                 Ok((text, n)) if n > 0 => {
                     let dest = ctx.base.join("zotero.bib");
                     std::fs::write(&dest, text)?;
-                    eprintln!("Zotero: {n} items → {} (used automatically for citations)", dest.display());
+                    eprintln!(
+                        "Zotero: {n} items → {} (used automatically for citations)",
+                        dest.display()
+                    );
                 }
                 Ok(_) => eprintln!("Zotero answered but returned no BibTeX items."),
-                Err(e) => eprintln!("⚠ could not read BibTeX from Zotero ({e}). Is Zotero running, with “Allow other applications on this computer to communicate with Zotero” enabled? Continuing with the files."),
+                Err(e) => eprintln!(
+                    "⚠ could not read BibTeX from Zotero ({e}). Is Zotero running, with “Allow other applications on this computer to communicate with Zotero” enabled? Continuing with the files."
+                ),
             }
             let storage = data.join("storage");
             if !storage.is_dir() {
-                bail!("{} is not a Zotero storage folder — pass --data <Zotero data directory>", storage.display());
+                bail!(
+                    "{} is not a Zotero storage folder — pass --data <Zotero data directory>",
+                    storage.display()
+                );
             }
             ingest_paths(ctx, &[storage], *force)?;
         }
@@ -947,16 +1183,29 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             }
         }
 
-        Cmd::Audit { file, json, fail, semantic } => {
+        Cmd::Audit {
+            file,
+            json,
+            fail,
+            semantic,
+        } => {
             let store = Store::load(&ctx.index)?;
             let text = std::fs::read_to_string(file)?;
             let mut f = audit::audit(&store, &bib, &text);
             if *semantic {
                 let (c, ch) = semantic_audit(ctx, &mut f);
-                eprintln!("[semantic pass: {c} citations judged by {}, {ch} verdicts changed — the model can be wrong]", ctx.llm.model);
+                eprintln!(
+                    "[semantic pass: {c} citations judged by {}, {ch} verdicts changed — the model can be wrong]",
+                    ctx.llm.model
+                );
             }
             if *json {
-                println!("{}", serde_json::to_string_pretty(&f.iter().map(|x| x.to_json()).collect::<Vec<_>>())?);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(
+                        &f.iter().map(|x| x.to_json()).collect::<Vec<_>>()
+                    )?
+                );
             } else {
                 print!("{}", audit::audit_markdown(&f));
             }
@@ -970,73 +1219,166 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let text = std::fs::read_to_string(file)?;
             let mut v = audit::refs_report(&store, &bib, &text);
             if *online {
-                let used: Vec<String> = v["cited"].as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect()).unwrap_or_default();
-                let entries: Vec<&bib::Entry> = bib.entries.iter().filter(|e| used.iter().any(|k| k.eq_ignore_ascii_case(&e.key))).collect();
-                eprintln!("[online: sending {} DOIs/titles to OpenAlex and Crossref]", entries.len());
+                let used: Vec<String> = v["cited"]
+                    .as_array()
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|x| x.as_str().map(String::from))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let entries: Vec<&bib::Entry> = bib
+                    .entries
+                    .iter()
+                    .filter(|e| used.iter().any(|k| k.eq_ignore_ascii_case(&e.key)))
+                    .collect();
+                eprintln!(
+                    "[online: sending {} DOIs/titles to OpenAlex and Crossref]",
+                    entries.len()
+                );
                 v["online"] = online::check_entries(&entries);
             }
-            if *json { println!("{}", serde_json::to_string_pretty(&v)?) } else {
+            if *json {
+                println!("{}", serde_json::to_string_pretty(&v)?)
+            } else {
                 print!("{}", audit::refs_markdown(&v));
-                if *online { print!("{}", online::check_markdown(&v["online"])); }
+                if *online {
+                    print!("{}", online::check_markdown(&v["online"]));
+                }
             }
         }
 
         Cmd::Eval { file, json } => {
             let store = Store::load(&ctx.index)?;
-            let cases = eval::parse_cases(&std::fs::read_to_string(file)?).map_err(|e| anyhow::anyhow!(e))?;
+            let cases = eval::parse_cases(&std::fs::read_to_string(file)?)
+                .map_err(|e| anyhow::anyhow!(e))?;
             let v = eval::evaluate(&store, &bib, &cases, &|q| embed_query(ctx, &store, q));
-            if *json { println!("{}", serde_json::to_string_pretty(&v)?) } else { print!("{}", eval::markdown(&v)) }
+            if *json {
+                println!("{}", serde_json::to_string_pretty(&v)?)
+            } else {
+                print!("{}", eval::markdown(&v))
+            }
         }
 
-        Cmd::Tables { file, page, csv, json, out } => {
-            let pages = pdfx::layout_pages(file).ok_or_else(|| anyhow::anyhow!("pdftotext (poppler) is required: could not read {}", file.display()))?;
+        Cmd::Tables {
+            file,
+            page,
+            csv,
+            json,
+            out,
+        } => {
+            let pages = pdfx::layout_pages(file).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "pdftotext (poppler) is required: could not read {}",
+                    file.display()
+                )
+            })?;
             let mut all: Vec<(usize, usize, pdfx::Table)> = Vec::new();
             for (pi, l) in pages.iter().enumerate() {
-                if page.map(|p| p != pi + 1).unwrap_or(false) { continue; }
+                if page.map(|p| p != pi + 1).unwrap_or(false) {
+                    continue;
+                }
                 let mut k = 0;
                 for it in pdfx::parse_page(l) {
-                    if let pdfx::Item::Table(t) = it { k += 1; all.push((pi + 1, k, t)); }
+                    if let pdfx::Item::Table(t) = it {
+                        k += 1;
+                        all.push((pi + 1, k, t));
+                    }
                 }
             }
             if let Some(dir) = out {
                 std::fs::create_dir_all(dir)?;
-                for (p, k, t) in &all { std::fs::write(dir.join(format!("table-p{p}-{k}.csv")), t.to_csv())?; }
+                for (p, k, t) in &all {
+                    std::fs::write(dir.join(format!("table-p{p}-{k}.csv")), t.to_csv())?;
+                }
                 eprintln!("wrote {} CSV files to {}", all.len(), dir.display());
             } else if *json {
                 println!("{}", serde_json::to_string_pretty(&all.iter().map(|(p, k, t)| serde_json::json!({"page": p, "n": k, "caption": t.caption, "rows": t.rows})).collect::<Vec<_>>())?);
             } else {
                 for (p, k, t) in &all {
-                    if *csv { println!("# page {p}, table {k}{}\n{}", t.caption.as_ref().map(|c| format!(": {c}")).unwrap_or_default(), t.to_csv()); }
-                    else { println!("<!-- page {p}, table {k} -->\n{}", t.to_markdown()); }
+                    if *csv {
+                        println!(
+                            "# page {p}, table {k}{}\n{}",
+                            t.caption
+                                .as_ref()
+                                .map(|c| format!(": {c}"))
+                                .unwrap_or_default(),
+                            t.to_csv()
+                        );
+                    } else {
+                        println!("<!-- page {p}, table {k} -->\n{}", t.to_markdown());
+                    }
                 }
             }
-            if all.is_empty() { eprintln!("no tables found (scanned PDFs, tables drawn as images and two-column prose are not detected)"); }
+            if all.is_empty() {
+                eprintln!(
+                    "no tables found (scanned PDFs, tables drawn as images and two-column prose are not detected)"
+                );
+            }
         }
 
         Cmd::Equations { file, page, json } => {
-            let pages = pdfx::layout_pages(file).ok_or_else(|| anyhow::anyhow!("pdftotext (poppler) is required: could not read {}", file.display()))?;
+            let pages = pdfx::layout_pages(file).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "pdftotext (poppler) is required: could not read {}",
+                    file.display()
+                )
+            })?;
             let mut n = 0;
             let mut rows = Vec::new();
             for (pi, l) in pages.iter().enumerate() {
-                if page.map(|p| p != pi + 1).unwrap_or(false) { continue; }
+                if page.map(|p| p != pi + 1).unwrap_or(false) {
+                    continue;
+                }
                 for it in pdfx::parse_page(l) {
-                    if let pdfx::Item::Equation(e) = it { n += 1; rows.push((pi + 1, e)); }
+                    if let pdfx::Item::Equation(e) = it {
+                        n += 1;
+                        rows.push((pi + 1, e));
+                    }
                 }
             }
-            if *json { println!("{}", serde_json::to_string_pretty(&rows.iter().map(|(p, e)| serde_json::json!({"page": p, "latex": e.latex, "tag": e.tag})).collect::<Vec<_>>())?); }
-            else { for (p, e) in &rows { println!("p. {p}{}: $$ {} $$", e.tag.as_ref().map(|t| format!(", eq. {t}")).unwrap_or_default(), e.latex); } }
-            if n == 0 { eprintln!("no display equations found"); }
+            if *json {
+                println!("{}", serde_json::to_string_pretty(&rows.iter().map(|(p, e)| serde_json::json!({"page": p, "latex": e.latex, "tag": e.tag})).collect::<Vec<_>>())?);
+            } else {
+                for (p, e) in &rows {
+                    println!(
+                        "p. {p}{}: $$ {} $$",
+                        e.tag
+                            .as_ref()
+                            .map(|t| format!(", eq. {t}"))
+                            .unwrap_or_default(),
+                        e.latex
+                    );
+                }
+            }
+            if n == 0 {
+                eprintln!("no display equations found");
+            }
         }
 
-        Cmd::Lit { query, n, bibtex, json } => {
+        Cmd::Lit {
+            query,
+            n,
+            bibtex,
+            json,
+        } => {
             eprintln!("[online: the query is sent to OpenAlex and Crossref]");
             let works = online::search(query, *n)?;
             if *json {
-                println!("{}", serde_json::to_string_pretty(&works.iter().map(|w| w.to_json()).collect::<Vec<_>>())?);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(
+                        &works.iter().map(|w| w.to_json()).collect::<Vec<_>>()
+                    )?
+                );
             } else if *bibtex {
-                for w in &works { println!("{}", w.to_bibtex()); }
+                for w in &works {
+                    println!("{}", w.to_bibtex());
+                }
             } else {
-                for (i, w) in works.iter().enumerate() { println!("{}. {}", i + 1, w.line()); }
+                for (i, w) in works.iter().enumerate() {
+                    println!("{}. {}", i + 1, w.line());
+                }
             }
         }
 
@@ -1045,47 +1387,87 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let heads = audit::outline_headings(&std::fs::read_to_string(file)?);
             anyhow::ensure!(!heads.is_empty(), "no headings found in {}", file.display());
             let v = audit::coverage_matrix(&store, &bib, &heads, &|h| embed_query(ctx, &store, h));
-            if *json { println!("{}", serde_json::to_string_pretty(&v)?) } else { print!("{}", audit::coverage_markdown(&v)) }
+            if *json {
+                println!("{}", serde_json::to_string_pretty(&v)?)
+            } else {
+                print!("{}", audit::coverage_markdown(&v))
+            }
         }
 
         Cmd::Novelty { file, json } => {
             let store = Store::load(&ctx.index)?;
             let text = if ingest::is_supported(file) {
-                ingest::read_pages(file)?.into_iter().map(|(_, t)| t).collect::<Vec<_>>().join("\n")
+                ingest::read_pages(file)?
+                    .into_iter()
+                    .map(|(_, t)| t)
+                    .collect::<Vec<_>>()
+                    .join("\n")
             } else {
                 std::fs::read_to_string(file)?
             };
             let v = audit::novelty(&store, &bib, &text);
-            if *json { println!("{}", serde_json::to_string_pretty(&v)?) } else { print!("{}", audit::novelty_markdown(&v)) }
+            if *json {
+                println!("{}", serde_json::to_string_pretty(&v)?)
+            } else {
+                print!("{}", audit::novelty_markdown(&v))
+            }
         }
 
         Cmd::Receipt { file, answer } => {
             let r: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(file)?)?;
             let store = Store::load(&ctx.index).ok();
-            let ans = match answer { Some(p) => Some(std::fs::read_to_string(p)?), None => None };
+            let ans = match answer {
+                Some(p) => Some(std::fs::read_to_string(p)?),
+                None => None,
+            };
             let (ok, lines) = audit::verify_receipt(store.as_ref(), &r, ans.as_deref());
-            for l in lines { println!("{l}"); }
-            if !ok { std::process::exit(2); }
+            for l in lines {
+                println!("{l}");
+            }
+            if !ok {
+                std::process::exit(2);
+            }
         }
 
         Cmd::Declare { receipts, lang } => {
             anyhow::ensure!(!receipts.is_empty(), "give one or more receipt files");
             let mut rs = Vec::new();
             for p in receipts {
-                rs.push(serde_json::from_str::<serde_json::Value>(&std::fs::read_to_string(p)?)?);
+                rs.push(serde_json::from_str::<serde_json::Value>(
+                    &std::fs::read_to_string(p)?,
+                )?);
             }
             print!("{}", audit::declaration(&rs, lang.starts_with("ro")));
         }
 
-        Cmd::Ask { question, k, decompose: dec, lang, receipt } => {
+        Cmd::Ask {
+            question,
+            k,
+            decompose: dec,
+            lang,
+            receipt,
+        } => {
             let store = Store::load(&ctx.index)?;
-            let queries = if *dec { decompose(ctx, question) } else { vec![question.clone()] };
+            let queries = if *dec {
+                decompose(ctx, question)
+            } else {
+                vec![question.clone()]
+            };
             let hits = retrieve(ctx, &store, &bib, &queries, *k, 4);
-            let task = format!("Answer the question below as precisely as the excerpts allow.\n\nQUESTION: {question}");
+            let task = format!(
+                "Answer the question below as precisely as the excerpts allow.\n\nQUESTION: {question}"
+            );
             let ans = generate(ctx, &store, &bib, &hits, &task, lang.as_deref())?;
             print!("{}", report(ctx, &store, &bib, &hits, &ans));
             if let Some(p) = receipt {
-                let r = audit::make_receipt(&store, &ctx.llm.model, "ask", question, &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(), &ans);
+                let r = audit::make_receipt(
+                    &store,
+                    &ctx.llm.model,
+                    "ask",
+                    question,
+                    &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(),
+                    &ans,
+                );
                 std::fs::write(p, serde_json::to_string_pretty(&r)?)?;
                 eprintln!("receipt written to {}", p.display());
             }
@@ -1094,7 +1476,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
         Cmd::Compare { question, k, lang } => {
             let store = Store::load(&ctx.index)?;
             // At most 2 passages per document, so several different sources get a voice.
-            let hits = retrieve(ctx, &store, &bib, &[question.clone()], *k, 2);
+            let hits = retrieve(ctx, &store, &bib, std::slice::from_ref(question), *k, 2);
             let task = format!(
                 "Compare how the different sources address the question below. Group the sources by position \
                  or finding and cite the excerpts for each group. Then state plainly where the sources agree, \
@@ -1126,22 +1508,42 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
         Cmd::Summarize { document, lang } => {
             let store = Store::load(&ctx.index)?;
             let id = find_doc(&store, &bib, document)?;
-            let idxs: Vec<usize> = (0..store.chunks.len()).filter(|&i| store.chunks[i].doc == id).collect();
+            let idxs: Vec<usize> = (0..store.chunks.len())
+                .filter(|&i| store.chunks[i].doc == id)
+                .collect();
             if idxs.is_empty() {
                 bail!("document has no indexed passages");
             }
             let loc = |ord: usize, c: usize| {
                 let p = store.chunks[c].page;
-                if p > 0 { format!("p. {p}") } else { format!("part {}", ord + 1) }
+                if p > 0 {
+                    format!("p. {p}")
+                } else {
+                    format!("part {}", ord + 1)
+                }
             };
             let batches: Vec<&[usize]> = idxs.chunks(8).collect();
-            eprintln!("summarising {} passages in {} steps, then merging — this can take a while", idxs.len(), batches.len());
+            eprintln!(
+                "summarising {} passages in {} steps, then merging — this can take a while",
+                idxs.len(),
+                batches.len()
+            );
             // MAP: summarise batches; excerpt numbers are rewritten to page references straight away.
             let mut partials: Vec<(String, String)> = Vec::new();
             for (n, batch) in batches.iter().enumerate() {
                 eprint!("\rmap {}/{} ", n + 1, batches.len());
-                let hits: Vec<Hit> = batch.iter().map(|&c| Hit { chunk: c, score: 0.0 }).collect();
-                let labels: Vec<String> = batch.iter().enumerate().map(|(j, &c)| loc(n * 8 + j, c)).collect();
+                let hits: Vec<Hit> = batch
+                    .iter()
+                    .map(|&c| Hit {
+                        chunk: c,
+                        score: 0.0,
+                    })
+                    .collect();
+                let labels: Vec<String> = batch
+                    .iter()
+                    .enumerate()
+                    .map(|(j, &c)| loc(n * 8 + j, c))
+                    .collect();
                 let user = prompt::user_prompt(
                     &store,
                     &bib,
@@ -1150,7 +1552,10 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     lang.as_deref(),
                 );
                 let t = ctx.llm.chat(prompt::SYSTEM, &user, |_| {})?;
-                partials.push((format!("{} – {}", labels.first().unwrap(), labels.last().unwrap()), prompt::rewrite_cites(&t, &labels)));
+                partials.push((
+                    format!("{} – {}", labels.first().unwrap(), labels.last().unwrap()),
+                    prompt::rewrite_cites(&t, &labels),
+                ));
             }
             eprintln!();
             // REDUCE: merge in groups of 8 until one summary is left; the last merge streams.
@@ -1176,8 +1581,22 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                                 let _ = std::io::stdout().flush();
                             }
                         })?;
-                        let from = group.first().unwrap().0.split(" – ").next().unwrap().to_string();
-                        let to = group.last().unwrap().0.split(" – ").last().unwrap().to_string();
+                        let from = group
+                            .first()
+                            .unwrap()
+                            .0
+                            .split(" – ")
+                            .next()
+                            .unwrap()
+                            .to_string();
+                        let to = group
+                            .last()
+                            .unwrap()
+                            .0
+                            .split(" – ")
+                            .last()
+                            .unwrap()
+                            .to_string();
                         next.push((format!("{from} – {to}"), t));
                     }
                     if last {
@@ -1189,24 +1608,55 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 }
             };
             // Mechanical check: every cited page must exist in this document.
-            let valid: HashSet<usize> = idxs.iter().map(|&c| store.chunks[c].page).filter(|&p| p > 0).collect();
-            let bad: Vec<String> = prompt::page_refs(&final_text).into_iter().filter(|p| !valid.is_empty() && !valid.contains(p)).map(|p| p.to_string()).collect();
+            let valid: HashSet<usize> = idxs
+                .iter()
+                .map(|&c| store.chunks[c].page)
+                .filter(|&p| p > 0)
+                .collect();
+            let bad: Vec<String> = prompt::page_refs(&final_text)
+                .into_iter()
+                .filter(|p| !valid.is_empty() && !valid.contains(p))
+                .map(|p| p.to_string())
+                .collect();
             if !bad.is_empty() {
-                eprintln!("⚠ summary cites page(s) that do not exist in this document: {} — verify", bad.join(", "));
+                eprintln!(
+                    "⚠ summary cites page(s) that do not exist in this document: {} — verify",
+                    bad.join(", ")
+                );
             }
             if !valid.is_empty() && prompt::page_refs(&final_text).is_empty() {
                 eprintln!("⚠ the summary kept no page references — treat it as unverified");
             }
             let d = &store.docs[id];
-            println!("\nSource: {} — {}", bib.find(&d.path).map(|e| e.reference()).unwrap_or_else(|| d.title.clone()), d.path);
-            eprintln!("note: page references were carried over from partial summaries; spot-check them against the book.");
+            println!(
+                "\nSource: {} — {}",
+                bib.find(&d.path)
+                    .map(|e| e.reference())
+                    .unwrap_or_else(|| d.title.clone()),
+                d.path
+            );
+            eprintln!(
+                "note: page references were carried over from partial summaries; spot-check them against the book."
+            );
         }
 
-        Cmd::Draft { section, kind, notes, k, output, lang } => {
+        Cmd::Draft {
+            section,
+            kind,
+            notes,
+            k,
+            output,
+            lang,
+        } => {
             let store = Store::load(&ctx.index)?;
             let mut queries = vec![section.clone()];
             if let Some(n) = notes {
-                queries.extend(n.lines().map(str::trim).filter(|l| !l.is_empty()).map(String::from));
+                queries.extend(
+                    n.lines()
+                        .map(str::trim)
+                        .filter(|l| !l.is_empty())
+                        .map(String::from),
+                );
             }
             let hits = retrieve(ctx, &store, &bib, &queries, *k, 4);
             let mut task = draft_task(*kind, section);
@@ -1241,9 +1691,14 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             print!("{}", report(ctx, &store, &bib, &hits, &ans));
         }
 
-        Cmd::Flashcards { topic, k, output, lang } => {
+        Cmd::Flashcards {
+            topic,
+            k,
+            output,
+            lang,
+        } => {
             let store = Store::load(&ctx.index)?;
-            let hits = retrieve(ctx, &store, &bib, &[topic.clone()], *k, 3);
+            let hits = retrieve(ctx, &store, &bib, std::slice::from_ref(topic), *k, 3);
             if hits.is_empty() {
                 bail!("nothing relevant found for '{topic}' — ingest more material or rephrase");
             }
@@ -1257,14 +1712,23 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 task.push_str(&format!("\n\nWrite the cards in: {l}."));
             }
             let user = prompt::user_prompt(&store, &bib, &hits, &task, None);
-            eprintln!("[{} excerpts, model {} — making cards, this can take a while]", hits.len(), ctx.llm.model);
+            eprintln!(
+                "[{} excerpts, model {} — making cards, this can take a while]",
+                hits.len(),
+                ctx.llm.model
+            );
             let raw = ctx.llm.chat(prompt::SYSTEM, &user, |_| {})?;
-            let labels: Vec<String> = hits.iter().map(|h| prompt::label(&store, &bib, h)).collect();
+            let labels: Vec<String> = hits
+                .iter()
+                .map(|h| prompt::label(&store, &bib, h))
+                .collect();
             let (mut cards, mut dropped) = (Vec::new(), 0usize);
             for (q, a) in prompt::parse_cards(&raw) {
                 // A card is kept only if it cites at least one excerpt that really exists.
                 let cited = prompt::cited_numbers(&a);
-                if cited.iter().any(|&n| n >= 1 && n <= hits.len()) && !cited.iter().any(|&n| n == 0 || n > hits.len()) {
+                if cited.iter().any(|&n| n >= 1 && n <= hits.len())
+                    && !cited.iter().any(|&n| n == 0 || n > hits.len())
+                {
                     let back = prompt::rewrite_cites(&a, &labels).replace(['\t', '\n', '\r'], " ");
                     cards.push((q.replace(['\t', '\n', '\r'], " "), back));
                 } else {
@@ -1272,13 +1736,17 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 }
             }
             if cards.is_empty() {
-                bail!("the model produced no usable cards ({dropped} dropped for missing/invalid citations) — try a larger model or a narrower topic");
+                bail!(
+                    "the model produced no usable cards ({dropped} dropped for missing/invalid citations) — try a larger model or a narrower topic"
+                );
             }
             for (i, (q, a)) in cards.iter().enumerate() {
                 println!("{}. Q: {q}\n   A: {a}\n", i + 1);
             }
             if dropped > 0 {
-                eprintln!("⚠ {dropped} card(s) dropped: no valid citation, so they could not be checked against a source");
+                eprintln!(
+                    "⚠ {dropped} card(s) dropped: no valid citation, so they could not be checked against a source"
+                );
             }
             if let Some(p) = output {
                 let p = resolve_output(ctx, p);
@@ -1287,7 +1755,11 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     tsv.push_str(&format!("{q}\t{a}\n"));
                 }
                 std::fs::write(&p, tsv)?;
-                eprintln!("saved {} cards to {} (Anki: File → Import; fields Front, Back)", cards.len(), p.display());
+                eprintln!(
+                    "saved {} cards to {} (Anki: File → Import; fields Front, Back)",
+                    cards.len(),
+                    p.display()
+                );
             }
         }
 
@@ -1297,38 +1769,122 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 MeshCmd::Status => {
                     let store = Store::load(&ctx.index)?;
                     println!("node {} ({})", c.name, c.id);
-                    println!("sharing: {} ({} documents){}", if c.share.is_empty() { "nothing".to_string() } else { c.share.join(", ") }, mesh::shared_docs(&c, &store).len(), if c.relay { ", relays received documents" } else { "" });
-                    for p in &c.peers { println!("peer {} → {}{}", p.name, p.url, p.proxy.as_ref().map(|x| format!(" via {x}")).unwrap_or_default()); }
-                    if c.peers.is_empty() { println!("no peers yet — `tezaur mesh add NAME URL` or `tezaur mesh discover`"); }
+                    println!(
+                        "sharing: {} ({} documents){}",
+                        if c.share.is_empty() {
+                            "nothing".to_string()
+                        } else {
+                            c.share.join(", ")
+                        },
+                        mesh::shared_docs(&c, &store).len(),
+                        if c.relay {
+                            ", relays received documents"
+                        } else {
+                            ""
+                        }
+                    );
+                    for p in &c.peers {
+                        println!(
+                            "peer {} → {}{}",
+                            p.name,
+                            p.url,
+                            p.proxy
+                                .as_ref()
+                                .map(|x| format!(" via {x}"))
+                                .unwrap_or_default()
+                        );
+                    }
+                    if c.peers.is_empty() {
+                        println!(
+                            "no peers yet — `tezaur mesh add NAME URL` or `tezaur mesh discover`"
+                        );
+                    }
                 }
-                MeshCmd::Name { name } => { c.name = name.clone(); mesh::save_cfg(&ctx.base, &c)?; }
-                MeshCmd::Share { patterns, relay } => { c.share = patterns.clone(); c.relay = *relay; mesh::save_cfg(&ctx.base, &c)?; eprintln!("sharing: {}", if patterns.is_empty() { "nothing".into() } else { patterns.join(", ") }); }
-                MeshCmd::Add { name, url, token, proxy } => {
+                MeshCmd::Name { name } => {
+                    c.name = name.clone();
+                    mesh::save_cfg(&ctx.base, &c)?;
+                }
+                MeshCmd::Share { patterns, relay } => {
+                    c.share = patterns.clone();
+                    c.relay = *relay;
+                    mesh::save_cfg(&ctx.base, &c)?;
+                    eprintln!(
+                        "sharing: {}",
+                        if patterns.is_empty() {
+                            "nothing".into()
+                        } else {
+                            patterns.join(", ")
+                        }
+                    );
+                }
+                MeshCmd::Add {
+                    name,
+                    url,
+                    token,
+                    proxy,
+                } => {
                     c.peers.retain(|p| &p.name != name);
-                    c.peers.push(mesh::Peer { name: name.clone(), url: url.clone(), token: token.clone(), proxy: proxy.clone() });
+                    c.peers.push(mesh::Peer {
+                        name: name.clone(),
+                        url: url.clone(),
+                        token: token.clone(),
+                        proxy: proxy.clone(),
+                    });
                     mesh::save_cfg(&ctx.base, &c)?;
                     eprintln!("peer {name} saved");
                 }
-                MeshCmd::Rm { name } => { c.peers.retain(|p| &p.name != name); mesh::save_cfg(&ctx.base, &c)?; }
+                MeshCmd::Rm { name } => {
+                    c.peers.retain(|p| &p.name != name);
+                    mesh::save_cfg(&ctx.base, &c)?;
+                }
                 MeshCmd::Pull { name } => {
                     let mut store = Store::load(&ctx.index)?;
                     let mut total = 0;
-                    for p in c.peers.iter().filter(|p| name.as_ref().map(|n| n == &p.name).unwrap_or(true)) {
+                    for p in c
+                        .peers
+                        .iter()
+                        .filter(|p| name.as_ref().map(|n| n == &p.name).unwrap_or(true))
+                    {
                         match mesh::pull(&mut store, p) {
-                            Ok((a, h)) => { eprintln!("{}: {a} new, {h} already held", p.name); total += a; }
+                            Ok((a, h)) => {
+                                eprintln!("{}: {a} new, {h} already held", p.name);
+                                total += a;
+                            }
                             Err(e) => eprintln!("⚠ {e:#}"),
                         }
                     }
-                    if total > 0 { store.save(&ctx.index)?; embed_pending(ctx, &mut store, &ctx.index); store.save(&ctx.index)?; }
+                    if total > 0 {
+                        store.save(&ctx.index)?;
+                        embed_pending(ctx, &mut store, &ctx.index);
+                        store.save(&ctx.index)?;
+                    }
                 }
                 MeshCmd::Search { query, k } => {
                     let q = query.join(" ");
                     let (hits, errs) = mesh::federated_search(&c.peers, &q, *k);
-                    for e in errs { eprintln!("⚠ {e}"); }
-                    for (i, h) in hits.iter().enumerate() {
-                        println!("{}. [{}] {}\n   {}", i + 1, h["peer"].as_str().unwrap_or("?"), h["label"].as_str().unwrap_or(""), h["text"].as_str().unwrap_or("").chars().take(240).collect::<String>().replace('\n', " "));
+                    for e in errs {
+                        eprintln!("⚠ {e}");
                     }
-                    if hits.is_empty() { println!("no matches at the peers (they only answer for documents they share)"); }
+                    for (i, h) in hits.iter().enumerate() {
+                        println!(
+                            "{}. [{}] {}\n   {}",
+                            i + 1,
+                            h["peer"].as_str().unwrap_or("?"),
+                            h["label"].as_str().unwrap_or(""),
+                            h["text"]
+                                .as_str()
+                                .unwrap_or("")
+                                .chars()
+                                .take(240)
+                                .collect::<String>()
+                                .replace('\n', " ")
+                        );
+                    }
+                    if hits.is_empty() {
+                        println!(
+                            "no matches at the peers (they only answer for documents they share)"
+                        );
+                    }
                 }
                 MeshCmd::Export { file, all } => {
                     let store = Store::load(&ctx.index)?;
@@ -1338,30 +1894,72 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 }
                 MeshCmd::Import { file } => {
                     let mut store = Store::load(&ctx.index)?;
-                    let (a, s, o) = mesh::bundle_import(&mut store, &ctx.base, &std::fs::read(file)?)?;
-                    if a > 0 { store.save(&ctx.index)?; embed_pending(ctx, &mut store, &ctx.index); store.save(&ctx.index)?; }
+                    let (a, s, o) =
+                        mesh::bundle_import(&mut store, &ctx.base, &std::fs::read(file)?)?;
+                    if a > 0 {
+                        store.save(&ctx.index)?;
+                        embed_pending(ctx, &mut store, &ctx.index);
+                        store.save(&ctx.index)?;
+                    }
                     eprintln!("from {o}: {a} new documents, {s} already held");
                 }
                 MeshCmd::Discover { target, seconds } => {
                     let found = mesh::discover(target, std::time::Duration::from_secs(*seconds))?;
-                    for f in &found { println!("{}  {}  ({})", f["name"].as_str().unwrap_or("?"), f["url"].as_str().unwrap_or("?"), f["id"].as_str().unwrap_or("")); }
-                    if found.is_empty() { println!("nobody answered (a server answers only when bound to a network address, or with TEZAUR_MESH_BEACON=1)"); }
+                    for f in &found {
+                        println!(
+                            "{}  {}  ({})",
+                            f["name"].as_str().unwrap_or("?"),
+                            f["url"].as_str().unwrap_or("?"),
+                            f["id"].as_str().unwrap_or("")
+                        );
+                    }
+                    if found.is_empty() {
+                        println!(
+                            "nobody answered (a server answers only when bound to a network address, or with TEZAUR_MESH_BEACON=1)"
+                        );
+                    }
                 }
             }
         }
 
         Cmd::Mcp => mcp(ctx)?,
-        Cmd::Serve { bind, port, token, workspaces } => {
-            serve::serve(ctx, &serve::Opts { bind: bind.clone(), port: *port, token: token.clone(), workspaces: workspaces.clone() })?
-        }
+        Cmd::Serve {
+            bind,
+            port,
+            token,
+            workspaces,
+        } => serve::serve(
+            ctx,
+            &serve::Opts {
+                bind: bind.clone(),
+                port: *port,
+                token: token.clone(),
+                workspaces: workspaces.clone(),
+            },
+        )?,
 
         Cmd::Sources => {
             let store = Store::load(&ctx.index)?;
             for (i, d) in store.docs.iter().enumerate() {
                 let n = store.chunks.iter().filter(|c| c.doc == i).count();
-                let pg = if d.pages > 0 { format!("{} pages, ", d.pages) } else { String::new() };
-                let cite = bib.find(&d.path).map(|e| format!(" — {}", e.cite())).unwrap_or_default();
-                println!("{:>3}. {}{}  ({}{} chunks)\n     {}", i + 1, d.title, cite, pg, n, d.path);
+                let pg = if d.pages > 0 {
+                    format!("{} pages, ", d.pages)
+                } else {
+                    String::new()
+                };
+                let cite = bib
+                    .find(&d.path)
+                    .map(|e| format!(" — {}", e.cite()))
+                    .unwrap_or_default();
+                println!(
+                    "{:>3}. {}{}  ({}{} chunks)\n     {}",
+                    i + 1,
+                    d.title,
+                    cite,
+                    pg,
+                    n,
+                    d.path
+                );
             }
             println!(
                 "{} documents, {} chunks, embeddings: {}, BibTeX entries: {}",
@@ -1379,7 +1977,9 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let warn = |m: String| println!("⚠ {m}");
             match &ctx.data {
                 Some(d) => ok(format!("portable mode — data in {}", d.display())),
-                None => info("not portable: index and settings are where you run the command".into()),
+                None => {
+                    info("not portable: index and settings are where you run the command".into())
+                }
             }
             // Index and BibTeX
             let mut index_embeds: Option<String> = None;
@@ -1395,14 +1995,32 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                         ));
                         index_embeds = store.embed_model.clone();
                         if store.docs.is_empty() {
-                            warn("the index is empty — put files in Data/Library and run /ingest".into());
+                            warn(
+                                "the index is empty — put files in Data/Library and run /ingest"
+                                    .into(),
+                            );
                         }
                         if bib.entries.is_empty() {
                             info("no BibTeX entries found (optional: export from Zotero as .bib into Data/Library)".into());
                         } else {
-                            let matched = store.docs.iter().filter(|d| bib.find(&d.path).is_some()).count();
-                            let msg = format!("BibTeX: {} entries, {}/{} documents matched", bib.entries.len(), matched, store.docs.len());
-                            if matched == 0 { warn(format!("{msg} — name files after the citation keys, or keep Zotero's `file` field")) } else { ok(msg) }
+                            let matched = store
+                                .docs
+                                .iter()
+                                .filter(|d| bib.find(&d.path).is_some())
+                                .count();
+                            let msg = format!(
+                                "BibTeX: {} entries, {}/{} documents matched",
+                                bib.entries.len(),
+                                matched,
+                                store.docs.len()
+                            );
+                            if matched == 0 {
+                                warn(format!(
+                                    "{msg} — name files after the citation keys, or keep Zotero's `file` field"
+                                ))
+                            } else {
+                                ok(msg)
+                            }
                         }
                     }
                     Err(e) => {
@@ -1411,20 +2029,32 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     }
                 }
             } else {
-                warn(format!("no index yet at {} — run /ingest", ctx.index.display()));
+                warn(format!(
+                    "no index yet at {} — run /ingest",
+                    ctx.index.display()
+                ));
             }
             // Server and model
             match ctx.llm.models() {
                 Ok(list) => {
-                    ok(format!("server reachable: {} ({:?}), {} model(s)", ctx.llm.host(), ctx.llm.api, list.len()));
-                    if list.iter().any(|m| *m == ctx.llm.model) {
+                    ok(format!(
+                        "server reachable: {} ({:?}), {} model(s)",
+                        ctx.llm.host(),
+                        ctx.llm.api,
+                        list.len()
+                    ));
+                    if list.contains(&ctx.llm.model) {
                         ok(format!("model '{}' is available", ctx.llm.model));
                     } else {
                         problems += 1;
                         println!(
                             "✗ model '{}' is not served. Available: {}\n  fix: set `model = <id>` in settings/tezaur.conf",
                             ctx.llm.model,
-                            if list.is_empty() { "(none loaded)".to_string() } else { list.join(", ") }
+                            if list.is_empty() {
+                                "(none loaded)".to_string()
+                            } else {
+                                list.join(", ")
+                            }
                         );
                     }
                 }
@@ -1449,8 +2079,16 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             // Optional real generation
             if *generate {
                 let t0 = std::time::Instant::now();
-                match ctx.llm.chat("You are a terse assistant.", "Reply with the single word: ok", |_| {}) {
-                    Ok(t) => ok(format!("generation works: {:.1}s for \"{}\"", t0.elapsed().as_secs_f32(), t.trim().chars().take(40).collect::<String>())),
+                match ctx.llm.chat(
+                    "You are a terse assistant.",
+                    "Reply with the single word: ok",
+                    |_| {},
+                ) {
+                    Ok(t) => ok(format!(
+                        "generation works: {:.1}s for \"{}\"",
+                        t0.elapsed().as_secs_f32(),
+                        t.trim().chars().take(40).collect::<String>()
+                    )),
                     Err(e) => {
                         problems += 1;
                         println!("✗ generation failed: {e:#}");
@@ -1469,12 +2107,23 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let list = ctx.llm.models()?;
             println!("Server: {} ({:?})", ctx.llm.host(), ctx.llm.api);
             for m in &list {
-                println!("  {}{}", m, if *m == ctx.llm.model { "   <- configured" } else { "" });
+                println!(
+                    "  {}{}",
+                    m,
+                    if *m == ctx.llm.model {
+                        "   <- configured"
+                    } else {
+                        ""
+                    }
+                );
             }
             if list.is_empty() {
                 println!("  (no models reported — load or download one first)");
             } else if !list.contains(&ctx.llm.model) {
-                println!("⚠ configured model '{}' is not in this list; set `model` in settings/tezaur.conf or use --model", ctx.llm.model);
+                println!(
+                    "⚠ configured model '{}' is not in this list; set `model` in settings/tezaur.conf or use --model",
+                    ctx.llm.model
+                );
             }
         }
     }
@@ -1515,10 +2164,16 @@ fn repl_args(rest: &str) -> Vec<String> {
     let rest = rest.trim();
     let (cmd, tail) = rest.split_once(char::is_whitespace).unwrap_or((rest, ""));
     let tail = tail.trim();
-    let free_text = matches!(cmd, "search" | "ask" | "compare" | "gaps" | "summarize" | "outline" | "flashcards");
+    let free_text = matches!(
+        cmd,
+        "search" | "ask" | "compare" | "gaps" | "summarize" | "outline" | "flashcards"
+    );
     if free_text && !tail.is_empty() && !tail.contains('"') {
         let toks: Vec<&str> = tail.split_whitespace().collect();
-        let split = toks.iter().position(|t| t.starts_with('-')).unwrap_or(toks.len());
+        let split = toks
+            .iter()
+            .position(|t| t.starts_with('-'))
+            .unwrap_or(toks.len());
         if split > 0 {
             let mut out = vec![cmd.to_string(), toks[..split].join(" ")];
             out.extend(toks[split..].iter().map(|t| t.to_string()));
@@ -1551,15 +2206,28 @@ SETUP
 ";
 
 fn repl(ctx: &Ctx) -> Result<()> {
-    println!("TEZAUR — local thesis assistant. Index: {}", ctx.index.display());
+    println!(
+        "TEZAUR — local thesis assistant. Index: {}",
+        ctx.index.display()
+    );
     match &ctx.data {
-        Some(d) => println!("Portable mode. Put books/articles (and a .bib export) in {} then type /ingest", d.join("Library").display()),
+        Some(d) => println!(
+            "Portable mode. Put books/articles (and a .bib export) in {} then type /ingest",
+            d.join("Library").display()
+        ),
         None => println!("Type /ingest <folder> to index your library."),
     }
-    println!("Backend: {:?} at {} — model {} (settings/tezaur.conf). /help for commands.", ctx.llm.api, ctx.llm.host(), ctx.llm.model);
+    println!(
+        "Backend: {:?} at {} — model {} (settings/tezaur.conf). /help for commands.",
+        ctx.llm.api,
+        ctx.llm.host(),
+        ctx.llm.model
+    );
     let indexed = Store::load(&ctx.index).map(|s| s.docs.len()).unwrap_or(0);
     if indexed == 0 {
-        println!("Next step: add files to the library, then type /ingest. Problems? /doctor tells you what to fix.\n");
+        println!(
+            "Next step: add files to the library, then type /ingest. Problems? /doctor tells you what to fix.\n"
+        );
     } else {
         println!("{indexed} documents indexed. Ask a question, or /help.\n");
     }
@@ -1585,16 +2253,16 @@ fn repl(ctx: &Ctx) -> Result<()> {
             }
             _ => {}
         }
-        if let Some(rest) = line.strip_prefix("/only") {
-            if rest.is_empty() || rest.starts_with(char::is_whitespace) {
-                let v = rest.trim().trim_matches('"').to_string();
-                *ctx.only.borrow_mut() = if v.is_empty() { None } else { Some(v) };
-                match &*ctx.only.borrow() {
-                    Some(o) => println!("restricted to documents matching '{o}'"),
-                    None => println!("filter cleared — whole library"),
-                }
-                continue;
+        if let Some(rest) = line.strip_prefix("/only")
+            && (rest.is_empty() || rest.starts_with(char::is_whitespace))
+        {
+            let v = rest.trim().trim_matches('"').to_string();
+            *ctx.only.borrow_mut() = if v.is_empty() { None } else { Some(v) };
+            match &*ctx.only.borrow() {
+                Some(o) => println!("restricted to documents matching '{o}'"),
+                None => println!("filter cleared — whole library"),
             }
+            continue;
         }
         let args = match line.strip_prefix('/') {
             Some(rest) => repl_args(rest),
@@ -1659,13 +2327,27 @@ fn mcp_tools() -> serde_json::Value {
 fn mcp_call(ctx: &Ctx, name: &str, args: &serde_json::Value) -> Result<String> {
     let store = Store::load(&ctx.index)?;
     let bib = ctx.load_bib();
-    let num = |k: &str, d: usize, max: usize| args.get(k).and_then(|v| v.as_u64()).map(|n| n as usize).unwrap_or(d).min(max);
+    let num = |k: &str, d: usize, max: usize| {
+        args.get(k)
+            .and_then(|v| v.as_u64())
+            .map(|n| n as usize)
+            .unwrap_or(d)
+            .min(max)
+    };
     match name {
         "tezaur_search" => {
-            let q = args.get("query").and_then(|v| v.as_str()).unwrap_or("").trim();
+            let q = args
+                .get("query")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim();
             anyhow::ensure!(!q.is_empty(), "query is required");
             if let Some(o) = args.get("only").and_then(|v| v.as_str()) {
-                *ctx.only.borrow_mut() = if o.trim().is_empty() { None } else { Some(o.to_string()) };
+                *ctx.only.borrow_mut() = if o.trim().is_empty() {
+                    None
+                } else {
+                    Some(o.to_string())
+                };
             }
             let hits = retrieve(ctx, &store, &bib, &[q.to_string()], num("k", 8, 30), 3);
             if hits.is_empty() {
@@ -1673,7 +2355,12 @@ fn mcp_call(ctx: &Ctx, name: &str, args: &serde_json::Value) -> Result<String> {
             }
             let mut out = String::new();
             for (i, h) in hits.iter().enumerate() {
-                out.push_str(&format!("[{}] ({})\n{}\n\n", i + 1, prompt::label(&store, &bib, h), store.chunks[h.chunk].text));
+                out.push_str(&format!(
+                    "[{}] ({})\n{}\n\n",
+                    i + 1,
+                    prompt::label(&store, &bib, h),
+                    store.chunks[h.chunk].text
+                ));
             }
             Ok(out)
         }
@@ -1681,7 +2368,11 @@ fn mcp_call(ctx: &Ctx, name: &str, args: &serde_json::Value) -> Result<String> {
             let t = args.get("text").and_then(|v| v.as_str()).unwrap_or("");
             anyhow::ensure!(!t.trim().is_empty(), "text is required");
             let mut f = audit::audit(&store, &bib, t);
-            if args.get("semantic").and_then(|v| v.as_bool()).unwrap_or(false) {
+            if args
+                .get("semantic")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
                 semantic_audit(ctx, &mut f);
             }
             Ok(audit::audit_markdown(&f))
@@ -1695,19 +2386,42 @@ fn mcp_call(ctx: &Ctx, name: &str, args: &serde_json::Value) -> Result<String> {
             let t = args.get("outline").and_then(|v| v.as_str()).unwrap_or("");
             let heads = audit::outline_headings(t);
             anyhow::ensure!(!heads.is_empty(), "outline is empty");
-            Ok(audit::coverage_markdown(&audit::coverage_matrix(&store, &bib, &heads, &|h| embed_query(ctx, &store, h))))
+            Ok(audit::coverage_markdown(&audit::coverage_matrix(
+                &store,
+                &bib,
+                &heads,
+                &|h| embed_query(ctx, &store, h),
+            )))
         }
         "tezaur_sources" => {
             let mut out = String::new();
             for (i, d) in store.docs.iter().enumerate() {
-                let cite = bib.find(&d.path).map(|e| e.cite()).unwrap_or_else(|| d.title.clone());
+                let cite = bib
+                    .find(&d.path)
+                    .map(|e| e.cite())
+                    .unwrap_or_else(|| d.title.clone());
                 let n = store.chunks.iter().filter(|c| c.doc == i).count();
-                out.push_str(&format!("{}. {} — {} passages, {} pages — {}\n", i + 1, cite, n, d.pages, d.path));
+                out.push_str(&format!(
+                    "{}. {} — {} passages, {} pages — {}\n",
+                    i + 1,
+                    cite,
+                    n,
+                    d.pages,
+                    d.path
+                ));
             }
-            Ok(if out.is_empty() { "The library is empty.".into() } else { out })
+            Ok(if out.is_empty() {
+                "The library is empty.".into()
+            } else {
+                out
+            })
         }
         "tezaur_read" => {
-            let q = args.get("document").and_then(|v| v.as_str()).unwrap_or("").to_lowercase();
+            let q = args
+                .get("document")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_lowercase();
             anyhow::ensure!(!q.is_empty(), "document is required");
             let di = store
                 .docs
@@ -1715,15 +2429,36 @@ fn mcp_call(ctx: &Ctx, name: &str, args: &serde_json::Value) -> Result<String> {
                 .position(|d| {
                     d.title.to_lowercase().contains(&q)
                         || d.path.to_lowercase().contains(&q)
-                        || bib.find(&d.path).map(|e| e.key.to_lowercase().contains(&q) || e.cite().to_lowercase().contains(&q)).unwrap_or(false)
+                        || bib
+                            .find(&d.path)
+                            .map(|e| {
+                                e.key.to_lowercase().contains(&q)
+                                    || e.cite().to_lowercase().contains(&q)
+                            })
+                            .unwrap_or(false)
                 })
                 .ok_or_else(|| anyhow::anyhow!("no document matches '{q}' (use tezaur_sources)"))?;
-            let idx: Vec<usize> = (0..store.chunks.len()).filter(|&i| store.chunks[i].doc == di).collect();
+            let idx: Vec<usize> = (0..store.chunks.len())
+                .filter(|&i| store.chunks[i].doc == di)
+                .collect();
             let (off, lim) = (num("offset", 0, usize::MAX), num("limit", 10, 40));
-            let mut out = format!("{} — passages {}–{} of {}\n\n", store.docs[di].title, off + 1, (off + lim).min(idx.len()), idx.len());
+            let mut out = format!(
+                "{} — passages {}–{} of {}\n\n",
+                store.docs[di].title,
+                off + 1,
+                (off + lim).min(idx.len()),
+                idx.len()
+            );
             for &i in idx.iter().skip(off).take(lim) {
-                let h = Hit { chunk: i, score: 0.0 };
-                out.push_str(&format!("({})\n{}\n\n", prompt::label(&store, &bib, &h), store.chunks[i].text));
+                let h = Hit {
+                    chunk: i,
+                    score: 0.0,
+                };
+                out.push_str(&format!(
+                    "({})\n{}\n\n",
+                    prompt::label(&store, &bib, &h),
+                    store.chunks[i].text
+                ));
             }
             Ok(out)
         }
@@ -1733,11 +2468,15 @@ fn mcp_call(ctx: &Ctx, name: &str, args: &serde_json::Value) -> Result<String> {
 
 /// Handles one JSON-RPC message; returns the reply line, or None for notifications.
 pub(crate) fn mcp_handle(ctx: &Ctx, line: &str) -> Option<String> {
-    use serde_json::{json, Value};
-    let msg: Value = match serde_json::from_str(line) {
-        Ok(v) => v,
-        Err(_) => return Some(json!({"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"parse error"}}).to_string()),
-    };
+    use serde_json::{Value, json};
+    let msg: Value =
+        match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => return Some(
+                json!({"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"parse error"}})
+                    .to_string(),
+            ),
+        };
     let id = msg.get("id").cloned()?; // no id = notification: never answer
     let method = msg.get("method").and_then(|m| m.as_str()).unwrap_or("");
     let params = msg.get("params").cloned().unwrap_or(Value::Null);
@@ -1755,16 +2494,20 @@ pub(crate) fn mcp_handle(ctx: &Ctx, line: &str) -> Option<String> {
             let args = params.get("arguments").cloned().unwrap_or(json!({}));
             Ok(match mcp_call(ctx, name, &args) {
                 Ok(t) => json!({"content": [{"type": "text", "text": t}]}),
-                Err(e) => json!({"content": [{"type": "text", "text": format!("error: {e:#}")}], "isError": true}),
+                Err(e) => {
+                    json!({"content": [{"type": "text", "text": format!("error: {e:#}")}], "isError": true})
+                }
             })
         }
         _ => Err(json!({"code": -32601, "message": format!("method not found: {method}")})),
     };
-    Some(match result {
-        Ok(r) => json!({"jsonrpc": "2.0", "id": id, "result": r}),
-        Err(e) => json!({"jsonrpc": "2.0", "id": id, "error": e}),
-    }
-    .to_string())
+    Some(
+        match result {
+            Ok(r) => json!({"jsonrpc": "2.0", "id": id, "result": r}),
+            Err(e) => json!({"jsonrpc": "2.0", "id": id, "error": e}),
+        }
+        .to_string(),
+    )
 }
 
 fn mcp(ctx: &Ctx) -> Result<()> {
@@ -1807,7 +2550,13 @@ fn real_main() -> Result<()> {
     let host = cli
         .host
         .clone()
-        .or_else(|| if cli.api == Api::Ollama { std::env::var("OLLAMA_HOST").ok().filter(|h| !h.is_empty()) } else { None })
+        .or_else(|| {
+            if cli.api == Api::Ollama {
+                std::env::var("OLLAMA_HOST").ok().filter(|h| !h.is_empty())
+            } else {
+                None
+            }
+        })
         .unwrap_or_else(|| cli.api.default_host().to_string());
     let ctx = Ctx {
         base: index_base(&index),
@@ -1834,43 +2583,99 @@ mod tests {
     fn splits_quoted_args_and_keeps_windows_paths() {
         assert_eq!(
             split_args(r#"draft "Recognition principles" --notes "a b" -o x.md"#),
-            vec!["draft", "Recognition principles", "--notes", "a b", "-o", "x.md"]
+            vec![
+                "draft",
+                "Recognition principles",
+                "--notes",
+                "a b",
+                "-o",
+                "x.md"
+            ]
         );
-        assert_eq!(split_args(r"ingest D:\Books\Thesis"), vec!["ingest", r"D:\Books\Thesis"]);
+        assert_eq!(
+            split_args(r"ingest D:\Books\Thesis"),
+            vec!["ingest", r"D:\Books\Thesis"]
+        );
         assert_eq!(split_args(r#"search """#), vec!["search", ""]);
     }
 
     #[test]
     fn free_text_commands_need_no_quotes() {
-        assert_eq!(repl_args("search burden of proof"), vec!["search", "burden of proof"]);
-        assert_eq!(repl_args("compare do sources agree?"), vec!["compare", "do sources agree?"]);
-        assert_eq!(repl_args("summarize lisbon convention"), vec!["summarize", "lisbon convention"]);
-        assert_eq!(repl_args("outline Recunoașterea calificărilor"), vec!["outline", "Recunoașterea calificărilor"]);
+        assert_eq!(
+            repl_args("search burden of proof"),
+            vec!["search", "burden of proof"]
+        );
+        assert_eq!(
+            repl_args("compare do sources agree?"),
+            vec!["compare", "do sources agree?"]
+        );
+        assert_eq!(
+            repl_args("summarize lisbon convention"),
+            vec!["summarize", "lisbon convention"]
+        );
+        assert_eq!(
+            repl_args("outline Recunoașterea calificărilor"),
+            vec!["outline", "Recunoașterea calificărilor"]
+        );
         // flags or explicit quotes keep normal parsing
-        assert_eq!(repl_args("search burden of proof -k 3"), vec!["search", "burden of proof", "-k", "3"]);
+        assert_eq!(
+            repl_args("search burden of proof -k 3"),
+            vec!["search", "burden of proof", "-k", "3"]
+        );
         assert_eq!(
             repl_args("flashcards burden of proof -o carduri.tsv"),
             vec!["flashcards", "burden of proof", "-o", "carduri.tsv"]
         );
-        assert_eq!(repl_args("ask who bears it? --decompose"), vec!["ask", "who bears it?", "--decompose"]);
+        assert_eq!(
+            repl_args("ask who bears it? --decompose"),
+            vec!["ask", "who bears it?", "--decompose"]
+        );
         assert_eq!(repl_args("ask -k 3"), vec!["ask", "-k", "3"]); // no text: normal parsing, clap will complain
-        assert_eq!(repl_args(r#"ask "a b" -k 4"#), vec!["ask", "a b", "-k", "4"]);
+        assert_eq!(
+            repl_args(r#"ask "a b" -k 4"#),
+            vec!["ask", "a b", "-k", "4"]
+        );
         assert_eq!(repl_args("sources"), vec!["sources"]);
         assert_eq!(repl_args(r"ingest D:\Books"), vec!["ingest", r"D:\Books"]);
     }
 
     #[test]
     fn repl_lines_parse_into_commands() {
-        let l = Line::try_parse_from(split_args(r#"ask "who bears the burden?" -k 4 --decompose"#)).unwrap();
-        assert!(matches!(l.cmd, Cmd::Ask { k: 4, decompose: true, .. }));
+        let l = Line::try_parse_from(split_args(
+            r#"ask "who bears the burden?" -k 4 --decompose"#,
+        ))
+        .unwrap();
+        assert!(matches!(
+            l.cmd,
+            Cmd::Ask {
+                k: 4,
+                decompose: true,
+                ..
+            }
+        ));
         let l = Line::try_parse_from(split_args("ingest")).unwrap();
         assert!(matches!(l.cmd, Cmd::Ingest { ref paths, force: false } if paths.is_empty()));
-        assert!(matches!(Line::try_parse_from(split_args("models")).unwrap().cmd, Cmd::Models));
+        assert!(matches!(
+            Line::try_parse_from(split_args("models")).unwrap().cmd,
+            Cmd::Models
+        ));
         let l = Line::try_parse_from(split_args(r#"draft "Tema" --kind lit-review -k 6"#)).unwrap();
-        assert!(matches!(l.cmd, Cmd::Draft { kind: Kind::LitReview, k: 6, .. }));
+        assert!(matches!(
+            l.cmd,
+            Cmd::Draft {
+                kind: Kind::LitReview,
+                k: 6,
+                ..
+            }
+        ));
         let l = Line::try_parse_from(repl_args("flashcards recognition of diplomas")).unwrap();
         assert!(matches!(l.cmd, Cmd::Flashcards { .. }));
-        assert!(matches!(Line::try_parse_from(split_args("doctor --generate")).unwrap().cmd, Cmd::Doctor { generate: true }));
+        assert!(matches!(
+            Line::try_parse_from(split_args("doctor --generate"))
+                .unwrap()
+                .cmd,
+            Cmd::Doctor { generate: true }
+        ));
         assert!(Line::try_parse_from(split_args("bogus")).is_err());
     }
 }

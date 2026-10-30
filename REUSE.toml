@@ -1,0 +1,10 @@
+version = 1
+SPDX-PackageName = "TEZAUR"
+SPDX-PackageSupplier = "Alexio <alexio@trom.tf>"
+SPDX-PackageDownloadLocation = "https://github.com/chiuta/TEZAUR"
+
+[[annotations]]
+path = "**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Alexio <alexio@trom.tf>"
+SPDX-License-Identifier = "MIT"

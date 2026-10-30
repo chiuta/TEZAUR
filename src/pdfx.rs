@@ -8,12 +8,16 @@
 use std::path::Path;
 
 pub fn enabled() -> bool {
-    std::env::var("TEZAUR_PDF").map(|v| v != "basic").unwrap_or(true)
+    std::env::var("TEZAUR_PDF")
+        .map(|v| v != "basic")
+        .unwrap_or(true)
 }
 
 fn pdftotext(args: &[String]) -> Option<String> {
     let o = crate::ingest::run_timeout(std::process::Command::new("pdftotext").args(args), 180)?;
-    o.status.success().then(|| String::from_utf8_lossy(&o.stdout).to_string())
+    o.status
+        .success()
+        .then(|| String::from_utf8_lossy(&o.stdout).to_string())
 }
 
 fn attr(tag: &str, name: &str) -> Option<f32> {
@@ -24,15 +28,28 @@ fn attr(tag: &str, name: &str) -> Option<f32> {
 
 /// (page width, page height, words as (x0, y0, x1, y1)) for every page, from `pdftotext -bbox-layout`. Words, not lines: poppler happily
 /// merges the two columns of a page into one "line" when they share a baseline.
-fn page_lines(path: &Path) -> Option<Vec<(f32, f32, Vec<(f32, f32, f32, f32)>)>> {
-    let x = pdftotext(&["-bbox-layout".into(), path.to_string_lossy().into(), "-".into()])?;
+type Word = (f32, f32, f32, f32);
+type Page = (f32, f32, Vec<Word>);
+
+fn page_lines(path: &Path) -> Option<Vec<Page>> {
+    let x = pdftotext(&[
+        "-bbox-layout".into(),
+        path.to_string_lossy().into(),
+        "-".into(),
+    ])?;
     let mut pages = Vec::new();
-    let mut cur: Option<(f32, f32, Vec<(f32, f32, f32, f32)>)> = None;
+    let mut cur: Option<Page> = None;
     for tag in x.split('<').skip(1) {
         if tag.starts_with("page ") {
             cur = Some((attr(tag, "width")?, attr(tag, "height")?, Vec::new()));
         } else if tag.starts_with("word ") {
-            if let (Some(c), Some(a), Some(b), Some(d), Some(e)) = (cur.as_mut(), attr(tag, "xMin"), attr(tag, "yMin"), attr(tag, "xMax"), attr(tag, "yMax")) {
+            if let (Some(c), Some(a), Some(b), Some(d), Some(e)) = (
+                cur.as_mut(),
+                attr(tag, "xMin"),
+                attr(tag, "yMin"),
+                attr(tag, "xMax"),
+                attr(tag, "yMax"),
+            ) {
                 c.2.push((a, b, d, e));
             }
         } else if tag.starts_with("/page") {
@@ -50,16 +67,27 @@ fn gutter(w: f32, words: &[(f32, f32, f32, f32)]) -> Option<f32> {
     let mut best: Option<(usize, f32, f32)> = None;
     let mut x = w * 0.35;
     while x <= w * 0.65 {
-        let cross = words.iter().filter(|l| l.0 < x - 0.5 && l.2 > x + 0.5).count();
+        let cross = words
+            .iter()
+            .filter(|l| l.0 < x - 0.5 && l.2 > x + 0.5)
+            .count();
         let key = (cross, (x - w / 2.0).abs());
-        if best.map(|(c, d, _)| key.0 < c || (key.0 == c && key.1 < d)).unwrap_or(true) {
+        if best
+            .map(|(c, d, _)| key.0 < c || (key.0 == c && key.1 < d))
+            .unwrap_or(true)
+        {
             best = Some((key.0, key.1, x));
         }
         x += 1.0;
     }
     let (cross, _, g0) = best?;
     // centre the gutter in the free run (same crossing count) around the best point
-    let cnt = |x: f32| words.iter().filter(|l| l.0 < x - 0.5 && l.2 > x + 0.5).count();
+    let cnt = |x: f32| {
+        words
+            .iter()
+            .filter(|l| l.0 < x - 0.5 && l.2 > x + 0.5)
+            .count()
+    };
     let (mut a, mut b) = (g0, g0);
     while a - 1.0 >= w * 0.3 && cnt(a - 1.0) <= cross {
         a -= 1.0;
@@ -73,12 +101,19 @@ fn gutter(w: f32, words: &[(f32, f32, f32, f32)]) -> Option<f32> {
     // prose density on each side: rows (by baseline) with at least 5 words
     let rows = |left: bool| -> usize {
         let mut m: std::collections::HashMap<i32, usize> = std::collections::HashMap::new();
-        for wd in words.iter().filter(|l| if left { l.2 <= g } else { l.0 >= g }) {
+        for wd in words
+            .iter()
+            .filter(|l| if left { l.2 <= g } else { l.0 >= g })
+        {
             *m.entry((wd.1 / 3.0) as i32).or_default() += 1;
         }
         m.values().filter(|n| **n >= 5).count()
     };
-    (cross * 100 <= words.len() * 3 && near * 100 <= words.len() * 2 && rows(true) >= 8 && rows(false) >= 8).then_some(g)
+    (cross * 100 <= words.len() * 3
+        && near * 100 <= words.len() * 2
+        && rows(true) >= 8
+        && rows(false) >= 8)
+        .then_some(g)
 }
 
 /// Per-page layout text from `pdftotext -layout`, or None when poppler is missing or fails. Two-column pages are cut at the gutter and
@@ -86,7 +121,10 @@ fn gutter(w: f32, words: &[(f32, f32, f32, f32)]) -> Option<f32> {
 /// equations inside one column are not interleaved with the other column's text.
 pub fn layout_pages(path: &Path) -> Option<Vec<String>> {
     let p = path.to_string_lossy().to_string();
-    let mut v: Vec<String> = pdftotext(&["-layout".into(), p.clone(), "-".into()])?.split('\x0c').map(str::to_string).collect();
+    let mut v: Vec<String> = pdftotext(&["-layout".into(), p.clone(), "-".into()])?
+        .split('\x0c')
+        .map(str::to_string)
+        .collect();
     if v.last().map(|s| s.trim().is_empty()).unwrap_or(false) {
         v.pop();
     }
@@ -96,7 +134,11 @@ pub fn layout_pages(path: &Path) -> Option<Vec<String>> {
                 break;
             }
             let Some(g) = gutter(*w, lines) else { continue };
-            let mut barriers: Vec<(f32, f32)> = lines.iter().filter(|l| l.0 < g - 0.5 && l.2 > g + 0.5).map(|l| (l.1, l.3)).collect();
+            let mut barriers: Vec<(f32, f32)> = lines
+                .iter()
+                .filter(|l| l.0 < g - 0.5 && l.2 > g + 0.5)
+                .map(|l| (l.1, l.3))
+                .collect();
             barriers.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
             // merge touching barriers
             let mut merged: Vec<(f32, f32)> = Vec::new();
@@ -107,8 +149,26 @@ pub fn layout_pages(path: &Path) -> Option<Vec<String>> {
                 }
             }
             let crop = |x: f32, y: f32, cw: f32, ch: f32| -> String {
-                let a: Vec<String> = ["-layout", "-f", &(i + 1).to_string(), "-l", &(i + 1).to_string(), "-x", &(x.max(0.0) as i32).to_string(), "-y", &(y.max(0.0) as i32).to_string(), "-W", &(cw.ceil() as i32).to_string(), "-H", &(ch.ceil() as i32).to_string(), &p, "-"]
-                    .iter().map(|s| s.to_string()).collect();
+                let a: Vec<String> = [
+                    "-layout",
+                    "-f",
+                    &(i + 1).to_string(),
+                    "-l",
+                    &(i + 1).to_string(),
+                    "-x",
+                    &(x.max(0.0) as i32).to_string(),
+                    "-y",
+                    &(y.max(0.0) as i32).to_string(),
+                    "-W",
+                    &(cw.ceil() as i32).to_string(),
+                    "-H",
+                    &(ch.ceil() as i32).to_string(),
+                    &p,
+                    "-",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
                 pdftotext(&a).unwrap_or_default().replace('\x0c', "")
             };
             let mut out = String::new();
@@ -184,8 +244,19 @@ impl Table {
     }
 
     pub fn to_csv(&self) -> String {
-        let q = |s: &str| if s.contains([',', '"', '\n']) { format!("\"{}\"", s.replace('"', "\"\"")) } else { s.to_string() };
-        self.rows.iter().map(|r| r.iter().map(|c| q(c)).collect::<Vec<_>>().join(",")).collect::<Vec<_>>().join("\n") + "\n"
+        let q = |s: &str| {
+            if s.contains([',', '"', '\n']) {
+                format!("\"{}\"", s.replace('"', "\"\""))
+            } else {
+                s.to_string()
+            }
+        };
+        self.rows
+            .iter()
+            .map(|r| r.iter().map(|c| q(c)).collect::<Vec<_>>().join(","))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n"
     }
 }
 
@@ -226,7 +297,18 @@ fn cells(line: &str) -> Vec<(usize, usize, String)> {
 
 fn is_caption(l: &str) -> bool {
     let t = l.trim().to_lowercase();
-    ["table ", "tabel ", "tabelul ", "tabela ", "tab. "].iter().any(|p| t.strip_prefix(p).map(|r| r.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false)).unwrap_or(false))
+    ["table ", "tabel ", "tabelul ", "tabela ", "tab. "]
+        .iter()
+        .any(|p| {
+            t.strip_prefix(p)
+                .map(|r| {
+                    r.chars()
+                        .next()
+                        .map(|c| c.is_ascii_digit())
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false)
+        })
 }
 
 fn words(s: &str) -> usize {
@@ -249,7 +331,12 @@ fn find_table(lines: &[&str], i: usize) -> Option<(usize, Vec<Vec<String>>)> {
             tab_lines += 1;
             end = j + 1;
             j += 1;
-        } else if !lines[j].trim().is_empty() && lines[j].trim().chars().count() <= 40 && j + 1 < lines.len() && cells(lines[j + 1]).len() >= 2 && end > i {
+        } else if !lines[j].trim().is_empty()
+            && lines[j].trim().chars().count() <= 40
+            && j + 1 < lines.len()
+            && cells(lines[j + 1]).len() >= 2
+            && end > i
+        {
             j += 1; // a spanning heading or a one-cell row between two real rows
         } else {
             break;
@@ -263,7 +350,9 @@ fn find_table(lines: &[&str], i: usize) -> Option<(usize, Vec<Vec<String>>)> {
     let width = block.iter().map(|l| l.chars().count()).max().unwrap_or(0);
     let mut occ = vec![false; width + 1];
     // columns come from the body rows (a header may be wider than its data); fall back to every row
-    let multi: Vec<usize> = (0..block.len()).filter(|&k| cells(block[k]).len() >= 2).collect();
+    let multi: Vec<usize> = (0..block.len())
+        .filter(|&k| cells(block[k]).len() >= 2)
+        .collect();
     let skip_first = multi.len() >= 3;
     for (k, l) in block.iter().enumerate() {
         if skip_first && k == multi[0] {
@@ -309,7 +398,14 @@ fn find_table(lines: &[&str], i: usize) -> Option<(usize, Vec<Vec<String>>)> {
     for l in &block {
         let mut row = vec![String::new(); cols.len()];
         for (s, e, t) in cells(l) {
-            let k = cols.iter().position(|&(cs, ce)| s < ce && e > cs).unwrap_or_else(|| cols.iter().position(|&(_, ce)| s < ce).unwrap_or(cols.len() - 1));
+            let k = cols
+                .iter()
+                .position(|&(cs, ce)| s < ce && e > cs)
+                .unwrap_or_else(|| {
+                    cols.iter()
+                        .position(|&(_, ce)| s < ce)
+                        .unwrap_or(cols.len() - 1)
+                });
             if !row[k].is_empty() {
                 row[k].push(' ');
             }
@@ -325,7 +421,12 @@ fn find_table(lines: &[&str], i: usize) -> Option<(usize, Vec<Vec<String>>)> {
         while k < h.len() {
             let empties = h[k + 1..].iter().take_while(|c| c.is_empty()).count();
             let ws: Vec<String> = h[k].split_whitespace().map(String::from).collect();
-            if empties > 0 && ws.len() > empties && k + empties + 1 <= h.len() && h[k + 1..].iter().skip(empties).any(|c| !c.is_empty()) || (empties > 0 && ws.len() > empties && k + empties + 1 == h.len()) {
+            if empties > 0
+                && ws.len() > empties
+                && k + empties < h.len()
+                && h[k + 1..].iter().skip(empties).any(|c| !c.is_empty())
+                || (empties > 0 && ws.len() > empties && k + empties + 1 == h.len())
+            {
                 let keep = ws.len() - empties;
                 h[k] = ws[..keep].join(" ");
                 for (e, w) in ws[keep..].iter().enumerate() {
@@ -351,14 +452,71 @@ const OPS: &str = "=≤≥≈≠±∑∫∏√∂∇∞∈∉⊂⊆∪∩→⇒�
 
 fn latex_of(c: char) -> Option<&'static str> {
     Some(match c {
-        'α' => "\\alpha ", 'β' => "\\beta ", 'γ' => "\\gamma ", 'δ' => "\\delta ", 'ε' | 'ϵ' => "\\epsilon ", 'ζ' => "\\zeta ", 'η' => "\\eta ", 'θ' => "\\theta ",
-        'ι' => "\\iota ", 'κ' => "\\kappa ", 'λ' => "\\lambda ", 'μ' | 'µ' => "\\mu ", 'ν' => "\\nu ", 'ξ' => "\\xi ", 'π' => "\\pi ", 'ρ' => "\\rho ",
-        'σ' => "\\sigma ", 'τ' => "\\tau ", 'υ' => "\\upsilon ", 'φ' | 'ϕ' => "\\phi ", 'χ' => "\\chi ", 'ψ' => "\\psi ", 'ω' => "\\omega ",
-        'Γ' => "\\Gamma ", 'Δ' => "\\Delta ", 'Θ' => "\\Theta ", 'Λ' => "\\Lambda ", 'Ξ' => "\\Xi ", 'Π' => "\\Pi ", 'Σ' => "\\Sigma ", 'Φ' => "\\Phi ", 'Ψ' => "\\Psi ", 'Ω' => "\\Omega ",
-        '≤' => "\\leq ", '≥' => "\\geq ", '≈' => "\\approx ", '≠' => "\\neq ", '±' => "\\pm ", '∑' => "\\sum ", '∫' => "\\int ", '∏' => "\\prod ", '√' => "\\sqrt ",
-        '∂' => "\\partial ", '∇' => "\\nabla ", '∞' => "\\infty ", '∈' => "\\in ", '∉' => "\\notin ", '⊂' => "\\subset ", '⊆' => "\\subseteq ", '∪' => "\\cup ", '∩' => "\\cap ",
-        '→' => "\\to ", '⇒' => "\\Rightarrow ", '⇔' => "\\Leftrightarrow ", '∀' => "\\forall ", '∃' => "\\exists ", '×' => "\\times ", '÷' => "\\div ", '·' | '⋅' => "\\cdot ",
-        '≡' => "\\equiv ", '∝' => "\\propto ", '−' | '–' => "-", '⟨' => "\\langle ", '⟩' => "\\rangle ", '∅' => "\\emptyset ",
+        'α' => "\\alpha ",
+        'β' => "\\beta ",
+        'γ' => "\\gamma ",
+        'δ' => "\\delta ",
+        'ε' | 'ϵ' => "\\epsilon ",
+        'ζ' => "\\zeta ",
+        'η' => "\\eta ",
+        'θ' => "\\theta ",
+        'ι' => "\\iota ",
+        'κ' => "\\kappa ",
+        'λ' => "\\lambda ",
+        'μ' | 'µ' => "\\mu ",
+        'ν' => "\\nu ",
+        'ξ' => "\\xi ",
+        'π' => "\\pi ",
+        'ρ' => "\\rho ",
+        'σ' => "\\sigma ",
+        'τ' => "\\tau ",
+        'υ' => "\\upsilon ",
+        'φ' | 'ϕ' => "\\phi ",
+        'χ' => "\\chi ",
+        'ψ' => "\\psi ",
+        'ω' => "\\omega ",
+        'Γ' => "\\Gamma ",
+        'Δ' => "\\Delta ",
+        'Θ' => "\\Theta ",
+        'Λ' => "\\Lambda ",
+        'Ξ' => "\\Xi ",
+        'Π' => "\\Pi ",
+        'Σ' => "\\Sigma ",
+        'Φ' => "\\Phi ",
+        'Ψ' => "\\Psi ",
+        'Ω' => "\\Omega ",
+        '≤' => "\\leq ",
+        '≥' => "\\geq ",
+        '≈' => "\\approx ",
+        '≠' => "\\neq ",
+        '±' => "\\pm ",
+        '∑' => "\\sum ",
+        '∫' => "\\int ",
+        '∏' => "\\prod ",
+        '√' => "\\sqrt ",
+        '∂' => "\\partial ",
+        '∇' => "\\nabla ",
+        '∞' => "\\infty ",
+        '∈' => "\\in ",
+        '∉' => "\\notin ",
+        '⊂' => "\\subset ",
+        '⊆' => "\\subseteq ",
+        '∪' => "\\cup ",
+        '∩' => "\\cap ",
+        '→' => "\\to ",
+        '⇒' => "\\Rightarrow ",
+        '⇔' => "\\Leftrightarrow ",
+        '∀' => "\\forall ",
+        '∃' => "\\exists ",
+        '×' => "\\times ",
+        '÷' => "\\div ",
+        '·' | '⋅' => "\\cdot ",
+        '≡' => "\\equiv ",
+        '∝' => "\\propto ",
+        '−' | '–' => "-",
+        '⟨' => "\\langle ",
+        '⟩' => "\\rangle ",
+        '∅' => "\\emptyset ",
         _ => return None,
     })
 }
@@ -371,7 +529,10 @@ fn sup_sub(c: char) -> Option<(bool, char)> {
     if let Some(i) = SUP.chars().position(|x| x == c) {
         return Some((true, SUPN.chars().nth(i)?));
     }
-    SUB.chars().position(|x| x == c).and_then(|i| SUBN.chars().nth(i)).map(|d| (false, d))
+    SUB.chars()
+        .position(|x| x == c)
+        .and_then(|i| SUBN.chars().nth(i))
+        .map(|d| (false, d))
 }
 
 /// Unicode math → LaTeX commands; super/subscript digits → ^{…} / _{…}.
@@ -412,8 +573,7 @@ fn split_tag(l: &str) -> (String, Option<String>) {
     let t = l.trim_end();
     if let Some(open) = t.rfind('(') {
         let inner = &t[open + 1..];
-        if inner.ends_with(')') {
-            let num = &inner[..inner.len() - 1];
+        if let Some(num) = inner.strip_suffix(')') {
             let gap = t[..open].chars().rev().take_while(|c| *c == ' ').count();
             if gap >= 3 && !num.is_empty() && num.chars().all(|c| c.is_ascii_digit() || c == '.') {
                 return (t[..open].to_string(), Some(num.to_string()));
@@ -427,20 +587,32 @@ fn split_tag(l: &str) -> (String, Option<String>) {
 fn is_main_eq(l: &str) -> bool {
     let t = l.trim();
     let n = t.chars().count();
-    if n < 3 || n > 160 {
+    if !(3..=160).contains(&n) {
         return false;
     }
     let (body, tag) = split_tag(l);
     let strong = body.chars().any(|c| OPS.contains(c));
-    let long_words = body.split(|c: char| !c.is_alphabetic()).filter(|w| w.chars().count() >= 5).count();
+    let long_words = body
+        .split(|c: char| !c.is_alphabetic())
+        .filter(|w| w.chars().count() >= 5)
+        .count();
     strong && long_words <= 2 && (indent(l) >= 8 || tag.is_some())
 }
 
 fn find_equation(lines: &[&str], i: usize) -> Option<(usize, Equation)> {
     // up to two short centred lines above (limits, big operator), then the main line
     let mut m = i;
-    let op_line = |l: &str| matches!(l.split_whitespace().next(), Some("X") | Some("Z") | Some("Y"));
-    while m < lines.len() && m < i + 3 && limit_like(lines[m]) && (op_line(lines[m]) || !is_main_eq(lines[m])) {
+    let op_line = |l: &str| {
+        matches!(
+            l.split_whitespace().next(),
+            Some("X") | Some("Z") | Some("Y")
+        )
+    };
+    while m < lines.len()
+        && m < i + 3
+        && limit_like(lines[m])
+        && (op_line(lines[m]) || !is_main_eq(lines[m]))
+    {
         m += 1;
     }
     if m >= lines.len() || !is_main_eq(lines[m]) {
@@ -452,7 +624,12 @@ fn find_equation(lines: &[&str], i: usize) -> Option<(usize, Equation)> {
     let mut end = m + 1;
     let mut below: Option<String> = None;
     // a big operator drawn as a letter in a math font: X = sum, Z = integral, Y = product
-    let has_op = above.iter().any(|a| matches!(a.split_whitespace().next(), Some("X") | Some("Z") | Some("Y")));
+    let has_op = above.iter().any(|a| {
+        matches!(
+            a.split_whitespace().next(),
+            Some("X") | Some("Z") | Some("Y")
+        )
+    });
     if end < lines.len() && limit_like(lines[end]) && (has_op || !is_main_eq(lines[end])) {
         below = Some(lines[end].trim().to_string());
         end += 1;
@@ -462,7 +639,11 @@ fn find_equation(lines: &[&str], i: usize) -> Option<(usize, Equation)> {
     for (k, a) in above.iter().enumerate() {
         let toks: Vec<&str> = a.split_whitespace().collect();
         if op.is_none() && !toks.is_empty() && matches!(toks[0], "X" | "Z" | "Y") {
-            let name = match toks[0] { "X" => "\\sum", "Z" => "\\int", _ => "\\prod" };
+            let name = match toks[0] {
+                "X" => "\\sum",
+                "Z" => "\\int",
+                _ => "\\prod",
+            };
             let mut upper = toks[1..].join(" ");
             if upper.is_empty() && k > 0 {
                 upper = above[k - 1].to_string();
@@ -522,7 +703,14 @@ fn find_equation(lines: &[&str], i: usize) -> Option<(usize, Equation)> {
         end += 1;
     }
     if !extra.is_empty() {
-        latex.push_str(&format!(" % also on the page near it: {}", extra.iter().map(|e| to_latex(e)).collect::<Vec<_>>().join("; ")));
+        latex.push_str(&format!(
+            " % also on the page near it: {}",
+            extra
+                .iter()
+                .map(|e| to_latex(e))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
     }
     Some((end, Equation { latex, tag }))
 }
@@ -544,27 +732,36 @@ pub fn parse_page(layout: &str) -> Vec<Item> {
     let mut i = 0;
     while i < lines.len() {
         // caption above a table
-        if is_caption(lines[i]) && cells(lines[i]).len() == 1 {
-            if let Some((end, rows)) = find_table(&lines, i + 1) {
-                flush(&mut text, &mut items);
-                items.push(Item::Table(Table { caption: Some(lines[i].trim().to_string()), rows }));
-                i = end;
-                continue;
-            }
+        if is_caption(lines[i])
+            && cells(lines[i]).len() == 1
+            && let Some((end, rows)) = find_table(&lines, i + 1)
+        {
+            flush(&mut text, &mut items);
+            items.push(Item::Table(Table {
+                caption: Some(lines[i].trim().to_string()),
+                rows,
+            }));
+            i = end;
+            continue;
         }
-        if let Some((end, rows)) = find_table(&lines, i) {
-            if rows.len() >= 3 || (rows.len() == 2 && rows.iter().flatten().any(|c| c.chars().any(|x| x.is_ascii_digit()))) {
-                flush(&mut text, &mut items);
-                let mut cap = None;
-                let mut e = end;
-                if e < lines.len() && is_caption(lines[e]) {
-                    cap = Some(lines[e].trim().to_string());
-                    e += 1;
-                }
-                items.push(Item::Table(Table { caption: cap, rows }));
-                i = e;
-                continue;
+        if let Some((end, rows)) = find_table(&lines, i)
+            && (rows.len() >= 3
+                || (rows.len() == 2
+                    && rows
+                        .iter()
+                        .flatten()
+                        .any(|c| c.chars().any(|x| x.is_ascii_digit()))))
+        {
+            flush(&mut text, &mut items);
+            let mut cap = None;
+            let mut e = end;
+            if e < lines.len() && is_caption(lines[e]) {
+                cap = Some(lines[e].trim().to_string());
+                e += 1;
             }
+            items.push(Item::Table(Table { caption: cap, rows }));
+            i = e;
+            continue;
         }
         if let Some((end, eq)) = find_equation(&lines, i) {
             flush(&mut text, &mut items);
@@ -574,7 +771,13 @@ pub fn parse_page(layout: &str) -> Vec<Item> {
         }
         let t = lines[i].trim();
         if !t.is_empty() || !text.ends_with("\n\n") {
-            text.push_str(&t.split("  ").map(str::trim).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" "));
+            text.push_str(
+                &t.split("  ")
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            );
             text.push('\n');
         }
         i += 1;
@@ -601,7 +804,14 @@ pub fn render(items: &[Item]) -> String {
                 s.push('\n');
             }
             Item::Equation(e) => {
-                s.push_str(&format!("[equation] $$ {} $${}\n\n", e.latex, e.tag.as_ref().map(|t| format!(" (eq. {t})")).unwrap_or_default()));
+                s.push_str(&format!(
+                    "[equation] $$ {} $${}\n\n",
+                    e.latex,
+                    e.tag
+                        .as_ref()
+                        .map(|t| format!(" (eq. {t})"))
+                        .unwrap_or_default()
+                ));
             }
         }
     }
@@ -616,7 +826,12 @@ fn is_table_line(l: &str) -> bool {
 
 /// Splits a page's text into passages, keeping Markdown tables whole (and repeating the header when a long table must be split)
 /// so that a row is never separated from its column names. Prose goes through `chunk_words` as usual.
-pub fn chunk_page(text: &str, size: usize, overlap: usize, prose: &dyn Fn(&str, usize, usize) -> Vec<String>) -> Vec<String> {
+pub fn chunk_page(
+    text: &str,
+    size: usize,
+    overlap: usize,
+    prose: &dyn Fn(&str, usize, usize) -> Vec<String>,
+) -> Vec<String> {
     if !text.lines().any(is_table_line) {
         return prose(text, size, overlap);
     }
@@ -625,7 +840,8 @@ pub fn chunk_page(text: &str, size: usize, overlap: usize, prose: &dyn Fn(&str, 
     let mut buf = String::new();
     let mut i = 0;
     while i < lines.len() {
-        let caption_next = is_caption(lines[i]) && i + 1 < lines.len() && is_table_line(lines[i + 1]);
+        let caption_next =
+            is_caption(lines[i]) && i + 1 < lines.len() && is_table_line(lines[i + 1]);
         if caption_next || is_table_line(lines[i]) {
             out.extend(prose(&buf, size, overlap));
             buf.clear();
@@ -642,19 +858,34 @@ pub fn chunk_page(text: &str, size: usize, overlap: usize, prose: &dyn Fn(&str, 
             let tab = &lines[i..j];
             let head: Vec<&str> = tab.iter().take(2).cloned().collect();
             let body = &tab[head.len()..];
-            let prefix = |c: &Option<String>| c.as_ref().map(|c| format!("{c}\n")).unwrap_or_default();
+            let prefix =
+                |c: &Option<String>| c.as_ref().map(|c| format!("{c}\n")).unwrap_or_default();
             let mut cur: Vec<&str> = Vec::new();
             let mut w = words(&head.join(" "));
             for r in body {
                 if !cur.is_empty() && w + words(r) > size * 3 / 2 {
-                    out.push(format!("{}{}\n{}", prefix(&cap), head.join("\n"), cur.join("\n")));
+                    out.push(format!(
+                        "{}{}\n{}",
+                        prefix(&cap),
+                        head.join("\n"),
+                        cur.join("\n")
+                    ));
                     cur.clear();
                     w = words(&head.join(" "));
                 }
                 cur.push(r);
                 w += words(r);
             }
-            out.push(format!("{}{}{}", prefix(&cap), head.join("\n"), if cur.is_empty() { String::new() } else { format!("\n{}", cur.join("\n")) }));
+            out.push(format!(
+                "{}{}{}",
+                prefix(&cap),
+                head.join("\n"),
+                if cur.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n{}", cur.join("\n"))
+                }
+            ));
             i = j;
         } else {
             buf.push_str(lines[i]);
@@ -696,31 +927,80 @@ and finally µ ≈ 3.14 was estimated. This is ordinary prose that continues aft
     #[test]
     fn finds_table_with_caption_and_columns() {
         let items = parse_page(PAGE);
-        let t = items.iter().find_map(|i| if let Item::Table(t) = i { Some(t) } else { None }).expect("table");
-        assert_eq!(t.caption.as_deref(), Some("Table 1: Mean processing time by country (days)."));
+        let t = items
+            .iter()
+            .find_map(|i| {
+                if let Item::Table(t) = i {
+                    Some(t)
+                } else {
+                    None
+                }
+            })
+            .expect("table");
+        assert_eq!(
+            t.caption.as_deref(),
+            Some("Table 1: Mean processing time by country (days).")
+        );
         assert_eq!(t.rows.len(), 4);
-        assert_eq!(t.rows[0], vec!["Country", "Applications", "Mean days", "Approved (%)"]);
+        assert_eq!(
+            t.rows[0],
+            vec!["Country", "Applications", "Mean days", "Approved (%)"]
+        );
         assert_eq!(t.rows[3], vec!["Germany", "5120", "71.3", "77.9"]);
         let md = t.to_markdown();
         assert!(md.contains("| Romania | 1240 | 62.5 | 81.2 |") && md.contains("| --- |"));
-        assert!(t.to_csv().starts_with("Country,Applications,Mean days,Approved (%)\nRomania,1240"));
+        assert!(
+            t.to_csv()
+                .starts_with("Country,Applications,Mean days,Approved (%)\nRomania,1240")
+        );
     }
 
     #[test]
     fn reconstructs_sum_and_integral_with_tags() {
-        let eqs: Vec<Equation> = parse_page(PAGE).into_iter().filter_map(|i| if let Item::Equation(e) = i { Some(e) } else { None }).collect();
+        let eqs: Vec<Equation> = parse_page(PAGE)
+            .into_iter()
+            .filter_map(|i| {
+                if let Item::Equation(e) = i {
+                    Some(e)
+                } else {
+                    None
+                }
+            })
+            .collect();
         assert_eq!(eqs.len(), 2, "{eqs:?}");
         assert_eq!(eqs[0].tag.as_deref(), Some("1"));
-        assert!(eqs[0].latex.contains("\\sum_{i=1}^{n}") && eqs[0].latex.contains("\\leq \\alpha") && eqs[0].latex.starts_with("E[T ] ="), "{}", eqs[0].latex);
+        assert!(
+            eqs[0].latex.contains("\\sum_{i=1}^{n}")
+                && eqs[0].latex.contains("\\leq \\alpha")
+                && eqs[0].latex.starts_with("E[T ] ="),
+            "{}",
+            eqs[0].latex
+        );
         assert_eq!(eqs[1].tag.as_deref(), Some("2"));
-        assert!(eqs[1].latex.contains("\\int_{0}^{\\infty}") && eqs[1].latex.contains("\\lambda"), "{}", eqs[1].latex);
+        assert!(
+            eqs[1].latex.contains("\\int_{0}^{\\infty}") && eqs[1].latex.contains("\\lambda"),
+            "{}",
+            eqs[1].latex
+        );
     }
 
     #[test]
     fn prose_and_inline_math_stay_text() {
         let items = parse_page(PAGE);
-        let text: String = items.iter().filter_map(|i| if let Item::Text(t) = i { Some(t.as_str()) } else { None }).collect();
-        assert!(text.contains("where α and β are constants") && text.contains("µ ≈ 3.14 was estimated"), "{text}");
+        let text: String = items
+            .iter()
+            .filter_map(|i| {
+                if let Item::Text(t) = i {
+                    Some(t.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert!(
+            text.contains("where α and β are constants") && text.contains("µ ≈ 3.14 was estimated"),
+            "{text}"
+        );
     }
 
     #[test]
@@ -746,7 +1026,11 @@ and finally µ ≈ 3.14 was estimated. This is ordinary prose that continues aft
         let prose = |t: &str, s: usize, o: usize| crate::ingest::chunk_words(t, s, o);
         let ch = chunk_page(&md, 200, 40, &prose);
         let tab = ch.iter().find(|c| c.contains("Romania")).unwrap();
-        assert!(tab.starts_with("Table 1:") && tab.contains("| Country |") && tab.contains("| Germany | 5120 |"));
+        assert!(
+            tab.starts_with("Table 1:")
+                && tab.contains("| Country |")
+                && tab.contains("| Germany | 5120 |")
+        );
         assert!(ch.iter().any(|c| c.contains("[equation] $$")));
         // a long table splits by rows with the header repeated
         let mut big = String::from("Table 9: Big.\n| a | b |\n| --- | --- |\n");
@@ -754,7 +1038,12 @@ and finally µ ≈ 3.14 was estimated. This is ordinary prose that continues aft
             big.push_str(&format!("| row{i} | value{i} |\n"));
         }
         let parts = chunk_page(&big, 100, 10, &prose);
-        assert!(parts.len() > 2 && parts.iter().all(|p| p.contains("| a | b |") && p.starts_with("Table 9")));
+        assert!(
+            parts.len() > 2
+                && parts
+                    .iter()
+                    .all(|p| p.contains("| a | b |") && p.starts_with("Table 9"))
+        );
     }
 
     #[test]
@@ -762,4 +1051,3 @@ and finally µ ≈ 3.14 was estimated. This is ordinary prose that continues aft
         assert_eq!(to_latex("x² ≤ α + y₁"), "x^{2} \\leq \\alpha + y_{1}");
     }
 }
-

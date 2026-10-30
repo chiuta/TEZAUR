@@ -49,7 +49,10 @@ fn clean(s: &str) -> String {
 fn parse_entry(body: &str) -> Option<Entry> {
     let (key, rest) = body.split_once(',')?;
     let c: Vec<char> = rest.chars().collect();
-    let mut e = Entry { key: key.trim().to_string(), ..Default::default() };
+    let mut e = Entry {
+        key: key.trim().to_string(),
+        ..Default::default()
+    };
     let mut i = 0;
     while i < c.len() {
         while i < c.len() && (c[i].is_whitespace() || c[i] == ',') {
@@ -181,8 +184,18 @@ fn last_name(a: &str) -> String {
         None => {
             // Institutional authors ("Council of Europe") are cited whole, people by surname.
             const ORG: [&str; 12] = [
-                "of", "for", "the", "council", "university", "institute", "commission", "union", "association",
-                "ministry", "organization", "organisation",
+                "of",
+                "for",
+                "the",
+                "council",
+                "university",
+                "institute",
+                "commission",
+                "union",
+                "association",
+                "ministry",
+                "organization",
+                "organisation",
             ];
             let lower = a.to_lowercase();
             if lower.split_whitespace().any(|w| ORG.contains(&w)) {
@@ -196,7 +209,11 @@ fn last_name(a: &str) -> String {
 
 impl Entry {
     fn authors(&self) -> Vec<&str> {
-        self.author.split(" and ").map(str::trim).filter(|a| !a.is_empty()).collect()
+        self.author
+            .split(" and ")
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+            .collect()
     }
 
     /// "Smith (2019)", "Smith & Jones (2019)", "Smith et al. (2019)".
@@ -246,15 +263,27 @@ impl Entry {
     /// JOUR when a container is known, GEN otherwise.
     pub fn to_ris(&self) -> String {
         let mut s = String::new();
-        s.push_str(if self.container.is_empty() { "TY  - GEN\n" } else { "TY  - JOUR\n" });
+        s.push_str(if self.container.is_empty() {
+            "TY  - GEN\n"
+        } else {
+            "TY  - JOUR\n"
+        });
         s.push_str(&format!("ID  - {}\n", self.key));
         for a in self.authors() {
             s.push_str(&format!("AU  - {a}\n"));
         }
-        if !self.title.is_empty() { s.push_str(&format!("TI  - {}\n", self.title)); }
-        if !self.container.is_empty() { s.push_str(&format!("T2  - {}\n", self.container)); }
-        if !self.year.is_empty() { s.push_str(&format!("PY  - {}\n", self.year)); }
-        if !self.doi.is_empty() { s.push_str(&format!("DO  - {}\n", self.doi)); }
+        if !self.title.is_empty() {
+            s.push_str(&format!("TI  - {}\n", self.title));
+        }
+        if !self.container.is_empty() {
+            s.push_str(&format!("T2  - {}\n", self.container));
+        }
+        if !self.year.is_empty() {
+            s.push_str(&format!("PY  - {}\n", self.year));
+        }
+        if !self.doi.is_empty() {
+            s.push_str(&format!("DO  - {}\n", self.doi));
+        }
         s.push_str("ER  - \n");
         s
     }
@@ -283,17 +312,31 @@ impl Entry {
             "title": self.title,
             "author": authors,
         });
-        if !self.container.is_empty() { v["container-title"] = self.container.clone().into(); }
-        if let Ok(y) = self.year.parse::<i64>() { v["issued"] = serde_json::json!({"date-parts": [[y]]}); }
-        if !self.doi.is_empty() { v["DOI"] = self.doi.clone().into(); }
+        if !self.container.is_empty() {
+            v["container-title"] = self.container.clone().into();
+        }
+        if let Ok(y) = self.year.parse::<i64>() {
+            v["issued"] = serde_json::json!({"date-parts": [[y]]});
+        }
+        if !self.doi.is_empty() {
+            v["DOI"] = self.doi.clone().into();
+        }
         v
     }
 
     /// Minimal BibTeX (only the fields the reader keeps).
     pub fn to_bibtex(&self) -> String {
-        let kind = if self.container.is_empty() { "misc" } else { "article" };
+        let kind = if self.container.is_empty() {
+            "misc"
+        } else {
+            "article"
+        };
         let mut s = format!("@{kind}{{{},\n", self.key);
-        let mut f = |k: &str, v: &str| if !v.is_empty() { s.push_str(&format!("  {k} = {{{v}}},\n")); };
+        let mut f = |k: &str, v: &str| {
+            if !v.is_empty() {
+                s.push_str(&format!("  {k} = {{{v}}},\n"));
+            }
+        };
         f("author", &self.author);
         f("title", &self.title);
         f("journal", &self.container);
@@ -315,12 +358,20 @@ impl BibMap {
         let mut paths: Vec<PathBuf> = files.to_vec();
         for d in dirs {
             for e in WalkDir::new(d).max_depth(max_depth).into_iter().flatten() {
-                if e.file_type().is_file() && e.path().extension().map(|x| x.eq_ignore_ascii_case("bib")).unwrap_or(false) {
+                if e.file_type().is_file()
+                    && e.path()
+                        .extension()
+                        .map(|x| x.eq_ignore_ascii_case("bib"))
+                        .unwrap_or(false)
+                {
                     paths.push(e.path().to_path_buf());
                 }
             }
         }
-        let mut paths: Vec<PathBuf> = paths.into_iter().map(|p| std::fs::canonicalize(&p).unwrap_or(p)).collect();
+        let mut paths: Vec<PathBuf> = paths
+            .into_iter()
+            .map(|p| std::fs::canonicalize(&p).unwrap_or(p))
+            .collect();
         paths.sort();
         paths.dedup();
         let mut entries = Vec::new();
@@ -341,7 +392,11 @@ impl BibMap {
         self.entries
             .iter()
             .find(|e| e.key.to_lowercase() == stem)
-            .or_else(|| self.entries.iter().find(|e| !e.file.is_empty() && e.file.to_lowercase().contains(&fname)))
+            .or_else(|| {
+                self.entries
+                    .iter()
+                    .find(|e| !e.file.is_empty() && e.file.to_lowercase().contains(&fname))
+            })
     }
 }
 
@@ -374,7 +429,10 @@ mod tests {
         assert_eq!(e[0].key, "smith2019");
         assert_eq!(e[0].year, "2019");
         assert_eq!(e[0].container, "Journal of Education");
-        assert!(e[0].title.starts_with("Recognition of Foreign Qualifications"));
+        assert!(
+            e[0].title
+                .starts_with("Recognition of Foreign Qualifications")
+        );
         assert!(e[0].title.contains("uber-review"));
         assert_eq!(e[1].year, "1997");
         assert_eq!(e[1].container, "Council of Europe");
@@ -385,16 +443,28 @@ mod tests {
         let e = parse(SAMPLE);
         assert_eq!(e[0].cite(), "Smith et al. (2019)");
         assert_eq!(e[1].cite(), "Council of Europe (1997)");
-        let person = Entry { author: "Jane Roe".into(), year: "2001".into(), ..Default::default() };
+        let person = Entry {
+            author: "Jane Roe".into(),
+            year: "2001".into(),
+            ..Default::default()
+        };
         assert_eq!(person.cite(), "Roe (2001)");
-        let two = Entry { author: "A, X and B, Y".into(), year: "2020".into(), ..Default::default() };
+        let two = Entry {
+            author: "A, X and B, Y".into(),
+            year: "2020".into(),
+            ..Default::default()
+        };
         assert_eq!(two.cite(), "A & B (2020)");
-        assert!(e[0].reference().contains("(2019)") && e[0].reference().contains("doi.org/10.1000/xyz"));
+        assert!(
+            e[0].reference().contains("(2019)") && e[0].reference().contains("doi.org/10.1000/xyz")
+        );
     }
 
     #[test]
     fn matches_by_key_or_file_field() {
-        let m = BibMap { entries: parse(SAMPLE) };
+        let m = BibMap {
+            entries: parse(SAMPLE),
+        };
         assert_eq!(m.find("Library/sub/Lisbon97.pdf").unwrap().key, "lisbon97");
         assert_eq!(m.find("Library/smith_review.pdf").unwrap().key, "smith2019");
         assert!(m.find("Library/unknown.pdf").is_none());
@@ -402,9 +472,16 @@ mod tests {
 
     #[test]
     fn ris_and_csl_roundtrip() {
-        let e = &parse("@article{smith2019, author={Smith, Jane and Doe, John}, title={On proof}, journal={Law Rev}, year={2019}, doi={10.1/x}}")[0];
+        let e = &parse(
+            "@article{smith2019, author={Smith, Jane and Doe, John}, title={On proof}, journal={Law Rev}, year={2019}, doi={10.1/x}}",
+        )[0];
         let ris = e.to_ris();
-        assert!(ris.starts_with("TY  - JOUR\n") && ris.contains("AU  - Smith, Jane\n") && ris.contains("PY  - 2019") && ris.ends_with("ER  - \n"));
+        assert!(
+            ris.starts_with("TY  - JOUR\n")
+                && ris.contains("AU  - Smith, Jane\n")
+                && ris.contains("PY  - 2019")
+                && ris.ends_with("ER  - \n")
+        );
         let c = e.to_csl();
         assert_eq!(c["id"], "smith2019");
         assert_eq!(c["author"][0]["family"], "Smith");

@@ -1,0 +1,45 @@
+name: standards
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fmt --check
+      - run: cargo clippy --release --all-targets -- -D warnings
+      - run: cargo install cargo-audit --locked && cargo audit
+  html:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: W3C Nu HTML checker on every HTML file
+        run: |
+          npm i --prefix /tmp/vnu vnu-jar --silent
+          find . -name '*.html' -not -path './target/*' -not -path './scripts/tutorials/out/*' -print0 \
+            | xargs -0 java -jar /tmp/vnu/node_modules/vnu-jar/build/dist/vnu.jar --errors-only --format text
+  repo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install reuse actionlint-py webvtt-py
+      - name: REUSE (SPDX licence and copyright on every file)
+        run: reuse lint
+      - name: GitHub Actions workflows (structure and expressions; shellcheck notes are info only)
+        run: actionlint -shellcheck= .github/workflows/*.yml
+      - name: WebVTT and JSON files parse
+        run: |
+          python3 - <<'PY'
+          import glob, json, webvtt
+          for f in glob.glob('assets/tutorials/*.vtt'): webvtt.read(f)
+          for f in glob.glob('**/*.json', recursive=True) + glob.glob('**/*.webmanifest', recursive=True):
+              if '/target/' in f or 'node_modules' in f: continue
+              json.load(open(f))
+          PY
+      - name: lintian on the .deb
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lintian
+          cargo build --release && bash variants/build-deb.sh
+          lintian --no-cfg --fail-on error dist/tezaur_*_amd64.deb

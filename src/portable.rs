@@ -8,13 +8,14 @@ use std::path::{Path, PathBuf};
 pub fn detect_from_exe(exe: &Path) -> Option<PathBuf> {
     let dir = exe.parent()?;
     if let Some(app) = dir.parent() {
-        let is_app = app.file_name().map(|n| n.eq_ignore_ascii_case("App")).unwrap_or(false);
-        if is_app {
-            if let Some(root) = app.parent() {
-                let d = root.join("Data");
-                if d.is_dir() {
-                    return Some(d);
-                }
+        let is_app = app
+            .file_name()
+            .map(|n| n.eq_ignore_ascii_case("App"))
+            .unwrap_or(false);
+        if is_app && let Some(root) = app.parent() {
+            let d = root.join("Data");
+            if d.is_dir() {
+                return Some(d);
             }
         }
     }
@@ -88,13 +89,15 @@ fn env_name(key: &str) -> Option<&'static str> {
 /// Loads `Data/settings/tezaur.conf` as defaults (never overrides variables already set).
 /// Must run before argument parsing and before any threads are started.
 pub fn apply_conf(data: &Path) {
-    let Ok(text) = std::fs::read_to_string(data.join("settings").join("tezaur.conf")) else { return };
+    let Ok(text) = std::fs::read_to_string(data.join("settings").join("tezaur.conf")) else {
+        return;
+    };
     for (k, v) in parse_conf(&text) {
-        if let Some(name) = env_name(&k) {
-            if std::env::var_os(name).is_none() {
-                // SAFETY: called once at startup, single-threaded, before clap parses.
-                unsafe { std::env::set_var(name, v) };
-            }
+        if let Some(name) = env_name(&k)
+            && std::env::var_os(name).is_none()
+        {
+            // SAFETY: called once at startup, single-threaded, before clap parses.
+            unsafe { std::env::set_var(name, v) };
         }
     }
 }
@@ -104,7 +107,10 @@ mod tests {
     use super::*;
 
     fn scratch(name: &str) -> PathBuf {
-        let p = Path::new(env!("CARGO_MANIFEST_DIR")).join("target").join("test-tmp").join(name);
+        let p = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("target")
+            .join("test-tmp")
+            .join(name);
         let _ = std::fs::remove_dir_all(&p);
         std::fs::create_dir_all(&p).unwrap();
         p
@@ -131,8 +137,15 @@ mod tests {
 
     #[test]
     fn parses_conf() {
-        let c = parse_conf("# c\nmodel = \"qwen2.5:14b\"\n\nHOST=127.0.0.1:11434\nbad line\nempty=\n");
-        assert_eq!(c, vec![("model".into(), "qwen2.5:14b".into()), ("host".into(), "127.0.0.1:11434".into())]);
+        let c =
+            parse_conf("# c\nmodel = \"qwen2.5:14b\"\n\nHOST=127.0.0.1:11434\nbad line\nempty=\n");
+        assert_eq!(
+            c,
+            vec![
+                ("model".into(), "qwen2.5:14b".into()),
+                ("host".into(), "127.0.0.1:11434".into())
+            ]
+        );
     }
 
     #[test]
@@ -140,7 +153,11 @@ mod tests {
         let d = scratch("layout_create");
         ensure_layout(&d);
         assert!(d.join("Library").is_dir());
-        assert!(std::fs::read_to_string(d.join("settings/tezaur.conf")).unwrap().contains("embed_model"));
+        assert!(
+            std::fs::read_to_string(d.join("settings/tezaur.conf"))
+                .unwrap()
+                .contains("embed_model")
+        );
         // A pristine template sets nothing.
         assert!(parse_conf(CONF_TEMPLATE).is_empty());
     }

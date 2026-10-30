@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="TEZAUR: asistent local de cercetare pentru teze, cu citări verificabile din biblioteca ta.">
 <title>TEZAUR</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="app.css">
@@ -16,7 +17,7 @@
   <h2>Bibliotecă</h2>
   <div class="row"><button id="addFiles">+ Fișiere</button><button id="addDir" class="alt">+ Folder</button></div>
   <input type="file" id="fFiles" multiple hidden accept=".pdf,.docx,.epub,.txt,.md,.markdown,.html,.htm,.tex">
-  <input type="file" id="fDir" webkitdirectory hidden>
+  <input type="file" id="fDir" hidden>
   <div class="small" id="status">Biblioteca e goală.</div>
   <ul class="docs" id="docs"></ul>
   <div class="row"><button class="alt" id="selAll">Toate</button><button class="alt" id="selNone">Niciuna</button><button class="alt" id="clearAll">Șterge tot</button></div>
@@ -29,13 +30,13 @@
 
   <h2>Model local</h2>
   <label>Server</label>
-  <select id="api"><option value="ollama">Ollama</option><option value="jan">Jan</option><option value="openai">OpenAI-compatibil (LM Studio, llama.cpp…)</option></select>
-  <label>Adresă</label><input id="host">
+  <select id="api" aria-label="Server de modele"><option value="ollama">Ollama</option><option value="jan">Jan</option><option value="openai">OpenAI-compatibil (LM Studio, llama.cpp…)</option></select>
+  <label>Adresă</label><input id="host" aria-label="Adresă server">
   <label>Model</label>
-  <div class="row"><select id="modelSel"></select><button class="alt" id="listModels">Listează</button></div>
+  <div class="row"><select id="modelSel" aria-label="Model"></select><button class="alt" id="listModels">Listează</button></div>
   <input id="model" placeholder="sau scrie numele modelului" style="margin-top:6px">
-  <label>Cheie API (opțional)</label><input id="key" type="password" autocomplete="off">
-  <label>Context (num_ctx, doar Ollama)</label><input id="numctx" type="number" value="8192">
+  <label>Cheie API (opțional)</label><input id="key" aria-label="Cheie API" type="password" autocomplete="off">
+  <label>Context (num_ctx, doar Ollama)</label><input id="numctx" aria-label="Context (num_ctx)" type="number" value="8192">
   <div class="row" style="margin-top:8px"><button class="alt" id="doctor">Verifică conexiunea</button></div>
   <div id="doctorOut" class="small"></div>
 </aside>
@@ -49,7 +50,7 @@
     <div class="row">
       <div id="fKind" hidden><label>Tip</label><select id="kind"><option value="section">secțiune</option><option value="introduction">introducere</option><option value="lit-review">recenzie de literatură</option><option value="critical-review">recenzie critică</option></select></div>
       <div id="fDoc" hidden><label>Document</label><select id="docSel"></select></div>
-      <div><label>Pasaje (k)</label><input id="k" type="number" value="8" min="1" max="30"></div>
+      <div><label>Pasaje (k)</label><input id="k" aria-label="Pasaje (k)" type="number" value="8" min="1" max="30"></div>
       <div><label>Limba răspunsului</label><input id="lang" placeholder="ca în cerere"></div>
     </div>
     <label id="fDec"><input type="checkbox" id="dec" style="width:auto"> descompune întrebarea în mai multe interogări (mai lent)</label>
