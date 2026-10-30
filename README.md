@@ -241,7 +241,7 @@ MIT © 2026 Alexio (https://trom.tf) — see [LICENSE](LICENSE).
 
 ## Citation-audit benchmark and reference check
 
-`python3 variants/tests/audit_bench.py target/release/tezaur --check` measures the mechanical `audit` on 24 invented passages x 8 kinds of claim (verbatim, paraphrase, figure written the other way, changed figure, changed word, negation, wrong source, unrelated). It is **synthetic and template-built**: it shows what the lexical check can and cannot see, not accuracy on real theses. Latest run:
+`python3 variants/tests/audit_bench.py target/release/tezaur --check` measures the mechanical `audit` on 24 invented passages x 7 kinds of claim = 168 checks (verbatim, paraphrase, figure written the other way, changed figure or word, negation, wrong source, unrelated). It is **synthetic and template-built**: it shows what the lexical check can and cannot see, not accuracy on real theses. Latest run:
 
 | Claim kind | Expected | Correct | Rate |
 |---|---|---|---|

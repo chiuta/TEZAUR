@@ -18,7 +18,7 @@ Starea la versiunea 0.3.0 (secțiunea „Runda 0.3.0” de la sfârșit descrie 
 | Zonă | Dovadă |
 |---|---|
 | Indexare/căutare/citare în Rust | 58 de teste unitare; rulări cap-coadă prin CLI, API, MCP; diacritice românești; PDF/EPUB/DOCX reale de test |
-| Verificări mecanice ale citărilor | benchmark reproductibil (`variants/tests/audit_bench.py`, 24 pasaje inventate × 8 tipuri de afirmații, sintetic), rezultate în README. Negațiile (1/24) și înlocuirea unui singur cuvânt nu sunt prinse de verificarea mecanică; parafrazele sunt trimise omului prin construcție |
+| Verificări mecanice ale citărilor | benchmark reproductibil (`variants/tests/audit_bench.py`, 24 pasaje inventate × 7 tipuri de afirmații, sintetic), rezultate în README. Negațiile (1/24) și înlocuirea unui singur cuvânt nu sunt prinse de verificarea mecanică; parafrazele sunt trimise omului prin construcție |
 | Chitanțe | SHA-256/HMAC verificate cu vectorii standard; modificarea oricărui câmp e detectată (test) |
 | Mesh P2P | două servere reale, token refuzat, documentele nepartajate nu ies, dedup, pachete `.tzb`, descoperire UDP, SOCKS, WebRTC între două contexte Chromium |
 | Export | PDF compilat cu pdflatex+bibtex cu citările rezolvate; ODT/EPUB prin pandoc; RIS/CSL/BibTeX; .apkg citit înapoi |
@@ -206,7 +206,7 @@ Limite rămase, spuse deschis:
 
 | Adăugat | Ce arată testele | Ce NU arată |
 |---|---|---|
-| Benchmark `audit_bench.py` (192 verificări, sintetice) cu praguri anti-regresie în CI | sursă greșită, propoziție fără legătură, cifră schimbată: 100 %; cifră scrisă altfel: 92 %; alarme false pe afirmații corecte: 2/48; **negație: 1/24** | datele sunt generate din șabloane de mine; nu spun nimic despre text real. Pragurile sunt santinele, nu promisiuni de calitate |
+| Benchmark `audit_bench.py` (168 verificări, sintetice) cu praguri anti-regresie în CI | sursă greșită, propoziție fără legătură, cifră schimbată: 100 %; cifră scrisă altfel: 92 %; alarme false pe afirmații corecte: 2/48; **negație: 1/24** | datele sunt generate din șabloane de mine; nu spun nimic despre text real. Pragurile sunt santinele, nu promisiuni de calitate |
 | Numere în litere compuse („twenty-five”, „four hundred and twelve”, „three and a half”, „douăzeci și cinci”) | test unitar + benchmark (de la 58 % la 92 % pe „cifră scrisă altfel”) | altă limbă decât EN/RO; „a dozen”, fracții, ordinale |
 | `audit --online [--fail]` | server simulat: retractat/inexistent/an diferit; JSON `{findings, online}`; anunț pe stderr; cod 2 la retractat/negăsit | serviciile reale (inaccesibile din sandbox) |
 | Semnare APT/RPM cu GPG (`deploy/signing/`) + fallback nesemnat | semnături verificate local cu `gpgv`/`rpm -K`; modificare → `BAD signature`; workflow `signing-test` instalează cu verificare ACTIVĂ și respinge un depozit alterat | **nu există încă o cheie reală**: până adăugați secretul `GPG_PRIVATE_KEY`, depozitele rămân nesemnate. Cheia o generați dumneavoastră (instrucțiuni în `deploy/signing/README.md`) |
