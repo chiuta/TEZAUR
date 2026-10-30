@@ -54,7 +54,7 @@ for need in ('rel="canonical"', 'property="og:title"', 'rel="icon"', 'id="vid"')
     if need not in html: bad("metadata", f"missing {need}")
 note("slides", f"live HTML: {len(re.findall(r'<section class=\"slide\"', html))} slides, counter literal={re.findall(r'id=\"count\"[^>]*>([^<]*)', html)}, has video section={'id=\"vid\"' in html}")
 # ---- assets
-for path in ["assets/tutorials/05-cli-ingest-search.mp4", "assets/tutorials/05-cli-ingest-search.hu.vtt", "assets/tutorials/05-cli-ingest-search.jpg", "app/", "app/manifest.webmanifest", "app/sw.js", "favicon.ico", "robots.txt", "sitemap.xml", "404.html", "this-page-does-not-exist-xyz", "CNAME", "apt/Packages", "rpm/tezaur.repo", "flatpak/tezaur.flatpakrepo", "fdroid/repo/index-v1.json"]:
+for path in ["assets/tutorials/05-cli-ingest-search.mp4", "assets/tutorials/05-cli-ingest-search.hu.vtt", "assets/tutorials/05-cli-ingest-search.jpg", "app/", "sw.js", "app/manifest.webmanifest", "app/sw.js", "favicon.ico", "robots.txt", "sitemap.xml", "404.html", "this-page-does-not-exist-xyz", "CNAME", "apt/Packages", "rpm/tezaur.repo", "flatpak/tezaur.flatpakrepo", "fdroid/repo/index-v1.json"]:
     st, hd, b, dt = get(f"{BASE}/{path}", method="GET" if not path.endswith(".mp4") else "HEAD")
     msg = f"{path}: {st} type={hd.get('content-type')} len={hd.get('content-length')} ranges={hd.get('accept-ranges')} cache={hd.get('cache-control')}"
     (note if st == 200 or path in ("404.html", "this-page-does-not-exist-xyz", "CNAME", "favicon.ico", "robots.txt", "sitemap.xml") else bad)("asset", msg)
