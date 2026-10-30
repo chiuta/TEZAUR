@@ -52,7 +52,7 @@ O comparație independentă (PromptQuorum, august 2026, un singur corp de 5.047 
 - **Originalitate a *verificării și a proveniței*: moderată și reală**, dar apropiată de ce fac Acurio și lucrările academice pe același subiect; avantajul este rularea locală, gratuită și scriptabilă, iar dezavantajul calitatea euristică.
 - **Originalitate a pachetului (Mesh + chitanțe + installer + atâtea suprafețe): mare ca amploare, nedovedită ca valoare.**
 - **Poziționare care ar rezista**: „stratul de audit și proveniență, local, pentru biblioteca ta și pentru textul tău” — de folosit *alături de* Zotero și de `zotero-mcp`/llm-for-zotero, nu în locul lor.
-- **Ce ar schimba verdictul în bine**: (1) o rulare comparativă cu un model real și un mic benchmark public; (2) verificarea existenței referințelor prin OpenAlex/Crossref (opțional, cu consimțământ, pentru că iese din „nimic nu părăsește calculatorul”); (3) un verificator de sens opțional, cu model local, pe propozițiile marcate „weak”; (4) o integrare reală cu Zotero testată pe Zotero.
+- **Ce ar schimba verdictul în bine**: (1) o rulare comparativă cu un model real (benchmark-ul public sintetic există acum: `variants/tests/audit_bench.py`); (2) ~~verificarea existenței referințelor~~ — făcută: `audit --online` (opt-in, testată doar contra serviciilor simulate); (3) un verificator de sens opțional, cu model local, pe propozițiile marcate „weak”; (4) o integrare reală cu Zotero testată pe Zotero.
 
 ## După 0.3.0: ce lipsuri s-au închis și care nu
 

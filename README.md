@@ -21,15 +21,17 @@ Every push rebuilds these repositories on GitHub Pages and installs from them in
 
 ```bash
 BASE=https://chiuta.github.io/TEZAUR
-# Debian / Ubuntu  (unsigned repository: trusted=yes)
-echo "deb [trusted=yes] $BASE/apt ./" | sudo tee /etc/apt/sources.list.d/tezaur.list && sudo apt update && sudo apt install tezaur
-# Fedora / RHEL    (unsigned repository: gpgcheck=0)
+# Debian / Ubuntu  -- if $BASE/apt/tezaur.gpg exists the repository is signed (preferred):
+curl -fsSL $BASE/apt/tezaur.gpg | sudo tee /usr/share/keyrings/tezaur.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/tezaur.gpg] $BASE/apt ./" | sudo tee /etc/apt/sources.list.d/tezaur.list && sudo apt update && sudo apt install tezaur
+#   (unsigned fallback: echo "deb [trusted=yes] $BASE/apt ./" ...)
+# Fedora / RHEL    (the .repo file sets gpgcheck=1 when the repository is signed, gpgcheck=0 otherwise -- read it before installing)
 sudo curl -o /etc/yum.repos.d/tezaur.repo $BASE/rpm/tezaur.repo && sudo dnf install tezaur
 # Flatpak
 flatpak remote-add --user tezaur $BASE/flatpak/tezaur.flatpakrepo && flatpak install tezaur tf.trom.Tezaur
 # Android: add  $BASE/fdroid/repo  as a repository in the F-Droid app
 ```
-The repositories are not GPG-signed (no key is kept in CI); the F-Droid index is signed with a throw-away key generated per build, so Android will ask you to re-install when it changes.
+Signing: the repositories are GPG-signed only once the maintainer adds the `GPG_PRIVATE_KEY` secret (see `deploy/signing/README.md`); until then they are unsigned. The machinery is tested in CI with a throw-away key. Release archives and `.deb` files carry keyless Sigstore build-provenance attestations: `gh attestation verify FILE -R chiuta/TEZAUR`. The F-Droid index is signed with a throw-away key generated per build, so Android will ask you to re-install when it changes.
 
 ## Video tutorials
 
@@ -236,3 +238,24 @@ for both protocols (Ollama NDJSON, OpenAI SSE) against in-process fake servers.
 ## License
 
 MIT © 2026 Alexio (https://trom.tf) — see [LICENSE](LICENSE).
+
+## Citation-audit benchmark and reference check
+
+`python3 variants/tests/audit_bench.py target/release/tezaur --check` measures the mechanical `audit` on 24 invented passages x 8 kinds of claim (verbatim, paraphrase, figure written the other way, changed figure, changed word, negation, wrong source, unrelated). It is **synthetic and template-built**: it shows what the lexical check can and cannot see, not accuracy on real theses. Latest run:
+
+| Claim kind | Expected | Correct | Rate |
+|---|---|---|---|
+| verbatim | should be accepted | 24/24 | 100 % |
+| paraphrase | sent to a human (not scored) | 24/24 | 100 % |
+| figure-form | should be accepted | 22/24 | 92 % |
+| figure-swap | should be flagged | 19/19 | 100 % |
+| negation | should be flagged | 1/24 | 4 % |
+| wrong-source | should be flagged | 24/24 | 100 % |
+| unrelated | should be flagged | 24/24 | 100 % |
+| word-swap | should be flagged | 2/5 | 40 % |
+
+Overall: flagged-when-it-should-be recall 73 % (70/96); precision 97 % (70/72); false alarms on correct claims 2/48.
+
+Reading it: wrong sources, unrelated sentences and changed figures are caught; negations and single swapped words are **not** (use `audit --semantic` with a local model, whose quality is untested with a real model); paraphrases are sent to a human by design.
+
+`tezaur audit draft.md --online [--fail]` additionally checks that each cited reference exists and is not retracted (OpenAlex/Crossref). It is opt-in, prints what it sends to stderr, and sends only the DOI/title of cited `.bib` entries. Tested against mock services; the real services were not reachable from the development sandbox.

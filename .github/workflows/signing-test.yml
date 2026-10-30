@@ -1,0 +1,18 @@
+name: signing-test
+# Proves the repository-signing machinery works, with a throw-away key (no secret needed): signed APT/RPM repos install with checking ON,
+# a tampered repo and a repo with the wrong key are refused.
+on:
+  workflow_dispatch:
+  push:
+    paths: ['deploy/signing/**', '.github/workflows/signing-test.yml', 'variants/build-deb.sh']
+permissions: { contents: read }
+jobs:
+  signing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y poppler-utils dpkg-dev apt-utils createrepo-c rpm gnupg
+      - run: cargo build --release && bash variants/build-deb.sh && cargo install cargo-generate-rpm --locked && cargo generate-rpm
+      - run: bash .github/annotate.sh bash deploy/signing/test-signing.sh dist/*.deb target/generate-rpm/*.rpm

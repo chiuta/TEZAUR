@@ -331,6 +331,10 @@ enum Cmd {
         /// Slow (one model call per citation) and the model can be wrong; changed findings are marked [model].
         #[arg(long)]
         semantic: bool,
+        /// Also check that every cited reference exists and is not retracted (OpenAlex/Crossref). Sends the DOIs/titles of the cited
+        /// .bib entries to those services; nothing else. With --json the output becomes {"findings":[...],"online":[...]}.
+        #[arg(long)]
+        online: bool,
     },
     /// Reference hygiene for a draft: cited keys found nowhere, .bib entries and library documents never cited. No model needed.
     Refs {
@@ -1188,6 +1192,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             json,
             fail,
             semantic,
+            online,
         } => {
             let store = Store::load(&ctx.index)?;
             let text = std::fs::read_to_string(file)?;
@@ -1199,17 +1204,45 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     ctx.llm.model
                 );
             }
-            if *json {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(
-                        &f.iter().map(|x| x.to_json()).collect::<Vec<_>>()
-                    )?
+            let on = if *online {
+                let (_, groups) = audit::extract_cites(&text);
+                let mut keys: Vec<String> =
+                    groups.iter().flatten().map(|c| c.key.clone()).collect();
+                keys.sort_by_key(|k| k.to_lowercase());
+                keys.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+                let entries: Vec<&bib::Entry> = bib
+                    .entries
+                    .iter()
+                    .filter(|e| keys.iter().any(|k| k.eq_ignore_ascii_case(&e.key)))
+                    .collect();
+                eprintln!(
+                    "[online: sending {} DOIs/titles to OpenAlex and Crossref]",
+                    entries.len()
                 );
+                Some(online::check_entries(&entries))
+            } else {
+                None
+            };
+            let bad_ref = on.as_ref().is_some_and(|v| {
+                v.as_array().is_some_and(|a| {
+                    a.iter()
+                        .any(|x| matches!(x["status"].as_str(), Some("retracted" | "not-found")))
+                })
+            });
+            if *json {
+                let fj: Vec<_> = f.iter().map(|x| x.to_json()).collect();
+                let v = match &on {
+                    Some(o) => serde_json::json!({"findings": fj, "online": o}),
+                    None => serde_json::json!(fj),
+                };
+                println!("{}", serde_json::to_string_pretty(&v)?);
             } else {
                 print!("{}", audit::audit_markdown(&f));
+                if let Some(o) = &on {
+                    print!("{}", online::check_markdown(o));
+                }
             }
-            if *fail && f.iter().any(|x| x.is_problem()) {
+            if *fail && (f.iter().any(|x| x.is_problem()) || bad_ref) {
                 std::process::exit(2);
             }
         }

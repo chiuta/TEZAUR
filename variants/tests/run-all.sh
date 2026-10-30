@@ -20,6 +20,7 @@ step "Bots (Slack, Discord, WhatsApp, e-mail)"; (cd "$ROOT/variants/bots" && pyt
 step "Google Docs add-on logic"; node "$ROOT/variants/gdocs/test.js" "$ROOT/variants/gdocs" || fail=1
 step "Audit, coverage, novelty, receipts (CLI, API, MCP)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_insight.py" | grep -v ^PASS || fail=1
 step "Round 6: BM25 cache, eval, refs, semantic audit, OpenAlex/Crossref (mock services)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_round6.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
+step "Audit benchmark (synthetic, 24 passages; regression floors)"; python3 "$ROOT/variants/tests/audit_bench.py" "$BIN" --check | tail -3; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "Advanced PDF: tables and equations (real PDFs from pdflatex)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_pdfx.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "Written variants against the REAL tools (Emacs, Neovim, LyX, Streamlit, Gradio, Marimo, nginx, Tor, rpm, web-ext, ...)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_written.py" | grep -v ^PASS; [ "${PIPESTATUS[0]}" = 0 ] || fail=1
 step "Security regression tests (CSRF, rebinding, zip bomb, figure swaps)"; TEZAUR_BIN="$BIN" python3 "$ROOT/variants/tests/test_security.py" | grep -v ^ok; [ "${PIPESTATUS[0]}" = 0 ] || fail=1

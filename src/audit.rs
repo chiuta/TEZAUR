@@ -486,11 +486,12 @@ pub(crate) fn doc_for_key(store: &Store, bib: &BibMap, key: &str) -> Option<usiz
 /// Numbers (digits or number words) that the sentence states but the cited passage does not contain. A swapped figure keeps almost every other
 /// word the same, so plain overlap cannot see it.
 fn missing_numbers(sentence: &str, passage: &str) -> Vec<String> {
-    // Figures are compared by value, not by spelling: "4", "four" and "patru" are the same number, "71.3" is one number (not "71" and "3"),
-    // so a correct citation is not flagged for writing a digit where the source has a word, and a re-ordered figure cannot hide.
+    // Figures are compared by value, not by spelling: "4", "four" and "patru" are the same number, "twenty-five" is 25, "three and a half" is 3.5,
+    // "71.3" is one number (not "71" and "3"), so a correct citation is not flagged for writing a digit where the source has a word,
+    // and a re-ordered figure cannot hide.
     let canon = |s: &str| -> std::collections::HashSet<String> {
         let mut v: std::collections::HashSet<String> = figures(s).into_iter().collect();
-        v.extend(norm(s).split(' ').filter_map(word_value).map(String::from));
+        v.extend(number_words(s).into_iter().map(|(_, val)| val));
         v
     };
     let have = canon(passage);
@@ -499,44 +500,149 @@ fn missing_numbers(sentence: &str, passage: &str) -> Vec<String> {
         .filter(|n| !have.contains(n))
         .collect();
     miss.extend(
-        norm(sentence)
-            .split(' ')
-            .filter(|w| word_value(w).is_some_and(|v| !have.contains(v)))
-            .map(|w| w.to_string()),
+        number_words(sentence)
+            .into_iter()
+            .filter(|(_, v)| !have.contains(v))
+            .map(|(t, _)| t),
     );
     miss.dedup();
     miss
 }
 
-/// Number words (English, Romanian without diacritics) -> the digits they stand for. Only unambiguous words: "o"/"a" are not numbers here.
-fn word_value(w: &str) -> Option<&'static str> {
+#[derive(Clone, Copy, PartialEq)]
+enum Tok {
+    Add(u32),
+    Hundred,
+    Scale(u32),
+    And,
+    Point,
+    Half,
+}
+
+/// Number words (English, Romanian without diacritics), unambiguous only: "o"/"a" are not numbers here.
+fn tok(w: &str) -> Option<Tok> {
+    use Tok::*;
     Some(match w {
-        "one" | "unu" | "una" => "1",
-        "two" | "doi" | "doua" | "twice" => "2",
-        "three" | "trei" => "3",
-        "four" | "patru" => "4",
-        "five" | "cinci" => "5",
-        "six" | "sase" => "6",
-        "seven" | "sapte" => "7",
-        "eight" | "opt" => "8",
-        "nine" | "noua" => "9",
-        "ten" | "zece" => "10",
-        "eleven" | "unsprezece" => "11",
-        "twelve" | "doisprezece" => "12",
-        "twenty" | "douazeci" => "20",
-        "thirty" | "treizeci" => "30",
-        "forty" | "patruzeci" => "40",
-        "fifty" | "cincizeci" => "50",
-        "sixty" | "saizeci" => "60",
-        "seventy" | "saptezeci" => "70",
-        "eighty" | "optzeci" => "80",
-        "ninety" | "nouazeci" => "90",
-        "hundred" | "suta" => "100",
-        "thousand" | "mie" => "1000",
-        "million" | "milion" => "1000000",
-        "half" => "0.5",
+        "one" | "unu" | "una" => Add(1),
+        "two" | "doi" | "doua" | "twice" => Add(2),
+        "three" | "trei" => Add(3),
+        "four" | "patru" => Add(4),
+        "five" | "cinci" => Add(5),
+        "six" | "sase" => Add(6),
+        "seven" | "sapte" => Add(7),
+        "eight" | "opt" => Add(8),
+        "nine" | "noua" => Add(9),
+        "ten" | "zece" => Add(10),
+        "eleven" | "unsprezece" => Add(11),
+        "twelve" | "doisprezece" => Add(12),
+        "thirteen" | "treisprezece" => Add(13),
+        "fourteen" | "paisprezece" => Add(14),
+        "fifteen" | "cincisprezece" => Add(15),
+        "sixteen" | "saisprezece" => Add(16),
+        "seventeen" | "saptesprezece" => Add(17),
+        "eighteen" | "optsprezece" => Add(18),
+        "nineteen" | "nouasprezece" => Add(19),
+        "twenty" | "douazeci" => Add(20),
+        "thirty" | "treizeci" => Add(30),
+        "forty" | "patruzeci" => Add(40),
+        "fifty" | "cincizeci" => Add(50),
+        "sixty" | "saizeci" => Add(60),
+        "seventy" | "saptezeci" => Add(70),
+        "eighty" | "optzeci" => Add(80),
+        "ninety" | "nouazeci" => Add(90),
+        "hundred" | "suta" | "sute" => Hundred,
+        "thousand" | "mie" | "mii" => Scale(1000),
+        "million" | "milion" | "milioane" => Scale(1_000_000),
+        "and" | "si" => And,
+        "point" | "virgula" => Point,
+        "half" => Half,
         _ => return None,
     })
+}
+
+/// Numbers written in words, as (the words, the value as digits): "twenty five" -> 25, "one hundred and twelve" -> 112, "three and a half" -> 3.5,
+/// "one point two" -> 1.2, "sapte" -> 7. `norm` has already turned hyphens into spaces.
+fn number_words(s: &str) -> Vec<(String, String)> {
+    use Tok::*;
+    let n = norm(s);
+    let ws: Vec<&str> = n.split(' ').collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < ws.len() {
+        let Some(t0) = tok(ws[i]) else {
+            i += 1;
+            continue;
+        };
+        if matches!(t0, And | Point) {
+            i += 1;
+            continue;
+        }
+        let (mut total, mut cur, mut j, mut frac) = (0u64, 0u64, i, None::<String>);
+        let mut used = i;
+        let mut seen = false;
+        while j < ws.len() {
+            match tok(ws[j]) {
+                Some(Add(v)) => {
+                    cur += v as u64;
+                    seen = true;
+                    used = j;
+                }
+                Some(Hundred) => {
+                    cur = cur.max(1) * 100;
+                    seen = true;
+                    used = j;
+                }
+                Some(Scale(m)) => {
+                    total += cur.max(1) * m as u64;
+                    cur = 0;
+                    seen = true;
+                    used = j;
+                }
+                Some(Half) if !seen => {
+                    cur = 0;
+                    frac = Some("0.5".into());
+                    used = j;
+                    break;
+                }
+                Some(And) if seen => {
+                    // "and" joins numerals ("a hundred and twelve") or introduces "a half" ("three and a half"); otherwise the number ended.
+                    match (ws.get(j + 1).copied().and_then(tok), ws.get(j + 2).copied()) {
+                        (Some(Add(_) | Hundred | Scale(_)), _) => {}
+                        (_, Some("half")) if ws[j + 1] == "a" => {
+                            frac = Some(".5".into());
+                            used = j + 2;
+                            break;
+                        }
+                        _ => break,
+                    }
+                }
+                Some(Point) if seen => {
+                    let mut d = String::new();
+                    let mut k = j + 1;
+                    while let Some(Some(Add(v @ 0..=9))) = ws.get(k).map(|w| tok(w)) {
+                        d.push_str(&v.to_string());
+                        k += 1;
+                    }
+                    if !d.is_empty() {
+                        frac = Some(format!(".{d}"));
+                        used = k - 1;
+                    }
+                    break;
+                }
+                _ => break,
+            }
+            j += 1;
+        }
+        let whole = total + cur;
+        let val = match frac {
+            Some(f) if f == "0.5" => f,
+            Some(f) => format!("{whole}{f}"),
+            None => whole.to_string(),
+        };
+        out.push((ws[i..=used].join(" "), val));
+        i = used + 1;
+    }
+    out
 }
 
 /// Digit figures in `s`, normalised: thousands separators removed ("1,240" = "1240" = "1 240"), decimal comma read as a point.
@@ -1645,6 +1751,20 @@ mod tests {
 
 #[cfg(test)]
 mod figure_tests {
+    #[test]
+    fn compound_number_words_are_read_by_value() {
+        let v = |s: &str| number_words(s).into_iter().map(|x| x.1).collect::<Vec<_>>();
+        assert_eq!(v("twenty-five hours"), ["25"]);
+        assert_eq!(v("four hundred and twelve adults"), ["412"]);
+        assert_eq!(v("one thousand five hundred eggs"), ["1500"]);
+        assert_eq!(v("three and a half percent"), ["3.5"]);
+        assert_eq!(v("one point two percent"), ["1.2"]);
+        assert_eq!(v("douazeci si cinci de ore"), ["25"]);
+        assert_eq!(v("two and the rest"), ["2"]);
+        assert!(missing_numbers("It took twenty five hours.", "It took 25 hours.").is_empty());
+        assert!(!missing_numbers("It took twenty six hours.", "It took 25 hours.").is_empty());
+    }
+
     #[test]
     fn digits_and_number_words_are_the_same_figure() {
         let p = "The authorities shall respond within four months. The period shall not exceed three years.";

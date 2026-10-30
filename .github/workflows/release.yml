@@ -6,7 +6,7 @@ on:
       tag: { description: 'Tag to release (created from the selected branch if it does not exist), e.g. v0.4.0', required: false }
   push:
     tags: ['v*']
-permissions: { contents: write }
+permissions: { contents: write, id-token: write, attestations: write }
 jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
@@ -42,6 +42,9 @@ jobs:
           if [ "${{ runner.os }}" = Windows ]; then cp target/release/tezaur.exe out/tezaur-${{ matrix.name }}/; (cd out && 7z a tezaur-${{ needs.release.outputs.tag }}-${{ matrix.name }}.zip tezaur-${{ matrix.name }}); else cp target/release/tezaur out/tezaur-${{ matrix.name }}/; tar -C out -czf out/tezaur-${{ needs.release.outputs.tag }}-${{ matrix.name }}.tar.gz tezaur-${{ matrix.name }}; fi
           if [ "${{ runner.os }}" = Linux ]; then ./variants/build-deb.sh && cp dist/*.deb out/; fi
           cd out && : > SHA256SUMS-${{ matrix.name }}.txt && for f in *.tar.gz *.zip *.deb; do [ -f "$f" ] && { sha256sum "$f" 2>/dev/null || shasum -a 256 "$f"; } >> SHA256SUMS-${{ matrix.name }}.txt; done; true
+      - name: Attest build provenance (keyless, Sigstore; verify with `gh attestation verify FILE -R OWNER/REPO`)
+        uses: actions/attest-build-provenance@v2
+        with: { subject-path: 'out/*.tar.gz, out/*.zip, out/*.deb' }
       - name: Upload to the release
         shell: bash
         env: { GH_TOKEN: '${{ github.token }}' }

@@ -1,8 +1,8 @@
 name: pages
 # GitHub Pages hosts the PWA *and* real package repositories built from this commit:
 #   https://OWNER.github.io/REPO/            PWA (installable, works offline after the first visit)
-#   .../apt/      APT repository      (echo "deb [trusted=yes] URL/apt ./" | sudo tee /etc/apt/sources.list.d/tezaur.list)
-#   .../rpm/      RPM repository      (dnf config-manager --add-repo URL/rpm/tezaur.repo)
+#   .../apt/      APT repository      (signed when the GPG_PRIVATE_KEY secret exists, see deploy/signing/README.md; else trusted=yes)
+#   .../rpm/      RPM repository      (signed when the secret exists; else gpgcheck=0)
 #   .../flatpak/  Flatpak repository  (flatpak remote-add tezaur URL/flatpak/tezaur.flatpakrepo)
 #   .../fdroid/repo  F-Droid repository (add URL/fdroid/repo in the F-Droid app)
 # Each repository is installed from in CI (a container pulls it over HTTP) before it is published.
@@ -25,10 +25,16 @@ jobs:
           mkdir -p repo/apt && cp dist/*.deb repo/apt/ && cd repo/apt
           dpkg-scanpackages --multiversion . > Packages && gzip -k Packages
           apt-ftparchive release . > Release
+      - name: sign it (only when the GPG_PRIVATE_KEY secret exists)
+        env: { GPG_PRIVATE_KEY: '${{ secrets.GPG_PRIVATE_KEY }}' }
+        run: echo "SIGNED=$(bash deploy/signing/sign.sh deb repo/apt)" | tee -a "$GITHUB_ENV"
       - name: install from it in a clean Debian container over HTTP
         run: |
           (cd repo && python3 -m http.server 8088 >/dev/null 2>&1 &) ; sleep 2
-          bash .github/annotate.sh docker run --rm --network host debian:stable-slim bash -c 'echo "deb [trusted=yes] http://127.0.0.1:8088/apt ./" > /etc/apt/sources.list.d/tezaur.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version && dpkg -s tezaur | grep -E "^(Package|Version)"'
+          if [ "$SIGNED" = signed ]; then
+            L='deb [signed-by=/usr/share/keyrings/tezaur.gpg] http://127.0.0.1:8088/apt ./'; K='apt-get install -y -qq curl >/dev/null && curl -sf http://127.0.0.1:8088/apt/tezaur.gpg -o /usr/share/keyrings/tezaur.gpg'
+          else L='deb [trusted=yes] http://127.0.0.1:8088/apt ./'; K=true; fi
+          bash .github/annotate.sh docker run --rm --network host debian:stable-slim bash -c "apt-get update -qq >/dev/null; $K && echo '$L' > /etc/apt/sources.list.d/tezaur.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version && dpkg -s tezaur | grep -E '^(Package|Version)'"
       - uses: actions/upload-artifact@v4
         with: { name: repo-apt, path: repo }
   rpm:
@@ -39,14 +45,21 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get update && sudo apt-get install -y createrepo-c
       - run: cargo build --release && cargo install cargo-generate-rpm --locked && cargo generate-rpm
-      - name: build the RPM repository
+      - name: build the RPM repository (signed when the GPG_PRIVATE_KEY secret exists)
+        env: { GPG_PRIVATE_KEY: '${{ secrets.GPG_PRIVATE_KEY }}' }
         run: |
-          mkdir -p repo/rpm && cp target/generate-rpm/*.rpm repo/rpm/ && createrepo_c repo/rpm
-          printf '[tezaur]\nname=TEZAUR\nbaseurl=https://%s.github.io/%s/rpm/\nenabled=1\ngpgcheck=0\n' "${{ github.repository_owner }}" "${{ github.event.repository.name }}" > repo/rpm/tezaur.repo
+          mkdir -p repo/rpm && cp target/generate-rpm/*.rpm repo/rpm/
+          S=$(bash deploy/signing/sign.sh rpm-pkgs repo/rpm); createrepo_c repo/rpm
+          if [ "$S" = signed ]; then bash deploy/signing/sign.sh rpm-meta repo/rpm; fi
+          echo "SIGNED=$S" | tee -a "$GITHUB_ENV"
+          U="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/rpm"
+          if [ "$S" = signed ]; then G="gpgcheck=1\nrepo_gpgcheck=1\ngpgkey=$U/tezaur.asc"; else G="gpgcheck=0"; fi
+          printf '[tezaur]\nname=TEZAUR\nbaseurl=%s/\nenabled=1\n%b\n' "$U" "$G" > repo/rpm/tezaur.repo
       - name: install from it in a clean Fedora container over HTTP
         run: |
           (cd repo && python3 -m http.server 8089 >/dev/null 2>&1 &) ; sleep 2
-          bash .github/annotate.sh docker run --rm --network host fedora:latest bash -c 'printf "[tezaur]\nname=t\nbaseurl=http://127.0.0.1:8089/rpm/\nenabled=1\ngpgcheck=0\n" > /etc/yum.repos.d/t.repo && dnf install -y tezaur && tezaur --version && rpm -qi tezaur | head -3'
+          if [ "$SIGNED" = signed ]; then G='gpgcheck=1\nrepo_gpgcheck=1\ngpgkey=http://127.0.0.1:8089/rpm/tezaur.asc'; else G='gpgcheck=0'; fi
+          bash .github/annotate.sh docker run --rm --network host fedora:latest bash -c "printf '[tezaur]\nname=t\nbaseurl=http://127.0.0.1:8089/rpm/\nenabled=1\n$G\n' > /etc/yum.repos.d/t.repo && dnf install -y tezaur && tezaur --version && rpm -qi tezaur | head -3"
       - uses: actions/upload-artifact@v4
         with: { name: repo-rpm, path: repo }
   flatpak:
@@ -135,8 +148,14 @@ jobs:
         run: |
           URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"; echo "base: $URL"
           sleep 20
-          bash .github/annotate.sh docker run --rm debian:stable-slim bash -c "apt-get update -qq && apt-get install -y -qq ca-certificates >/dev/null && echo 'deb [trusted=yes] $URL/apt ./' > /etc/apt/sources.list.d/t.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version"
-          bash .github/annotate.sh docker run --rm fedora:latest bash -c "printf '[t]\nname=t\nbaseurl=$URL/rpm/\ngpgcheck=0\n' > /etc/yum.repos.d/t.repo && dnf install -y tezaur && tezaur --version"
+          if curl -sf "$URL/apt/InRelease" >/dev/null; then
+            echo "repositories are signed: installing with signature checking"
+            bash .github/annotate.sh docker run --rm debian:stable-slim bash -c "apt-get update -qq && apt-get install -y -qq ca-certificates curl >/dev/null && curl -sf $URL/apt/tezaur.gpg -o /usr/share/keyrings/tezaur.gpg && echo 'deb [signed-by=/usr/share/keyrings/tezaur.gpg] $URL/apt ./' > /etc/apt/sources.list.d/t.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version"
+            bash .github/annotate.sh docker run --rm fedora:latest bash -c "curl -sf $URL/rpm/tezaur.repo -o /etc/yum.repos.d/t.repo && grep -q '^gpgcheck=1' /etc/yum.repos.d/t.repo && dnf install -y tezaur && tezaur --version"
+          else
+            bash .github/annotate.sh docker run --rm debian:stable-slim bash -c "apt-get update -qq && apt-get install -y -qq ca-certificates >/dev/null && echo 'deb [trusted=yes] $URL/apt ./' > /etc/apt/sources.list.d/t.list && apt-get update -qq && apt-get install -y -qq tezaur && tezaur --version"
+            bash .github/annotate.sh docker run --rm fedora:latest bash -c "printf '[t]\nname=t\nbaseurl=$URL/rpm/\ngpgcheck=0\n' > /etc/yum.repos.d/t.repo && dnf install -y tezaur && tezaur --version"
+          fi
       - name: flatpak
         run: |
           URL="${{ needs.deploy.outputs.url }}"; URL="${URL%/}"

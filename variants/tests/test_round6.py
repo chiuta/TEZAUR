@@ -86,6 +86,15 @@ try:
     check("online: invented DOI not found", st.get("ghost2020") == "not-found", st)
     check("online: Crossref-only work ok", st.get("crossonly") == "ok", st)
     check("online: entry without DOI/title is checked by title or unchecked", st.get("lisbon_convention") in ("not-found", "ok", "unchecked"), st)
+    # audit --online: same checks on the citations of a draft, JSON shape and exit code
+    r = run("audit", draft2, "--json", "--online", "--fail")
+    ja = json.loads(r.stdout)
+    sta = {x["key"]: x["status"] for x in ja["online"]}
+    check("audit --online: findings + online in JSON", isinstance(ja["findings"], list) and sta.get("quack2018") == "retracted" and sta.get("ghost2020") == "not-found", sta)
+    check("audit --online: announces what is sent", "sending" in r.stderr and "OpenAlex" in r.stderr, r.stderr)
+    check("audit --online --fail: non-zero on retracted/not-found", r.returncode == 2, r.returncode)
+    r = run("audit", draft2, "--json")
+    check("audit without --online: plain list, nothing sent", isinstance(json.loads(r.stdout), list) and "sending" not in r.stderr, r.stderr)
     # unreachable service must degrade to a clear error, not a crash
     e2 = dict(env, TEZAUR_OPENALEX="http://127.0.0.1:1", TEZAUR_CROSSREF="http://127.0.0.1:1")
     r = subprocess.run([BIN, "lit", "anything"], capture_output=True, text=True, stdin=subprocess.DEVNULL, env=e2, cwd=lib)
