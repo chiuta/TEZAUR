@@ -14,6 +14,8 @@ pub struct Entry {
     pub container: String,
     pub doi: String,
     pub file: String,
+    pub note: String,
+    pub url: String,
 }
 
 fn clean(s: &str) -> String {
@@ -125,6 +127,8 @@ fn parse_entry(body: &str) -> Option<Entry> {
             "journal" | "journaltitle" | "booktitle" => e.container = v,
             "publisher" | "school" | "institution" if e.container.is_empty() => e.container = v,
             "doi" => e.doi = v,
+            "note" => e.note = v,
+            "url" => e.url = v,
             "file" => e.file = val.trim().to_string(), // raw: Windows paths must not be LaTeX-cleaned
             _ => {}
         }
@@ -320,6 +324,12 @@ impl Entry {
         }
         if !self.doi.is_empty() {
             v["DOI"] = self.doi.clone().into();
+        }
+        if !self.url.is_empty() {
+            v["URL"] = self.url.clone().into();
+        }
+        if !self.note.is_empty() {
+            v["note"] = self.note.clone().into();
         }
         v
     }

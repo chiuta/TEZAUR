@@ -9,7 +9,8 @@ pub const CHUNK_WORDS: usize = 200;
 pub const OVERLAP_WORDS: usize = 40;
 
 pub fn is_supported(p: &Path) -> bool {
-    matches!(
+    crate::fff::is_fff_path(p)
+        || matches!(
         p.extension()
             .and_then(|e| e.to_str())
             .map(|e| e.to_lowercase())
@@ -478,6 +479,9 @@ fn epub_text(path: &Path) -> Result<String> {
 
 /// (page number, text); page 0 = format has no pages.
 pub fn read_pages(path: &Path) -> Result<Vec<(usize, String)>> {
+    if crate::fff::is_fff_path(path) {
+        return Ok(crate::fff::read(path)?.pages);
+    }
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -659,7 +663,11 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
     let n = new_chunks.len();
     store.docs.push(Doc {
         path: key,
-        title: pretty_title(path),
+        title: if crate::fff::is_fff_path(path) {
+            crate::fff::read(path).map(|d| d.title).unwrap_or_else(|_| pretty_title(path))
+        } else {
+            pretty_title(path)
+        },
         hash,
         pages: npages,
     });

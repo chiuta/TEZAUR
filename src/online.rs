@@ -194,6 +194,7 @@ impl Work {
             container: self.venue.clone(),
             doi: self.doi.clone(),
             file: String::new(),
+            ..Default::default()
         }
         .to_bibtex()
     }

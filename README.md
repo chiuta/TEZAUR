@@ -115,6 +115,15 @@ Settings (flags / env / `tezaur.conf`): `--api/TEZAUR_API`, `--host/TEZAUR_HOST`
 `--api-key/TEZAUR_API_KEY`, `--model/TEZAUR_MODEL`, `--embed-model/TEZAUR_EMBED_MODEL`,
 `--num-ctx/TEZAUR_NUM_CTX` (Ollama), `--index/TEZAUR_INDEX`, `--only`, `--bib`.
 
+## Source chain (FFF envelopes, offline)
+
+TEZAUR is the second step of a chain that takes a scanned document to a citable reference without a network:
+`legatorocr scan.png --ocr --author "Name, Given" --fff-year 1999 --fff-out doc.fff.json` -> `tezaur ingest --fff-in doc.fff.json` -> `tezaur bib --fff-out bib.fff.json` -> `veriga --fff-in bib.fff.json --fff-out checked.fff.json` -> AcademiSearch (Library -> Receive).
+
+- `ingest --fff-in FILE` (repeatable) accepts an envelope of type `document/ocr` (text per page, author, year, SHA-256 of the scan), `text/plain` or `text/markdown`. The envelope is copied to `fff-inbox/` next to the index, a BibTeX entry `fff-<key>.bib` is written beside the index (author, year, title, `note = sha256:…`), and the pages are indexed, so `[@key, p. N]` citations work and `tezaur audit` can check them. Plain `.fff.json` files in a folder given to `ingest` are indexed too.
+- `bib --fff-out FILE` (or `--to fff`) writes the bibliography as a `citation/csl` envelope, for VERIGA or AcademiSearch.
+- Limits: OCR errors in the text are indexed as they are; the entry's author/year are what the previous step was given, not checked; the envelope format is `docs/FFF-ENVELOPE.md` in github.com/chiuta/chiuta.github.io.
+
 ## Portable (PortableApps.com format)
 
 ```

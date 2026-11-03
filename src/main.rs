@@ -11,6 +11,7 @@ mod audit;
 mod bib;
 mod eval;
 mod export;
+mod fff;
 mod index;
 mod ingest;
 mod llm;
@@ -98,6 +99,8 @@ enum ExportTo {
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
 enum BibTo {
+    /// FFF envelope (citation/csl) for VERIGA / AcademiSearch.
+    Fff,
     Ris,
     CslJson,
     Bibtex,
@@ -222,6 +225,10 @@ enum Cmd {
         /// Re-read files even if unchanged (after upgrading TEZAUR, to pick up better chunking/readers).
         #[arg(long)]
         force: bool,
+        /// Add an FFF envelope (.fff.json: `document/ocr` from LegatorOCR --fff-out, or text/plain, text/markdown) with its
+        /// pages, author, year and scan SHA-256, so it can be cited. Repeatable. Works offline.
+        #[arg(long, value_name = "FILE")]
+        fff_in: Vec<PathBuf>,
     },
     /// Show the best matching passages (no LLM needed), with how many query terms each covers.
     Search {
@@ -414,6 +421,10 @@ enum Cmd {
         to: BibTo,
         #[arg(short, long)]
         output: Option<PathBuf>,
+        /// Write the bibliography as an FFF envelope (`citation/csl`, .fff.json) for the next app in the chain
+        /// (VERIGA --fff-in, AcademiSearch). Same as `--to fff -o FILE`.
+        #[arg(long, value_name = "FILE")]
+        fff_out: Option<PathBuf>,
     },
     /// Pull your Zotero library: fetch BibTeX from Zotero's local API (Zotero must be running with "Allow other
     /// applications to communicate with Zotero" on) and index the attachments in Zotero's storage folder.
@@ -994,7 +1005,7 @@ fn ingest_paths(ctx: &Ctx, paths: &[PathBuf], force: bool) -> Result<()> {
     let files = ingest::collect_files(paths);
     if files.is_empty() {
         eprintln!(
-            "no supported files found (pdf, docx, epub, txt, md, html, tex) in: {}",
+            "no supported files found (pdf, docx, epub, txt, md, html, tex, .fff.json) in: {}",
             paths
                 .iter()
                 .map(|p| p.display().to_string())
@@ -1038,14 +1049,20 @@ fn ingest_paths(ctx: &Ctx, paths: &[PathBuf], force: bool) -> Result<()> {
 fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
     let bib = ctx.load_bib();
     match cmd {
-        Cmd::Ingest { paths, force } => {
+        Cmd::Ingest { paths, force, fff_in } => {
+            let mut paths: Vec<PathBuf> = paths.clone();
+            for f in fff_in {
+                let (dest, key) = fff::import(&ctx.base, f)?;
+                eprintln!("FFF envelope {} -> {} (cite as [@{key}])", f.display(), dest.display());
+                paths.push(dest);
+            }
             let paths: Vec<PathBuf> = if paths.is_empty() {
                 match &ctx.data {
                     Some(d) => vec![d.join("Library")],
                     None => bail!("give at least one file or folder"),
                 }
             } else {
-                paths.clone()
+                paths
             };
             ingest_paths(ctx, &paths, *force)?;
         }
@@ -1103,12 +1120,15 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             eprintln!("wrote {}", out.display());
         }
 
-        Cmd::Bib { to, output } => {
+        Cmd::Bib { to, output, fff_out } => {
             let bib = ctx.load_bib();
+            let to = if fff_out.is_some() { BibTo::Fff } else { *to };
+            let output = fff_out.as_ref().or(output.as_ref());
             if bib.entries.is_empty() {
                 bail!("no .bib entries found next to the index or via --bib");
             }
             let text = match to {
+                BibTo::Fff => fff::csl_envelope(&bib.entries),
                 BibTo::Ris => bib
                     .entries
                     .iter()
@@ -2687,7 +2707,7 @@ mod tests {
             }
         ));
         let l = Line::try_parse_from(split_args("ingest")).unwrap();
-        assert!(matches!(l.cmd, Cmd::Ingest { ref paths, force: false } if paths.is_empty()));
+        assert!(matches!(l.cmd, Cmd::Ingest { ref paths, force: false, .. } if paths.is_empty()));
         assert!(matches!(
             Line::try_parse_from(split_args("models")).unwrap().cmd,
             Cmd::Models
