@@ -7,4 +7,4 @@ bib exportiert deine .bib-Dateien als RIS, CSL JSON oder BibTeX – bereit für 
 Dieselben Einträge als CSL JSON, das Format von pandoc und vielen Literaturverwaltungen.
 
 00:00:17.799 --> 00:00:28.221
-export wandelt einen Markdown-Entwurf um: [@Schlüssel] wird in LaTeX zu \cite{Schlüssel}, in Word/HTML zur Literaturliste.
+export wandelt einen Markdown-Entwurf um: [@Schlüssel]-Belege werden in LaTeX zu \cite{Schlüssel}, in Word und HTML zu einer Literaturliste.

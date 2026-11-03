@@ -1,7 +1,7 @@
 WEBVTT
 
 00:00:01.136 --> 00:00:12.026
-tezaur serve avvia l'app web, un'API JSON sull'indice, spazi di lavoro con nome e un proxy same-origin verso il modello.
+tezaur serve avvia l'app web, un'API JSON sull'indice, spazi di lavoro con nome e un proxy same-origin verso il server del modello.
 
 00:00:12.076 --> 00:00:18.965
 Per impostazione predefinita ascolta solo su 127.0.0.1. /api/health dice che è vivo.

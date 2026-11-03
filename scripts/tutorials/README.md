@@ -12,4 +12,6 @@ manager commands, which CI runs on every push). What is not: the language model 
 with a canned answer (it deliberately includes one invented citation to show the verifier), the web page itself is in Romanian,
 and the translations were machine-written and have not been reviewed by native speakers.
 
+<!-- traducere: fr=automat it=automat es=automat pt=automat de=automat hu=automat -->
+
 Needs python3 + playwright (chromium), ffmpeg (libx264, libass), poppler-utils. The videos are not committed (regenerate them).

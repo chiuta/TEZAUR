@@ -1,7 +1,7 @@
 WEBVTT
 
 00:00:01.136 --> 00:00:12.026
-A tezaur serve elindítja a webalkalmazást, a JSON API-t az index fölött, névvel ellátott munkaterületeket és egy same-origin proxyt a modellhez.
+A tezaur serve elindítja a webalkalmazást, a JSON API-t az index fölött, névvel ellátott munkaterületeket és egy same-origin proxyt a modellszerverhez.
 
 00:00:12.076 --> 00:00:18.965
 Alapból csak a 127.0.0.1-en figyel. Az /api/health jelzi, hogy él.
