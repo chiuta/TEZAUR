@@ -19,3 +19,10 @@ Folosește fluxul din acest kit (1-analiza → 2-filtru → 3-implementare). Ori
 
 ## Recomandare
 Pentru lansări comerciale sau donații semnificative, cere o opinie de la un avocat de proprietate intelectuală și fă căutare de mărci (EUIPO), cum ai făcut pentru OSATURA.
+
+## Constatări din audit automat (2026-11-08, doar observații)
+- Nu s-a găsit nicio mențiune a unei ținte terțe în sursă.
+- 169 de dependențe, 23 de licențe distincte; singura expresie cu LGPL este `r-efi` (MIT OR Apache-2.0 OR LGPL-2.1-or-later), cu alternativă permisivă.
+- Fișierul `COMPETITION.md` descrie concurența; verifică să conțină doar informații publice.
+
+**Limite ale auditului:** căutarea după nume nu poate detecta cod copiat fără nume. Rămân de răspuns întrebările din secțiunea „Ce a existat până acum".
