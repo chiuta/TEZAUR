@@ -54,9 +54,10 @@ Pentru lansări comerciale sau donații semnificative, cere o opinie de la un av
 ### Confidențialitate (observații)
 Ieșiri din rețea din binar doar la `lit` și `refs --online` (OpenAlex, Crossref); fără telemetrie găsită. Dictarea nativă din browser poate trimite sunetul la un serviciu cloud (avertizat în UI).
 
-### De completat de către titular (nu pot fi deduse din repo)
-- Ce a precedat 0.3.0 și cum a fost dezvoltat: ______
-- Iconițele („T") au fost desenate de tine sau generate cu un instrument/font? ______
-- Ai verificat licențele: Whisper tiny (Xenova), Romanian.isl, Llama 3.1 (dacă îl recomanzi)? ______
+### Completat din istoricul conversațiilor Claude (2026-11-08)
+Sursa: conversația claude.ai 706f078b-… (TEZAUR, 109 ture; citită doar la început).
+- **Precedent 0.3.0 / dezvoltare:** sesiunea a pornit din cererea generică a titularului și o verificare a toolchain-ului; nu apare o aplicație țintă de replicat. Dezvoltarea a fost realizată de Claude la cererea titularului (vezi REVIEW.md). Ce a precedat 0.3.0 în afara acestui chat: neconfirmat: ______
+- **Iconițe „T":** origine nedeterminată în istoricul citit: ______
+- **Licențe Whisper tiny (Xenova), Romanian.isl, Llama 3.1:** verificarea nu apare în istoric. Titularul verifică: ______
 
 **Limite:** nu s-au rulat build-uri sau `cargo deny`; licențele npm/Gradle tranzitive nu au fost verificate; nu s-a făcut comparare de similaritate cu cod terț. Nu este opinie juridică.
