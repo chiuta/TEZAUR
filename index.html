@@ -234,7 +234,7 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
 <body>
 <a class="skip" href="#s16">Sari la instalare</a>
 <canvas id="bg" aria-hidden="true"></canvas><div class="vignette"></div>
-<aside aria-label="Navigare" style="display:contents"><div id="bar"></div><div id="count" aria-live="polite">01 / 20</div>
+<aside aria-label="Navigare" style="display:contents"><div id="bar"></div><div id="count" aria-live="polite">01 / 21</div>
 <div id="keys"><kbd>↑</kbd><kbd>↓</kbd> navighează · <kbd>F</kbd> ecran complet</div>
 <nav id="dots" aria-label="Slide-uri"></nav></aside>
 <main id="main">
@@ -425,6 +425,40 @@ a.skip:focus{left:10px;top:10px;z-index:99;background:var(--gold);color:#000;pad
       </div>
     </div>
     <p class="small rv" style="margin-top:14px;color:var(--gold)"><b>Limite oneste:</b> euristică peste stratul de text poppler; coloane foarte strânse, celule pe mai multe rânduri, tabele-imagine, fracții suprapuse, matrici și indici nu se reconstruiesc. Nu înlocuiește Nougat/MinerU. Testat doar pe PDF-uri LaTeX de laborator.</p>
+  </div>
+</section>
+
+<!-- 8a V0.5 -->
+<section class="slide" id="v05" data-title="Nou în 0.5">
+  <div class="wrap">
+    <div class="kicker rv">nou în 0.5.0</div>
+    <h2 class="rv">Bibliografia, <em>luată în serios.</em></h2>
+    <p class="lead rv">Totul e aditiv: fără niciun flag și fără variabile de mediu, TEZAUR se poartă exact ca în 0.4.0.</p>
+    <div class="grid g2" style="margin-top:22px">
+      <div class="card rv">
+        <h3>Referințe și surse</h3>
+        <ul class="mono" style="list-style:none;font-size:13.5px;line-height:2;color:#cfd3dd">
+          <li><span style="color:var(--gold)">BibTeX complet</span> @string, concatenări, crossref, avertismente</li>
+          <li><span style="color:var(--gold)">RIS · CSL JSON</span> import; export CSL mai bogat</li>
+          <li><span style="color:var(--gold)">bib --duplicates</span> dubluri după DOI / ISBN</li>
+          <li><span style="color:var(--gold)">oai</span> recoltare OAI-PMH, mapare Dublin Core</li>
+          <li><span style="color:var(--gold)">Crossref</span> client politicos, cache, lucrări retrase</li>
+        </ul>
+        <p class="small" style="margin-top:8px">Clienții de rețea sunt <b>opt-in</b>; <span class="mono">oai -o</span> nu suprascrie niciodată un fișier nevid.</p>
+      </div>
+      <div class="card rv">
+        <h3>Citări și căutare</h3>
+        <ul class="mono" style="list-style:none;font-size:13.5px;line-height:2;color:#cfd3dd">
+          <li><span style="color:var(--gold)">Localizatori</span> etichete, intervale, cifre romane</li>
+          <li><span style="color:var(--gold)">EPUB</span> numerele paginilor tipărite</li>
+          <li><span style="color:var(--gold)">Unicode</span> NFKD, diacritice, cuvinte UAX #29</li>
+          <li><span style="color:var(--gold)">--phrases</span> fraze exacte și proximitate</li>
+          <li><span style="color:var(--gold)">Chitanțe v2</span> RFC 8785, SHA-256 (<span class="mono">TEZAUR_RECEIPT_FORMAT=2</span>)</li>
+        </ul>
+        <p class="small" style="margin-top:8px">Interfața web vorbește acum <b>8 limbi</b>; pdf.js e inclus local, fără CDN.</p>
+      </div>
+    </div>
+    <p class="small rv" style="margin-top:14px;color:var(--gold)"><b>Limite oneste:</b> modelul e al tău, TEZAUR verifică mecanic citările, nu demonstrează afirmații; paginile surselor fără paginare (<span class="mono">.md</span>, <span class="mono">.txt</span>) nu pot fi verificate; depozitele APT/RPM sunt nesemnate.</p>
   </div>
 </section>
 
