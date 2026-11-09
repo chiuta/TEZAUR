@@ -148,6 +148,11 @@ const ORG: [&str; 12] = [
 ];
 
 impl Entry {
+    /// Citation surname of the first author (used to build generated keys).
+    pub(crate) fn people_for_key(&self) -> Option<String> {
+        self.people().people.first().map(|p| p.family())
+    }
+
     /// Parsed authors (spec 04). A name without comma containing an institution word is kept
     /// whole as one literal name.
     fn people(&self) -> NameList {
@@ -323,7 +328,7 @@ pub struct BibMap {
 }
 
 impl BibMap {
-    /// Reads every `*.bib` (up to `max_depth` levels) under `dirs`, plus explicitly named files.
+    /// Reads every `*.bib` and `*.ris` (up to `max_depth` levels) under `dirs`, plus explicitly named files.
     pub fn load(dirs: &[PathBuf], files: &[PathBuf], max_depth: usize) -> BibMap {
         let mut paths: Vec<PathBuf> = files.to_vec();
         for d in dirs {
@@ -331,7 +336,7 @@ impl BibMap {
                 if e.file_type().is_file()
                     && e.path()
                         .extension()
-                        .map(|x| x.eq_ignore_ascii_case("bib"))
+                        .map(|x| x.eq_ignore_ascii_case("bib") || x.eq_ignore_ascii_case("ris"))
                         .unwrap_or(false)
                 {
                     paths.push(e.path().to_path_buf());
@@ -349,7 +354,13 @@ impl BibMap {
         for p in paths {
             match std::fs::read(&p) {
                 Ok(b) => {
-                    let (es, ws) = parse_with_warnings(&String::from_utf8_lossy(&b));
+                    let text = String::from_utf8_lossy(&b);
+                    let is_ris = p.extension().is_some_and(|x| x.eq_ignore_ascii_case("ris"));
+                    let (es, ws) = if is_ris {
+                        crate::ris::parse(&text)
+                    } else {
+                        parse_with_warnings(&text)
+                    };
                     entries.extend(es);
                     let name = p.file_name().map(|n| n.to_string_lossy().into_owned());
                     warnings.extend(

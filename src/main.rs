@@ -24,6 +24,7 @@ mod online;
 mod pdfx;
 mod portable;
 mod prompt;
+mod ris;
 mod serve;
 mod sha256;
 mod verify;
