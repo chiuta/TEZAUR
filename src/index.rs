@@ -560,9 +560,13 @@ mod tests {
         assert_eq!(ids("\"burden of proof\""), vec![0, 2]);
         assert_eq!(ids("burden of proof"), vec![0, 1, 2]);
         // ordinary term next to a phrase: only phrase passages, and the term raises the score
-        let r = Searcher::new(&s)
-            .with_phrases(true)
-            .search("\"burden of proof\" authority", None, 5, 10, None);
+        let r = Searcher::new(&s).with_phrases(true).search(
+            "\"burden of proof\" authority",
+            None,
+            5,
+            10,
+            None,
+        );
         assert_eq!(r.len(), 2);
         assert!(r.iter().all(|h| h.chunk != 1));
         // proximity, mistakes, one-word phrases
@@ -590,9 +594,15 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         // default: same hits and same scores as the unquoted text; nothing is dropped, nothing aborts
-        assert_eq!(ids("\"burden of proof\"", false), ids("burden of proof", false));
+        assert_eq!(
+            ids("\"burden of proof\"", false),
+            ids("burden of proof", false)
+        );
         assert_eq!(ids("what is the \"clean room\" burden?", false).len(), 2);
-        assert_eq!(ids("\"proof burden\"~3", false), ids("proof burden 3", false));
+        assert_eq!(
+            ids("\"proof burden\"~3", false),
+            ids("proof burden 3", false)
+        );
         assert_eq!(ids("\"zzzz yyyy\" burden", false), ids("burden", false));
         assert!(!ids("\"proof burden\"~x", false).is_empty());
         // opt-in: the filter applies
@@ -610,9 +620,10 @@ mod tests {
         s.chunks[0].page = 3;
         s.chunks[1].page = 4;
         s.chunks[2].page = 4;
-        let r = Searcher::new(&s)
-            .with_phrases(true)
-            .search("\"burden of proof\"", None, 5, 10, None);
+        let r =
+            Searcher::new(&s)
+                .with_phrases(true)
+                .search("\"burden of proof\"", None, 5, 10, None);
         assert_eq!(r.iter().map(|h| h.chunk).collect::<Vec<_>>(), vec![2]);
     }
 

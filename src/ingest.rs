@@ -565,7 +565,6 @@ fn rejoin_hyphenated(text: &str) -> String {
     out
 }
 
-
 /// Splits text into overlapping word windows of about `size` words. Windows end at a sentence
 /// boundary when one lies in the last 30% of the window, and the overlap starts at a sentence
 /// start when possible, so passages read as whole sentences. Text with no punctuation falls
@@ -724,7 +723,6 @@ mod tests {
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
-
 
     #[test]
     fn chunking_overlaps_and_covers() {

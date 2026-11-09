@@ -49,6 +49,9 @@ const MONTHS: [(&str, &str); 12] = [
     ("dec", "December"),
 ];
 
+/// An entry whose values wait until every @string is known: (type, key, [(field, parts)]).
+type Pending = (String, String, Vec<(String, Vec<Part>)>);
+
 fn skip_ws(c: &[char], i: &mut usize) {
     while *i < c.len() && c[*i].is_whitespace() {
         *i += 1;
@@ -197,7 +200,7 @@ pub fn read(text: &str) -> RawFile {
         .map(|(a, full)| (a.to_string(), vec![Part::Lit(full.to_string())]))
         .collect();
     // (type, key, [(field, parts)]) kept unresolved until every @string is known
-    let mut pending: Vec<(String, String, Vec<(String, Vec<Part>)>)> = Vec::new();
+    let mut pending: Vec<Pending> = Vec::new();
     let mut warnings = Vec::new();
     let mut i = 0;
     while i < c.len() {

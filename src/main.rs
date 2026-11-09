@@ -1444,9 +1444,13 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let store = Store::load(&ctx.index)?;
             let allow = allowed_docs(ctx, &store, &bib);
             let emb = embed_query(ctx, &store, query);
-            let hits = Searcher::new(&store)
-                .with_phrases(ctx.phrases)
-                .search(query, emb.as_deref(), *k, 4, allow.as_ref());
+            let hits = Searcher::new(&store).with_phrases(ctx.phrases).search(
+                query,
+                emb.as_deref(),
+                *k,
+                4,
+                allow.as_ref(),
+            );
             if hits.is_empty() {
                 println!("no matches");
             }
@@ -2909,8 +2913,14 @@ mod tests {
         std::fs::write(&f, "@book{a, title={T}}").unwrap();
         let e = oai_check_output(&f, false, false).unwrap_err().to_string();
         assert!(e.contains("refusing to overwrite"), "{e}");
-        assert!(oai_check_output(&f, true, false).is_ok(), "--incremental appends");
-        assert!(oai_check_output(&f, false, true).is_ok(), "--force replaces");
+        assert!(
+            oai_check_output(&f, true, false).is_ok(),
+            "--incremental appends"
+        );
+        assert!(
+            oai_check_output(&f, false, true).is_ok(),
+            "--force replaces"
+        );
         std::fs::remove_dir_all(&d).ok();
     }
 

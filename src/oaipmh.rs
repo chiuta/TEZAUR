@@ -499,10 +499,10 @@ pub fn harvest(cfg: &Config, known: &Known) -> Result<Outcome, String> {
                 continue; // already received before a restart
             }
             new_on_page += 1;
-            if let Some(d) = h.child_text("datestamp").filter(|d| gran_of(d).is_some()) {
-                if out.newest.as_ref().is_none_or(|n| pad(d) > pad(n)) {
-                    out.newest = Some(d.to_string());
-                }
+            if let Some(d) = h.child_text("datestamp").filter(|d| gran_of(d).is_some())
+                && out.newest.as_ref().is_none_or(|n| pad(d) > pad(n))
+            {
+                out.newest = Some(d.to_string());
             }
             if out.entries.len() + out.deleted.len() >= cap {
                 out.warnings
@@ -602,12 +602,13 @@ mod tests {
         let mut out = Vec::new();
         let mut i = 0;
         while i < b.len() {
-            if b[i] == b'%' && i + 2 < b.len() {
-                if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                    out.push(v);
-                    i += 3;
-                    continue;
-                }
+            if b[i] == b'%'
+                && i + 2 < b.len()
+                && let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16)
+            {
+                out.push(v);
+                i += 3;
+                continue;
             }
             out.push(b[i]);
             i += 1;
@@ -939,8 +940,16 @@ mod tests {
         }));
         let o = harvest(&cfg(&b1), &Known::default()).unwrap();
         assert!(!o.complete && o.entries.len() == 1);
-        assert!(o.warnings.iter().any(|w| w.contains("repeated a resumption token")));
-        assert!(seen1.lock().unwrap().len() <= 4, "{:?}", seen1.lock().unwrap());
+        assert!(
+            o.warnings
+                .iter()
+                .any(|w| w.contains("repeated a resumption token"))
+        );
+        assert!(
+            seen1.lock().unwrap().len() <= 4,
+            "{:?}",
+            seen1.lock().unwrap()
+        );
         // a new token on every (empty) page
         let n = std::sync::atomic::AtomicUsize::new(0);
         let (b2, seen2) = serve(Box::new(move |u, _| {
@@ -979,7 +988,11 @@ mod tests {
         )
         .unwrap();
         assert!(!o.complete && o.warnings.iter().any(|w| w.contains("--max-requests")));
-        assert!(seen3.lock().unwrap().len() <= 5, "{}", seen3.lock().unwrap().len());
+        assert!(
+            seen3.lock().unwrap().len() <= 5,
+            "{}",
+            seen3.lock().unwrap().len()
+        );
     }
 
     #[test]

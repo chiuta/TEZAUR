@@ -215,6 +215,7 @@ impl Client {
     }
 
     /// Time spent waiting or working so far (virtual in tests).
+    #[cfg(test)]
     pub fn elapsed(&self) -> Duration {
         self.clock.now()
     }
@@ -309,14 +310,14 @@ impl Client {
                         404 => return Reply::NotFound,
                         429 => {
                             self.stats.refused += 1;
-                            if attempt == RETRY_PAUSES.len() {
+                            let Some(&pause) = RETRY_PAUSES.get(attempt) else {
                                 return Reply::RateLimited;
-                            }
+                            };
                             let wait = r
                                 .header("Retry-After")
                                 .and_then(|h| h.trim().parse::<u64>().ok())
                                 .map(|s| s.min(120))
-                                .unwrap_or(RETRY_PAUSES[attempt]);
+                                .unwrap_or(pause);
                             self.clock.sleep(Duration::from_secs(wait));
                             continue;
                         }
@@ -564,12 +565,13 @@ mod tests {
         let mut out = Vec::new();
         let mut i = 0;
         while i < b.len() {
-            if b[i] == b'%' && i + 2 < b.len() {
-                if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
-                    out.push(v);
-                    i += 3;
-                    continue;
-                }
+            if b[i] == b'%'
+                && i + 2 < b.len()
+                && let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16)
+            {
+                out.push(v);
+                i += 3;
+                continue;
             }
             out.push(b[i]);
             i += 1;

@@ -59,10 +59,10 @@ pub fn parse(raw: &str) -> Result<FffDoc> {
         app: s(&v, "app"),
         ..Default::default()
     };
-    if let Some(src) = v.get("source") {
-        if let Some(id) = src.get("id").and_then(|x| x.as_str()) {
-            d.sha256 = id.trim_start_matches("sha256:").to_string();
-        }
+    if let Some(src) = v.get("source")
+        && let Some(id) = src.get("id").and_then(|x| x.as_str())
+    {
+        d.sha256 = id.trim_start_matches("sha256:").to_string();
     }
     match typ.as_str() {
         "document/ocr" => {

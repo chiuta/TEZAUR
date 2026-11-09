@@ -511,12 +511,11 @@ pub fn extract(text: &str) -> Vec<Found> {
             check_orcid(run)
         } else if groups.len() == 2 && groups.iter().all(|g| g.len() == 4) {
             check_issn(run)
-        } else if flat.len() == 13
+        } else if (flat.len() == 13
             && flat.chars().all(|c| c.is_ascii_digit())
-            && (flat.starts_with("978") || flat.starts_with("979"))
+            && (flat.starts_with("978") || flat.starts_with("979")))
+            || (flat.len() == 10 && groups.len() >= 3)
         {
-            check_isbn(run)
-        } else if flat.len() == 10 && groups.len() >= 3 {
             check_isbn(run)
         } else {
             None

@@ -311,9 +311,13 @@ fn api(
                         .collect()
                 });
             let emb = embed_query(ctx, &store, &q);
-            let hits = Searcher::new(&store)
-                .with_phrases(ctx.phrases)
-                .search(&q, emb.as_deref(), k, 3, allow.as_ref());
+            let hits = Searcher::new(&store).with_phrases(ctx.phrases).search(
+                &q,
+                emb.as_deref(),
+                k,
+                3,
+                allow.as_ref(),
+            );
             let out: Vec<Value> = hits.iter().enumerate().map(|(i, h)| {
                 let c = &store.chunks[h.chunk];
                 let d = &store.docs[c.doc];

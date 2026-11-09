@@ -37,6 +37,7 @@ pub struct Pagination {
 
 impl Pagination {
     /// Largest Arabic label; Roman and other labels do not count.
+    #[cfg(test)]
     pub fn doc_pages(&self) -> usize {
         self.pages
             .iter()

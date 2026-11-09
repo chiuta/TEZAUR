@@ -131,6 +131,7 @@ pub fn parse_with_warnings(text: &str) -> (Vec<Entry>, Vec<String>) {
     (f.entries.iter().map(to_entry).collect(), f.warnings)
 }
 
+#[cfg(test)]
 pub fn parse(text: &str) -> Vec<Entry> {
     parse_with_warnings(text).0
 }

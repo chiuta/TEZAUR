@@ -1946,7 +1946,8 @@ mod tests {
     fn v2_survives_reformatting_and_detects_edits() {
         with_key(None, || {
             let store = st_sha();
-            let r = make_receipt_fmt(&store, "m", "ask", "q?", &[0, 2], "answer [1]", true).unwrap();
+            let r =
+                make_receipt_fmt(&store, "m", "ask", "q?", &[0, 2], "answer [1]", true).unwrap();
             assert_eq!(r["format"], "tezaur-receipt/2");
             assert!(r["index"].is_string() && r["excerpts"][0]["doc_sha256"].is_string());
             // reformatted: indented, keys reversed
