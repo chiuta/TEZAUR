@@ -1,2 +1,2 @@
-Extension skeleton (UNBUILT: needs the GHCR image and `docker extension build`). Note: the compose service uses the server image `ghcr.io/chiuta/tezaur`;
-the extension image above it only carries the UI shell. Install: `docker extension install OWNER/tezaur-extension:0.1.0`.
+Extension skeleton (UNBUILT: needs the GHCR image and `docker extension build`). Note: the compose service uses the server image `ghcr.io/chiuta/tezaur-server` (the image `.github/docker-publish.sh` pushes);
+the extension image above it only carries the UI shell. No extension image is published: build it here with `docker extension build -t tezaur-extension:0.1.0 .`, then `docker extension install tezaur-extension:0.1.0`.

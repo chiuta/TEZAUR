@@ -105,7 +105,7 @@ jobs:
       - name: Quadlet dry-run with the real generator, then run the generated unit
         run: |
           sudo apt-get update && sudo apt-get install -y podman
-          sed -i "s#ghcr.io/OWNER/tezaur:latest#localhost/tezaur:ci#; s#^Image=.*#Image=localhost/tezaur:ci#" variants/deploy/quadlet/tezaur.container
+          sed -i "s#ghcr.io/chiuta/tezaur-server:latest#localhost/tezaur:ci#; s#^Image=.*#Image=localhost/tezaur:ci#" variants/deploy/quadlet/tezaur.container
           mkdir -p ~/.config/containers/systemd && cp variants/deploy/quadlet/tezaur.container ~/.config/containers/systemd/
           docker save localhost/tezaur:ci | podman load
           export XDG_RUNTIME_DIR=/run/user/$(id -u)
@@ -235,7 +235,7 @@ jobs:
           brew tap-new local/t
           cp variants/packaging/homebrew/tezaur.rb "$(brew --repository local/t)/Formula/tezaur.rb"
           mkdir -p "$(brew --repository local/t)/Casks" && cp variants/deploy/cask/tezaur.rb "$(brew --repository local/t)/Casks/tezaur.rb"
-          sed -i '' "s#OWNER/tezaur#$REPO#g" "$(brew --repository local/t)/Formula/tezaur.rb"
+          sed -i '' "s#chiuta/TEZAUR#$REPO#g" "$(brew --repository local/t)/Formula/tezaur.rb"
           bash .github/annotate.sh brew style local/t/tezaur/tezaur
           bash .github/annotate.sh brew install --HEAD --build-from-source local/t/tezaur
           tezaur --version

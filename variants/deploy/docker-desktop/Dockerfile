@@ -1,4 +1,4 @@
-ARG SERVER_IMAGE=ghcr.io/chiuta/tezaur:latest
+ARG SERVER_IMAGE=ghcr.io/chiuta/tezaur-server:latest
 FROM ${SERVER_IMAGE} AS server
 FROM alpine:3.20
 LABEL org.opencontainers.image.title="TEZAUR" \
