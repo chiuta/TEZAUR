@@ -292,6 +292,20 @@ impl Entry {
         if !self.doi.is_empty() {
             v["DOI"] = self.doi.clone().into();
         }
+        for (k, x) in [
+            ("volume", &self.volume),
+            ("issue", &self.number),
+            ("page", &self.pages),
+            ("publisher", &self.publisher),
+            ("publisher-place", &self.address),
+            ("edition", &self.edition),
+            ("ISBN", &self.isbn),
+            ("ISSN", &self.issn),
+        ] {
+            if !x.is_empty() {
+                v[k] = x.clone().into();
+            }
+        }
         if !self.url.is_empty() {
             v["URL"] = self.url.clone().into();
         }
@@ -338,6 +352,10 @@ impl BibMap {
                         .extension()
                         .map(|x| x.eq_ignore_ascii_case("bib") || x.eq_ignore_ascii_case("ris"))
                         .unwrap_or(false)
+                    || e.file_name()
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .ends_with(".csl.json")
                 {
                     paths.push(e.path().to_path_buf());
                 }
@@ -356,7 +374,12 @@ impl BibMap {
                 Ok(b) => {
                     let text = String::from_utf8_lossy(&b);
                     let is_ris = p.extension().is_some_and(|x| x.eq_ignore_ascii_case("ris"));
-                    let (es, ws) = if is_ris {
+                    let is_json = p
+                        .extension()
+                        .is_some_and(|x| x.eq_ignore_ascii_case("json"));
+                    let (es, ws) = if is_json {
+                        crate::csljson::parse(&text).unwrap_or_else(|err| (vec![], vec![err]))
+                    } else if is_ris {
                         crate::ris::parse(&text)
                     } else {
                         parse_with_warnings(&text)

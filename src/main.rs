@@ -10,6 +10,7 @@
 mod audit;
 mod bib;
 mod bibtex;
+mod csljson;
 mod eval;
 mod export;
 mod fff;
