@@ -11,6 +11,7 @@ mod audit;
 mod bib;
 mod bibtex;
 mod csljson;
+mod dedup;
 mod eval;
 mod export;
 mod fff;
@@ -81,6 +82,10 @@ struct Cli {
     /// Extra BibTeX file(s) for author/year citations. *.bib files in Data/ are found automatically.
     #[arg(long, global = true)]
     bib: Vec<PathBuf>,
+    /// Merge references that share a DOI (or the ISBN of a whole book) into one entry; the other keys stay
+    /// valid as aliases in `[@key]` citations. Conflicting records (different year/title) are never merged.
+    #[arg(long, global = true)]
+    unify_duplicates: bool,
     /// Without a command, starts the interactive mode.
     /// Re-order the retrieved passages with the model before answering (slower, often more relevant).
     #[arg(long, global = true)]
@@ -431,6 +436,13 @@ enum Cmd {
         /// (VERIGA --fff-in, AcademiSearch). Same as `--to fff -o FILE`.
         #[arg(long, value_name = "FILE")]
         fff_out: Option<PathBuf>,
+        /// Instead of exporting, report duplicate references (same DOI, or same ISBN of a whole book),
+        /// conflicts and unusable identifiers. Nothing is changed or written.
+        #[arg(long)]
+        duplicates: bool,
+        /// With --duplicates: machine-readable output.
+        #[arg(long, requires = "duplicates")]
+        json: bool,
     },
     /// Pull your Zotero library: fetch BibTeX from Zotero's local API (Zotero must be running with "Allow other
     /// applications to communicate with Zotero" on) and index the attachments in Zotero's storage folder.
@@ -484,6 +496,7 @@ pub(crate) struct Ctx {
     llm: Llm,
     embed_model: Option<String>,
     bib_files: Vec<PathBuf>,
+    unify_duplicates: bool,
     /// Session-wide document filter (`--only`, or `/only` in interactive mode).
     only: RefCell<Option<String>>,
     rerank: bool,
@@ -493,6 +506,16 @@ pub(crate) struct Ctx {
 impl Ctx {
     /// Re-read per command so a freshly exported .bib is picked up without restarting.
     fn load_bib(&self) -> BibMap {
+        let b = self.load_bib_raw();
+        if self.unify_duplicates {
+            b.unified()
+        } else {
+            b
+        }
+    }
+
+    /// As loaded, duplicates included.
+    fn load_bib_raw(&self) -> BibMap {
         let depth = if self.data.is_some() { 3 } else { 1 };
         BibMap::load(std::slice::from_ref(&self.base), &self.bib_files, depth)
     }
@@ -1138,7 +1161,22 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             to,
             output,
             fff_out,
+            duplicates,
+            json,
         } => {
+            if *duplicates {
+                let raw = ctx.load_bib_raw();
+                for w in &raw.warnings {
+                    eprintln!("warning: {w}");
+                }
+                let rep = dedup::analyze(&raw.entries);
+                if *json {
+                    println!("{}", serde_json::to_string_pretty(&rep.to_json())?);
+                } else {
+                    print!("{}", rep.render(raw.entries.len()));
+                }
+                return Ok(());
+            }
             let bib = ctx.load_bib();
             let to = if fff_out.is_some() { BibTo::Fff } else { *to };
             let output = fff_out.as_ref().or(output.as_ref());
@@ -1247,8 +1285,11 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             }
             let on = if *online {
                 let (_, groups) = audit::extract_cites(&text);
-                let mut keys: Vec<String> =
-                    groups.iter().flatten().map(|c| c.key.clone()).collect();
+                let mut keys: Vec<String> = groups
+                    .iter()
+                    .flatten()
+                    .map(|c| bib.canonical_key(&c.key))
+                    .collect();
                 keys.sort_by_key(|k| k.to_lowercase());
                 keys.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
                 let entries: Vec<&bib::Entry> = bib
@@ -1304,7 +1345,10 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 let entries: Vec<&bib::Entry> = bib
                     .entries
                     .iter()
-                    .filter(|e| used.iter().any(|k| k.eq_ignore_ascii_case(&e.key)))
+                    .filter(|e| {
+                        used.iter()
+                            .any(|k| bib.canonical_key(k).eq_ignore_ascii_case(&e.key))
+                    })
                     .collect();
                 eprintln!(
                     "[online: sending {} DOIs/titles to OpenAlex and Crossref]",
@@ -2639,6 +2683,7 @@ fn real_main() -> Result<()> {
         llm: Llm::new(cli.api, &host, &cli.model, cli.num_ctx, cli.api_key.clone()),
         embed_model: cli.embed_model.clone(),
         bib_files: cli.bib.clone(),
+        unify_duplicates: cli.unify_duplicates,
         only: RefCell::new(cli.only.clone()),
         rerank: cli.rerank,
         verify: cli.verify,

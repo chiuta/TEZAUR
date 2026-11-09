@@ -471,7 +471,7 @@ impl Finding {
 }
 
 pub(crate) fn doc_for_key(store: &Store, bib: &BibMap, key: &str) -> Option<usize> {
-    let k = key.to_lowercase();
+    let k = bib.canonical_key(key).to_lowercase();
     store.docs.iter().position(|d| {
         bib.find(&d.path)
             .map(|e| e.key.to_lowercase() == k)
@@ -1080,7 +1080,11 @@ pub fn refs_report(store: &Store, bib: &BibMap, text: &str) -> Value {
         .collect::<Vec<_>>()
         .join("\n");
     let (_, groups) = extract_cites(&body);
-    let mut cited: Vec<String> = groups.iter().flatten().map(|c| c.key.clone()).collect();
+    let mut cited: Vec<String> = groups
+        .iter()
+        .flatten()
+        .map(|c| bib.canonical_key(&c.key))
+        .collect();
     cited.sort_by_key(|k| k.to_lowercase());
     cited.dedup_by_key(|k| k.to_lowercase());
     let lc: std::collections::HashSet<String> = cited.iter().map(|k| k.to_lowercase()).collect();

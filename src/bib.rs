@@ -20,6 +20,10 @@ pub struct Entry {
     pub file: String,
     pub note: String,
     pub url: String,
+    /// File the entry was read from (for reports).
+    pub source: String,
+    /// Other keys of the same work after unification (spec 07).
+    pub aliases: Vec<String>,
     pub editor: String,
     pub publisher: String,
     pub volume: String,
@@ -342,6 +346,23 @@ pub struct BibMap {
 }
 
 impl BibMap {
+    /// Key of the entry that `k` names, following aliases left by unification.
+    pub fn canonical_key(&self, k: &str) -> String {
+        self.entries
+            .iter()
+            .find(|e| e.aliases.iter().any(|a| a.eq_ignore_ascii_case(k)))
+            .map(|e| e.key.clone())
+            .unwrap_or_else(|| k.to_string())
+    }
+
+    /// Merges duplicates by identifier (no hard conflicts only); see `dedup`.
+    pub fn unified(mut self) -> BibMap {
+        self.entries = crate::dedup::unify(&self.entries).0;
+        self
+    }
+}
+
+impl BibMap {
     /// Reads every `*.bib` and `*.ris` (up to `max_depth` levels) under `dirs`, plus explicitly named files.
     pub fn load(dirs: &[PathBuf], files: &[PathBuf], max_depth: usize) -> BibMap {
         let mut paths: Vec<PathBuf> = files.to_vec();
@@ -384,7 +405,11 @@ impl BibMap {
                     } else {
                         parse_with_warnings(&text)
                     };
-                    entries.extend(es);
+                    let src = p.file_name().map(|n| n.to_string_lossy().into_owned());
+                    entries.extend(es.into_iter().map(|mut e| {
+                        e.source = src.clone().unwrap_or_default();
+                        e
+                    }));
                     let name = p.file_name().map(|n| n.to_string_lossy().into_owned());
                     warnings.extend(
                         ws.into_iter()
