@@ -12,6 +12,7 @@ mod bib;
 mod eval;
 mod export;
 mod fff;
+mod ids;
 mod index;
 mod ingest;
 mod kinds;

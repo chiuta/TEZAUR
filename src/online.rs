@@ -57,6 +57,9 @@ pub struct Work {
 }
 
 fn strip_doi(d: &str) -> String {
+    if let Some(f) = crate::ids::normalize_doi(d) {
+        return f.display; // label / URL host removed, original spelling kept
+    }
     d.trim()
         .trim_start_matches("https://doi.org/")
         .trim_start_matches("http://doi.org/")
