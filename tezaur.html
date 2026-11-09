@@ -6,8 +6,8 @@
 <meta name="description" content="TEZAUR: asistent local de cercetare pentru teze, cu citări verificabile din biblioteca ta.">
 <title>TEZAUR</title>
 <style>
-:root{--bg:#f6f4ef;--panel:#fffdf8;--ink:#23211c;--mute:#6d675b;--line:#ddd6c6;--acc:#8a4b14;--acc2:#f0e2cf;--bad:#a4271f;--ok:#2f6b3a;--warn:#8a6a00}
-@media (prefers-color-scheme:dark){:root{--bg:#171613;--panel:#1f1d19;--ink:#ece7da;--mute:#9b9484;--line:#38342c;--acc:#e0a463;--acc2:#3a2e1e;--bad:#ff8b80;--ok:#7fcf8c;--warn:#e2c15a}}
+:root{--bg:#f6f4ef;--panel:#fffdf8;--ink:#23211c;--mute:#6d675b;--line:#ddd6c6;--acc:#8a4b14;--acc2:#f0e2cf;--bad:#a4271f;--ok:#2f6b3a;--warn:#8a6a00;--edge:#857e6d}
+@media (prefers-color-scheme:dark){:root{--bg:#171613;--panel:#1f1d19;--ink:#ece7da;--mute:#9b9484;--line:#38342c;--acc:#e0a463;--acc2:#3a2e1e;--bad:#ff8b80;--ok:#7fcf8c;--warn:#e2c15a;--edge:#8a8372}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 .app{display:grid;grid-template-columns:330px 1fr;min-height:100vh}
@@ -18,7 +18,7 @@ h1{font:700 22px Georgia,serif;letter-spacing:.14em;margin:0 0 2px;color:var(--a
 h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin:18px 0 6px}
 [hidden]{display:none!important}
 label{display:block;font-size:12px;color:var(--mute);margin:8px 0 2px}
-input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--edge);border-radius:6px;padding:6px 8px}
 textarea{resize:vertical}
 button{font:inherit;cursor:pointer;border:1px solid var(--acc);background:var(--acc);color:var(--panel);border-radius:6px;padding:6px 12px}
 button.alt{background:transparent;color:var(--acc)}
@@ -30,10 +30,12 @@ button:disabled{opacity:.5;cursor:default}
 .docs li{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px dotted var(--line)}
 .docs li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .docs input{width:auto}
-.x{border:0;background:none;color:var(--mute);padding:0 4px}
+.x{border:0;background:none;color:var(--mute);padding:2px 6px;min-width:24px;min-height:24px}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .tabs button{background:transparent;color:var(--ink);border-color:var(--line)}
-.tabs button.on{background:var(--acc2);border-color:var(--acc);color:var(--ink)}
+.tabs button.on{background:var(--acc2);border-color:var(--acc);color:var(--ink);font-weight:700;box-shadow:inset 0 -3px 0 var(--acc)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
 .out p{margin:.5em 0}.out h1,.out h2,.out h3,.out h4{font-family:Georgia,serif;text-transform:none;letter-spacing:0;color:var(--ink);font-size:17px;margin:1em 0 .3em}
 .out ul{margin:.4em 0 .4em 1.2em;padding:0}
@@ -62,7 +64,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
   <div class="row"><button id="addFiles">+ Fișiere</button><button id="addDir" class="alt">+ Folder</button></div>
   <input type="file" id="fFiles" multiple hidden accept=".pdf,.docx,.epub,.txt,.md,.markdown,.html,.htm,.tex">
   <input type="file" id="fDir" hidden>
-  <div class="small" id="status">Biblioteca e goală.</div>
+  <div class="small" id="status" role="status">Biblioteca e goală.</div>
   <ul class="docs" id="docs"></ul>
   <div class="row"><button class="alt" id="selAll">Toate</button><button class="alt" id="selNone">Niciuna</button><button class="alt" id="clearAll">Șterge tot</button></div>
   <div class="small">Bifează documentele la care se restrânge căutarea (ca <code>--only</code>).</div>
@@ -70,16 +72,16 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
   <h2>BibTeX (Zotero)</h2>
   <button class="alt" id="addBib">Încarcă .bib</button>
   <input type="file" id="fBib" multiple hidden accept=".bib,.bibtex,.txt">
-  <div class="small" id="bibStatus">Fără BibTeX: citările folosesc titlul fișierului.</div>
+  <div class="small" id="bibStatus" role="status">Fără BibTeX: citările folosesc titlul fișierului.</div>
 
   <h2>Mesh P2P</h2>
   <details id="mesh"><summary class="small">Schimb direct între cercetători, fără server central</summary>
-    <label>Numele nodului</label><input id="mName" placeholder="ana">
-    <label>Ofer colegilor (text din cale/titlu; * = tot; gol = nimic)</label><input id="mShare" placeholder="smith, *">
+    <label for="mName">Numele nodului</label><input id="mName" placeholder="ana">
+    <label for="mShare">Ofer colegilor (text din cale/titlu; * = tot; gol = nimic)</label><input id="mShare" placeholder="smith, *">
     <label class="small"><input type="checkbox" id="mRelay" style="width:auto"> reofer și documentele primite de la alții</label>
     <label class="small"><input type="checkbox" id="mStun" style="width:auto"> peste internet (cere unui server STUN Google adresa ta publică)</label>
     <div class="row"><button class="alt" id="mOffer">Creează invitație</button><button class="alt" id="mAccept">Acceptă cod</button></div>
-    <textarea id="mCode" rows="3" placeholder="cod de invitație sau de răspuns (se trimite prin orice canal)"></textarea>
+    <textarea id="mCode" aria-label="Cod de invitație sau de răspuns" rows="3" placeholder="cod de invitație sau de răspuns (se trimite prin orice canal)"></textarea>
     <div class="small" id="mStat">neconectat</div>
     <div class="row"><button class="alt" id="mSearch">Caută la peer</button><button class="alt" id="mPull">Copiază documentele lui</button></div>
     <div class="row"><button class="alt" id="mExp">Export pachet .tzb</button><button class="alt" id="mImp">Import .tzb</button></div>
@@ -93,37 +95,37 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
   </details>
 
   <h2>Model local</h2>
-  <label>Server</label>
+  <label for="api">Server</label>
   <select id="api" aria-label="Server de modele"><option value="ollama">Ollama</option><option value="jan">Jan</option><option value="openai">OpenAI-compatibil (LM Studio, llama.cpp…)</option></select>
-  <label>Adresă</label><input id="host" aria-label="Adresă server">
-  <label>Model</label>
+  <label for="host">Adresă</label><input id="host" aria-label="Adresă server">
+  <label for="modelSel">Model</label>
   <div class="row"><select id="modelSel" aria-label="Model"></select><button class="alt" id="listModels">Listează</button></div>
-  <input id="model" placeholder="sau scrie numele modelului" style="margin-top:6px">
-  <label>Cheie API (opțional)</label><input id="key" aria-label="Cheie API" type="password" autocomplete="off">
-  <label>Context (num_ctx, doar Ollama)</label><input id="numctx" aria-label="Context (num_ctx)" type="number" value="8192">
+  <input id="model" aria-label="Model (nume)" placeholder="sau scrie numele modelului" style="margin-top:6px">
+  <label for="key">Cheie API (opțional)</label><input id="key" aria-label="Cheie API" type="password" autocomplete="off">
+  <label for="numctx">Context (num_ctx, doar Ollama)</label><input id="numctx" aria-label="Context (num_ctx)" type="number" value="8192">
   <div class="row" style="margin-top:8px"><button class="alt" id="doctor">Verifică conexiunea</button></div>
   <div id="doctorOut" class="small"></div>
 </aside>
 
 <main>
-  <div class="tabs" id="tabs"></div>
+  <div class="tabs" id="tabs" role="group" aria-label="Mod de lucru"></div>
   <div class="card">
     <div id="modeHelp" class="small" style="margin-bottom:8px"></div>
-    <div id="fInput"><textarea id="q" rows="3" placeholder="Întrebarea / tema…"></textarea></div>
-    <div id="fNotes" hidden><label>Note ale tale (opțional)</label><textarea id="notes" rows="3"></textarea></div>
+    <div id="fInput"><textarea id="q" aria-label="Întrebarea / tema" rows="3" placeholder="Întrebarea / tema…"></textarea></div>
+    <div id="fNotes" hidden><label for="notes">Note ale tale (opțional)</label><textarea id="notes" rows="3"></textarea></div>
     <div class="row">
-      <div id="fKind" hidden><label>Tip</label><select id="kind"><option value="section">secțiune</option><option value="introduction">introducere</option><option value="lit-review">recenzie de literatură</option><option value="critical-review">recenzie critică</option></select></div>
-      <div id="fDoc" hidden><label>Document</label><select id="docSel"></select></div>
-      <div><label>Pasaje (k)</label><input id="k" aria-label="Pasaje (k)" type="number" value="8" min="1" max="30"></div>
-      <div><label>Limba răspunsului</label><input id="lang" placeholder="ca în cerere"></div>
+      <div id="fKind" hidden><label for="kind">Tip</label><select id="kind"><option value="section">secțiune</option><option value="introduction">introducere</option><option value="lit-review">recenzie de literatură</option><option value="critical-review">recenzie critică</option></select></div>
+      <div id="fDoc" hidden><label for="docSel">Document</label><select id="docSel"></select></div>
+      <div><label for="k">Pasaje (k)</label><input id="k" aria-label="Pasaje (k)" type="number" value="8" min="1" max="30"></div>
+      <div><label for="lang">Limba răspunsului</label><input id="lang" placeholder="ca în cerere"></div>
     </div>
     <label id="fSem" hidden><input type="checkbox" id="sem" style="width:auto"> a doua opinie de la modelul local pentru fiecare citare (lent; prinde parafraze și negații, dar modelul poate greși)</label>
     <label id="fDec"><input type="checkbox" id="dec" style="width:auto"> descompune întrebarea în mai multe interogări (mai lent)</label>
-    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><button id="mic" class="alt" title="Dictare" hidden>🎤</button><button id="mic2" class="alt" title="Dictare locală (Whisper, rulează în browser; nimic nu pleacă din calculator)" hidden>🎙️</button><button id="speak" class="alt" title="Citește răspunsul" hidden>🔊</button><span class="small" id="runInfo"></span><span class="small" id="dictst"></span></div>
+    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><button id="mic" class="alt" title="Dictare" aria-label="Dictare" hidden>🎤</button><button id="mic2" class="alt" aria-label="Dictare locală" title="Dictare locală (Whisper, rulează în browser; nimic nu pleacă din calculator)" hidden>🎙️</button><button id="speak" class="alt" title="Citește răspunsul" aria-label="Citește răspunsul" hidden>🔊</button><span class="small" id="runInfo"></span><span class="small" id="dictst"></span></div>
   </div>
 
   <div class="card" id="resCard" hidden>
-    <div id="warns"></div>
+    <div id="warns" role="status"></div><div id="announce" class="sr" role="status" aria-live="polite"></div>
     <div class="out" id="out"></div>
     <div class="row" style="margin-top:10px">
       <button class="alt" id="copy">Copiază</button><button class="alt" id="dlMd">Descarcă .md</button><button class="alt" id="dlTsv" hidden>Descarcă .tsv (Anki)</button>
@@ -387,7 +389,7 @@ function libDocs(){return S.server?S.srv:S.docs}
 function renderLib(){
   const ul=$('docs');ul.innerHTML='';const L=libDocs();
   L.forEach((d,i)=>{const li=document.createElement('li');
-    li.innerHTML=`<input type="checkbox" ${S.only.has(i)?'checked':''}><span title="${esc(d.path)}">${esc(d.title)}</span><button class="x" title="Șterge">×</button>`;
+    li.innerHTML=`<input type="checkbox" aria-label="${esc(d.title)}" ${S.only.has(i)?'checked':''}><span title="${esc(d.path)}">${esc(d.title)}</span><button class="x" title="Șterge" aria-label="${esc(TL('Șterge'))}: ${esc(d.title)}">×</button>`;
     li.firstChild.onchange=e=>{e.target.checked?S.only.add(i):S.only.delete(i)};
     li.lastChild.onclick=()=>removeDoc(i);ul.appendChild(li)});
   const nch=S.server?L.reduce((a,d)=>a+d.chunks,0):S.chunks.length;
@@ -463,7 +465,7 @@ const MODES={
 let mode='ask',lastText='',lastTsv='';
 function setMode(m){
   mode=m;const M=MODES[m];
-  [...$('tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  [...$('tabs').children].forEach(b=>{b.classList.toggle('on',b.dataset.m===m);b.setAttribute('aria-pressed',b.dataset.m===m?'true':'false')});
   $('modeHelp').textContent=TL(M.h);$('fInput').hidden=!!M.doc;$('q').placeholder=TL(M.ph||'');
   $('fSem').hidden=m!=='audit';$('q').rows=M.audit?10:3;
   $('fNotes').hidden=!M.notes;$('fKind').hidden=!M.kind;$('fDoc').hidden=!M.doc;$('fDec').hidden=!M.dec;
@@ -473,7 +475,7 @@ Object.keys(MODES).forEach(m=>{const b=document.createElement('button');b.textCo
 
 function mdRender(t,n){
   const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:]|$)/g,'$1<i>$2</i>')
-    .replace(GROUP,(a,g)=>'['+g.split(/[,;]/).map(x=>{x=+x.trim();return `<a class="c${x<1||x>n?' bad':''}" data-n="${x}">${x}</a>`}).join(',')+']');
+    .replace(GROUP,(a,g)=>'['+g.split(/[,;]/).map(x=>{x=+x.trim();return `<a class="c${x<1||x>n?' bad':''}" data-n="${x}" role="button" tabindex="0"${x<1||x>n?' aria-label="citare inexistentă '+x+'"':''}>${x}</a>`}).join(',')+']');
   let h='',list=false;
   for(const raw of t.split('\n')){
     const l=raw.trimEnd();let m;
@@ -487,8 +489,10 @@ function showHits(hits,withScore){
   $('srcCard').hidden=!hits.length;
   $('src').innerHTML=hits.map((h,i)=>`<div class="ex" id="ex${i+1}"><b>[${i+1}] ${esc(label(h))}</b>${withScore?` <span class="small">· ${(h.cov*100|0)}% termeni</span>`:''}<br>${rich(S.chunks[h.chunk].text)}</div>`).join('');
 }
-$('out').addEventListener('click',e=>{const a=e.target.closest('a.c');if(!a)return;const el=$('ex'+a.dataset.n);if(!el)return;
-  document.querySelectorAll('.ex.hl').forEach(x=>x.classList.remove('hl'));el.classList.add('hl');el.scrollIntoView({behavior:'smooth',block:'center'})});
+function openCite(e){const a=e.target.closest('a.c');if(!a)return;const el=$('ex'+a.dataset.n);if(!el)return;
+  document.querySelectorAll('.ex.hl').forEach(x=>x.classList.remove('hl'));el.classList.add('hl');el.scrollIntoView({behavior:'smooth',block:'center'})}
+$('out').addEventListener('click',openCite);
+$('out').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('a.c')){e.preventDefault();openCite(e)}});
 function refsFor(hits,ans){
   const out=[];for(const n of [...citedNumbers(ans)].sort((a,b)=>a-b)){if(n<1||n>hits.length)continue;const h=hits[n-1],d=S.docs[S.chunks[h.chunk].doc],e=bibFind(d.path);
     out.push(`[${n}] ${label(h)} — ${e?bibRef(e)+'  ['+d.path+']':d.path}`)}
@@ -536,10 +540,10 @@ function rich(t){const L=String(t).split('\n');let o='',i=0;
   while(i<L.length){const l=L[i];
     if(/^\s*\|.*\|\s*$/.test(l)){const rows=[];while(i<L.length&&/^\s*\|.*\|\s*$/.test(L[i]))rows.push(L[i++].trim().slice(1,-1).split('|').map(c=>c.trim()));
       const hd=rows.length>1&&rows[1].every(c=>/^:?-{3,}:?$/.test(c));
-      o+='<table>'+rows.filter((r,k)=>!(hd&&k===1)).map((r,k)=>'<tr>'+r.map(c=>hd&&k===0?`<th>${esc(c)}</th>`:`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</table>';continue}
+      o+='<table>'+rows.filter((r,k)=>!(hd&&k===1)).map((r,k)=>'<tr>'+r.map(c=>hd&&k===0?`<th scope="col">${esc(c)}</th>`:`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</table>';continue}
     o+=esc(l).replace(/\[equation\] \$\$ (.*?) \$\$( \(eq\. [^)]*\))?/g,(_,e,t)=>`<span class="eq">${e}${t||''}</span>`)+(i<L.length-1?'<br>':'');i++}
   return o}
-function setBusy(b){$('run').disabled=b;$('stop').disabled=!b;if(!b)$('runInfo').textContent=''}
+function setBusy(b){$('run').disabled=b;$('stop').disabled=!b;if(!b)$('runInfo').textContent='';$('announce').textContent=b?TL('Se lucrează…'):TL('Gata.')}
 $('stop').onclick=()=>{if(ctrl)ctrl.abort()};
 
 async function summarize(di){
@@ -607,7 +611,7 @@ async function run(){
       const cards=parseCards(ans),labels=hits.map(label);let drop=0;const keep=[];
       for(const [f,b] of cards){const nums=[...citedNumbers(b)];if(nums.length&&nums.every(n=>n>=1&&n<=hits.length))keep.push([f,rewriteCites(b,labels)]);else drop++}
       lastTsv='#separator:tab\n#html:false\n'+keep.map(([f,b])=>[f,b].map(x=>x.replace(/[\t\r\n]+/g,' ')).join('\t')).join('\n')+'\n';
-      $('resCard').hidden=false;$('out').innerHTML=keep.length?'<table><tr><th>Față</th><th>Verso (cu sursă)</th></tr>'+keep.map(([f,b])=>`<tr><td>${esc(f)}</td><td>${esc(b)}</td></tr>`).join('')+'</table>':'<p>Niciun card valid.</p>';
+      $('resCard').hidden=false;$('out').innerHTML=keep.length?'<table><tr><th scope="col">Față</th><th scope="col">Verso (cu sursă)</th></tr>'+keep.map(([f,b])=>`<tr><td>${esc(f)}</td><td>${esc(b)}</td></tr>`).join('')+'</table>':'<p>Niciun card valid.</p>';
       lastText=keep.map(([f,b])=>`Q: ${f}\nA: ${b}`).join('\n\n');
       if(drop)ws.push(`${drop} card(uri) eliminate: răspuns fără citare sau cu citare inexistentă`);
       $('dlTsv').hidden=!keep.length;warnBox(ws);return;
@@ -677,7 +681,7 @@ async function detectServer(){
   if(!r.ok)return;const j=await r.json();if(!j.server)return;
   S.server=true;
   const aside=document.querySelector('aside'),h2=[...aside.querySelectorAll('h2')][0];
-  h2.insertAdjacentHTML('beforebegin','<h2>Spațiu de lucru (server)</h2><div class="row"><select id="ws"></select><button class="alt" id="wsNew">Nou</button></div><div class="small">PDF-urile se citesc pe server (cu OCR dacă e instalat'+(j.ocr?'':' — lipsește acum')+')'+(j.embeddings?', căutare și cu embeddings':'')+'. Modelul se apelează prin server, fără CORS.</div>');
+  h2.insertAdjacentHTML('beforebegin','<h2>Spațiu de lucru (server)</h2><div class="row"><select id="ws" aria-label="Spațiu de lucru"></select><button class="alt" id="wsNew">Nou</button></div><div class="small">PDF-urile se citesc pe server (cu OCR dacă e instalat'+(j.ocr?'':' — lipsește acum')+')'+(j.embeddings?', căutare și cu embeddings':'')+'. Modelul se apelează prin server, fără CORS.</div>');
   const fill=()=>{$('ws').innerHTML=j.workspaces.map(w=>`<option${w===S.ws?' selected':''}>${esc(w)}</option>`).join('')};fill();
   $('ws').onchange=async()=>{S.ws=$('ws').value;await loadServerLib()};
   $('wsNew').onclick=async()=>{const n=(prompt('Numele spațiului (litere, cifre, - _):')||'').replace(/[^A-Za-z0-9_-]/g,'');if(!n)return;

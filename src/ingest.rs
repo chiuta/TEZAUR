@@ -162,7 +162,7 @@ fn looks_scanned(pages: &[String]) -> bool {
     chars < 25 * pages.len().max(1)
 }
 
-fn strip_html(s: &str) -> String {
+pub(crate) fn strip_html(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let lower = s.to_ascii_lowercase(); // ASCII-only: keeps byte offsets identical to `s`
     let mut i = 0;
@@ -339,7 +339,7 @@ fn docx_text(path: &Path) -> Result<String> {
 }
 
 /// Value of `name="…"` (or single-quoted) inside one opening tag.
-fn attr(tag: &str, name: &str) -> Option<String> {
+pub(crate) fn attr(tag: &str, name: &str) -> Option<String> {
     for q in ['"', '\''] {
         let pat = format!("{name}={q}");
         if let Some(i) = tag.find(&pat) {
@@ -353,7 +353,7 @@ fn attr(tag: &str, name: &str) -> Option<String> {
 }
 
 /// Text between `<name` and `>` for every opening tag called `name` (also `opf:name`).
-fn open_tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
+pub(crate) fn open_tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
     let mut out = Vec::new();
     for open in [format!("<{name}"), format!("<opf:{name}")] {
         let mut rest = xml;
@@ -372,7 +372,7 @@ fn open_tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
     out
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
@@ -395,7 +395,7 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// Joins `dir` and `href`, resolving `.` / `..` and dropping any `#fragment`.
-fn resolve_href(dir: &str, href: &str) -> String {
+pub(crate) fn resolve_href(dir: &str, href: &str) -> String {
     let href = percent_decode(href.split('#').next().unwrap_or(""));
     let mut parts: Vec<&str> = dir.split('/').filter(|p| !p.is_empty()).collect();
     for seg in href.split('/') {
@@ -410,7 +410,7 @@ fn resolve_href(dir: &str, href: &str) -> String {
     parts.join("/")
 }
 
-fn zip_read(z: &mut zip::ZipArchive<std::fs::File>, name: &str) -> Option<String> {
+pub(crate) fn zip_read(z: &mut zip::ZipArchive<std::fs::File>, name: &str) -> Option<String> {
     let mut s = String::new();
     read_capped(&mut z.by_name(name).ok()?, &mut s).ok()?;
     Some(s)
@@ -520,6 +520,10 @@ pub fn read_pages(path: &Path) -> Result<Vec<(usize, String)>> {
         return Ok(vec![(0, docx_text(path)?)]);
     }
     if ext == "epub" {
+        // printed page numbers declared by the book itself (page-list / pagebreak), when it has them
+        if let Some(pages) = crate::epubpages::read(path) {
+            return Ok(pages);
+        }
         return Ok(vec![(0, epub_text(path)?)]);
     }
     let raw = std::fs::read(path)?;
@@ -539,12 +543,35 @@ fn ends_sentence(w: &str) -> bool {
     t.chars().count() > 2 && t.ends_with(['.', '!', '?', '…'])
 }
 
+/// Joins `word-<newline>rest` when a letter precedes the hyphen and a lower-case letter follows the
+/// line break; a hyphen before a digit or a capital is kept (list item, dash, compound with a name).
+fn rejoin_hyphenated(text: &str) -> String {
+    let ch: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < ch.len() {
+        if ch[i] == '-'
+            && ch.get(i + 1) == Some(&'\n')
+            && i > 0
+            && ch[i - 1].is_alphabetic()
+            && ch.get(i + 2).is_some_and(|c| c.is_lowercase())
+        {
+            i += 2;
+            continue;
+        }
+        out.push(ch[i]);
+        i += 1;
+    }
+    out
+}
+
+
 /// Splits text into overlapping word windows of about `size` words. Windows end at a sentence
 /// boundary when one lies in the last 30% of the window, and the overlap starts at a sentence
 /// start when possible, so passages read as whole sentences. Text with no punctuation falls
 /// back to plain fixed windows.
 pub fn chunk_words(text: &str, size: usize, overlap: usize) -> Vec<String> {
-    let text = text.replace("-\n", ""); // re-join hyphenated line breaks
+    let text = rejoin_hyphenated(text); // re-join hyphenated line breaks
     let words: Vec<&str> = text.split_whitespace().collect();
     let n = words.len();
     if n == 0 {
@@ -629,6 +656,7 @@ pub fn doc_key(path: &Path, base: &Path) -> String {
 pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> Result<Outcome> {
     let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     let hash = fnv1a(&bytes);
+    let sha = crate::sha256::sha256_hex(&bytes);
     drop(bytes);
     let key = doc_key(path, base);
 
@@ -640,8 +668,10 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
     }
 
     let pages = read_pages(path)?;
+    // PDF-like: pages are 1..n. Formats without pages: 0. An EPUB with declared pages starts with an
+    // unpaged front part, and its page count is the largest printed number found.
     let npages = if pages.first().map(|p| p.0).unwrap_or(0) == 0 {
-        0
+        pages.iter().map(|p| p.0).max().unwrap_or(0)
     } else {
         pages.len()
     };
@@ -661,6 +691,7 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
         return Ok(Outcome::NoText);
     }
     let n = new_chunks.len();
+    store.sha.insert(key.clone(), (hash, sha));
     store.docs.push(Doc {
         path: key,
         title: if crate::fff::is_fff_path(path) {
@@ -678,6 +709,22 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ingest_records_sha256_identity() {
+        let dir = std::env::temp_dir().join(format!("tz-ing-sha-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("a.txt");
+        std::fs::write(&f, "abc and some more words to index here").unwrap();
+        let mut st = Store::default();
+        ingest_file(&mut st, &f, &dir, false).unwrap();
+        assert_eq!(
+            st.doc_sha256(0).unwrap(),
+            crate::sha256::sha256_hex(b"abc and some more words to index here")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
 
     #[test]
     fn chunking_overlaps_and_covers() {
@@ -808,6 +855,14 @@ mod tests {
         assert_eq!(percent_decode("100%"), "100%");
         assert_eq!(percent_decode("%é9"), "%é9"); // would panic if the &str were sliced
         assert_eq!(percent_decode("%zz"), "%zz");
+    }
+
+    #[test]
+    fn dehyphenation_only_between_letters() {
+        assert_eq!(rejoin_hyphenated("dip-\nlomas"), "diplomas");
+        assert_eq!(rejoin_hyphenated("see-\nSmith"), "see-\nSmith");
+        assert_eq!(rejoin_hyphenated("page 3-\n4"), "page 3-\n4");
+        assert_eq!(rejoin_hyphenated("țară-\nîn"), "țarăîn");
     }
 
     #[test]

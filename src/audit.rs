@@ -6,6 +6,7 @@
 use crate::bib::BibMap;
 use crate::index::{Searcher, Store, coverage, fold};
 use crate::sha256::{hex, hmac_sha256, sha256_hex};
+use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
@@ -14,7 +15,11 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cite {
     pub key: String,
+    /// First checkable page, as written (a year-like bare number is sorted out later, against the
+    /// cited work's year).
     pub page: Option<usize>,
+    /// Everything written after the key, interpreted (spec 08).
+    pub locators: Vec<crate::locator::Locator>,
 }
 
 /// Replaces every pandoc-style group `[@a, p. 3; @b]` with a \u{1} marker; returns the groups in order.
@@ -59,15 +64,12 @@ fn parse_group(inner: &str) -> Vec<Cite> {
         if key.is_empty() {
             continue;
         }
-        let tail = &rest[key.len()..];
-        let digits: String = tail
-            .chars()
-            .skip_while(|c| !c.is_ascii_digit())
-            .take_while(|c| c.is_ascii_digit())
-            .collect();
+        let locators = crate::locator::parse(&rest[key.len()..]);
+        let page = locators.iter().find_map(|l| l.page_range()).map(|(a, _)| a);
         v.push(Cite {
             key,
-            page: digits.parse().ok(),
+            page,
+            locators,
         });
     }
     v
@@ -471,7 +473,7 @@ impl Finding {
 }
 
 pub(crate) fn doc_for_key(store: &Store, bib: &BibMap, key: &str) -> Option<usize> {
-    let k = key.to_lowercase();
+    let k = bib.canonical_key(key).to_lowercase();
     store.docs.iter().position(|d| {
         bib.find(&d.path)
             .map(|e| e.key.to_lowercase() == k)
@@ -820,9 +822,48 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                 continue;
             };
             let doc = &store.docs[d];
-            if let Some(p) = c.page
+            // Locators: a bare number equal to the cited work's year is not a page (spec 08).
+            let year = bib
+                .entries
+                .iter()
+                .find(|e| e.key.eq_ignore_ascii_case(&c.key))
+                .map(|e| e.year.as_str())
+                .unwrap_or("");
+            let locs: Vec<&crate::locator::Locator> = c
+                .locators
+                .iter()
+                .filter(|l| {
+                    !(l.label == "page"
+                        && !l.explicit_label
+                        && matches!(&l.from, crate::locator::Val::Num(n) if n.to_string() == year))
+                })
+                .collect();
+            let ranges: Vec<(usize, usize)> = locs.iter().filter_map(|l| l.page_range()).collect();
+            let other: Vec<String> = locs
+                .iter()
+                .filter(|l| l.page_range().is_none())
+                .map(|l| l.describe())
+                .collect();
+            let f = |verdict, support, note: String| Finding {
+                page: ranges.first().map(|r| r.0),
+                note: if other.is_empty() {
+                    note.clone()
+                } else {
+                    format!("{note} [locator: {}]", other.join("; "))
+                },
+                ..f(verdict, support, note)
+            };
+            if let Some(bad) = locs.iter().find(|l| l.is_inverted()) {
+                out.push(f(
+                    "bad-range",
+                    0.0,
+                    format!("the interval {} ends before it starts", bad.describe()),
+                ));
+                continue;
+            }
+            if let Some(end) = ranges.iter().map(|r| r.1).max()
                 && doc.pages > 0
-                && p > doc.pages
+                && end > doc.pages
             {
                 out.push(f(
                     "page-out-of-range",
@@ -833,21 +874,33 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
             }
             // Text, EPUB and DOCX sources have no page numbers: a cited page cannot be checked there.
             let paged = store.chunks.iter().any(|ch| ch.doc == d && ch.page > 0);
-            let cpage = c.page.filter(|&p| p > 0 && paged);
-            let best = |only_page: Option<usize>| -> (f32, usize) {
+            let cpages: Option<Vec<usize>> = if paged && !ranges.is_empty() {
+                let v: Vec<usize> = ranges
+                    .iter()
+                    .flat_map(|&(a, b)| a..=b.min(a + 200))
+                    .filter(|&p| p > 0)
+                    .collect();
+                (!v.is_empty()).then_some(v)
+            } else {
+                None
+            };
+            let cpage = cpages.as_deref();
+            let best = |only: Option<&[usize]>| -> (f32, usize) {
                 store
                     .chunks
                     .iter()
-                    .filter(|ch| ch.doc == d && only_page.map(|p| ch.page == p).unwrap_or(true))
+                    .filter(|ch| ch.doc == d && only.map(|p| p.contains(&ch.page)).unwrap_or(true))
                     .map(|ch| (coverage(&claim, &ch.text), ch.page))
                     .fold((0.0, 0), |a, b| if b.0 > a.0 { b } else { a })
             };
             let (sup, _) = best(cpage);
+            // EPUB page numbers are the book's declared print pagination, not file positions (spec 11).
+            let epub_note = cpage.is_some() && doc.path.to_lowercase().ends_with(".epub");
             // the passage the sentence matches best (on the cited page if given): used for the figure check
             let top = store
                 .chunks
                 .iter()
-                .filter(|ch| ch.doc == d && cpage.map(|p| ch.page == p).unwrap_or(true))
+                .filter(|ch| ch.doc == d && cpage.map(|p| p.contains(&ch.page)).unwrap_or(true))
                 .max_by(|a, b| {
                     coverage(&claim, &a.text)
                         .partial_cmp(&coverage(&claim, &b.text))
@@ -863,7 +916,7 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                         sup * 100.0
                     ),
                 )
-            } else if cpage.is_some() && any >= SUPPORTED && Some(anyp) != cpage {
+            } else if cpage.is_some() && any >= SUPPORTED && !cpage.unwrap().contains(&anyp) {
                 (
                     "wrong-page",
                     format!(
@@ -918,6 +971,13 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                     continue;
                 }
             }
+            let note = if epub_note {
+                format!(
+                    "{note} (EPUB: the page is the one declared by the book's print edition, not a position in the file)"
+                )
+            } else {
+                note
+            };
             let mut fin = f(verdict, sup, note);
             fin.passage = top.map(|t| t.chars().take(1500).collect());
             out.push(fin);
@@ -1031,7 +1091,7 @@ pub fn semantic_pass(
 pub fn audit_markdown(f: &[Finding]) -> String {
     let n = |v: &str| f.iter().filter(|x| x.verdict == v).count();
     let mut s = format!(
-        "# Citation audit\n\n{} checks — supported {}, weak {}, contradicted {}, unsupported {}, wrong page {}, figure mismatch {}, unknown source {}, page out of range {}, uncited {}; quotations: verbatim {}, elsewhere {}, not found {}.\n\nThis is a mechanical term-overlap check, not proof. Open the page for everything below.\n\n",
+        "# Citation audit\n\n{} checks — supported {}, weak {}, contradicted {}, unsupported {}, wrong page {}, figure mismatch {}, unknown source {}, page out of range {}, bad page interval {}, uncited {}; quotations: verbatim {}, elsewhere {}, not found {}.\n\nThis is a mechanical term-overlap check, not proof. Open the page for everything below.\n\n",
         f.len(),
         n("supported"),
         n("weak"),
@@ -1041,6 +1101,7 @@ pub fn audit_markdown(f: &[Finding]) -> String {
         n("number-mismatch"),
         n("unknown-source"),
         n("page-out-of-range"),
+        n("bad-range"),
         n("uncited"),
         n("quote-verbatim"),
         n("quote-elsewhere"),
@@ -1080,7 +1141,11 @@ pub fn refs_report(store: &Store, bib: &BibMap, text: &str) -> Value {
         .collect::<Vec<_>>()
         .join("\n");
     let (_, groups) = extract_cites(&body);
-    let mut cited: Vec<String> = groups.iter().flatten().map(|c| c.key.clone()).collect();
+    let mut cited: Vec<String> = groups
+        .iter()
+        .flatten()
+        .map(|c| bib.canonical_key(&c.key))
+        .collect();
     cited.sort_by_key(|k| k.to_lowercase());
     cited.dedup_by_key(|k| k.to_lowercase());
     let lc: std::collections::HashSet<String> = cited.iter().map(|k| k.to_lowercase()).collect();
@@ -1205,7 +1270,7 @@ pub fn coverage_matrix(
     let mut rows = Vec::new();
     for h in headings {
         let e = emb(h);
-        let hits = searcher.search(h, e.as_deref(), 12, 3, None);
+        let hits = searcher.search_terms(h, e.as_deref(), 12, 3, None);
         let mut docs: Vec<(usize, f32)> = Vec::new();
         for x in &hits {
             let c = &store.chunks[x.chunk];
@@ -1275,7 +1340,7 @@ pub fn novelty(store: &Store, bib: &BibMap, text: &str) -> Value {
     let mut passages = Vec::new();
     let (mut covered, mut partial, mut new) = (0, 0, 0);
     for w in &wins {
-        let hits = searcher.search(w, None, 3, 3, None);
+        let hits = searcher.search_terms(w, None, 3, 3, None);
         let (cv, near) = hits
             .iter()
             .map(|h| (coverage(w, &store.chunks[h.chunk].text), h.chunk))
@@ -1350,15 +1415,31 @@ pub fn index_fingerprint(store: &Store) -> String {
     sha256_hex(h.join(",").as_bytes())
 }
 
-fn seal(mut body: Value) -> Value {
+fn receipt_key() -> Option<String> {
+    std::env::var("TEZAUR_RECEIPT_KEY")
+        .ok()
+        .filter(|k| !k.is_empty())
+}
+
+/// v1 procedure (kept for verification, and for tests that need a v1 receipt).
+#[cfg(test)]
+fn seal_v1(mut body: Value) -> Value {
     let digest = sha256_hex(serde_json::to_string(&body).unwrap().as_bytes());
     body["digest"] = json!(digest);
-    if let Ok(k) = std::env::var("TEZAUR_RECEIPT_KEY")
-        && !k.is_empty()
-    {
+    if let Some(k) = receipt_key() {
         body["hmac"] = json!(hex(&hmac_sha256(k.as_bytes(), digest.as_bytes())));
     }
     body
+}
+
+/// v2 procedure: digest and HMAC are over the RFC 8785 canonical bytes of the body.
+fn seal(mut body: Value) -> Result<Value> {
+    let bytes = crate::jcs::canonical(&crate::jcs::from_value(&body)?, true)?;
+    body["digest"] = json!(sha256_hex(&bytes));
+    if let Some(k) = receipt_key() {
+        body["hmac"] = json!(hex(&hmac_sha256(k.as_bytes(), &bytes)));
+    }
+    Ok(body)
 }
 
 pub fn now_secs() -> u64 {
@@ -1375,21 +1456,50 @@ pub fn make_receipt(
     question: &str,
     hit_chunks: &[usize],
     answer: &str,
-) -> Value {
+) -> Result<Value> {
+    let mut weak = 0usize;
     let ex: Vec<Value> = hit_chunks
         .iter()
         .enumerate()
         .map(|(i, &c)| {
             let ch = &store.chunks[c];
             let d = &store.docs[ch.doc];
-            json!({"n": i + 1, "path": d.path, "title": d.title, "doc_hash": format!("{:016x}", d.hash), "page": ch.page, "chunk_sha256": sha256_hex(ch.text.as_bytes())})
+            let mut e = json!({"n": i + 1, "path": d.path, "title": d.title, "doc_hash": format!("{:016x}", d.hash), "page": ch.page, "chunk_sha256": sha256_hex(ch.text.as_bytes())});
+            match store.doc_sha256(ch.doc) {
+                Some(s) => e["doc_sha256"] = json!(s),
+                None => {
+                    weak += 1;
+                    e["doc_identity"] = json!("weak (64-bit, non-cryptographic)");
+                }
+            }
+            e
         })
         .collect();
-    seal(json!({
-        "format": "tezaur-receipt/1", "created": now_secs(), "tool": format!("tezaur {}", env!("CARGO_PKG_VERSION")),
+    let mut body = json!({
+        "format": "tezaur-receipt/2", "created": now_secs(), "tool": format!("tezaur {}", env!("CARGO_PKG_VERSION")),
         "model": model, "mode": mode, "question": question, "answer_sha256": sha256_hex(answer.as_bytes()),
-        "index": index_fingerprint(store), "excerpts": ex,
-    }))
+        "excerpts": ex,
+    });
+    match index_fingerprint_v2(store) {
+        Some(f) => body["index"] = json!(f),
+        None => {
+            body["index_omitted"] = json!(
+                "some documents were indexed before SHA-256 identities were recorded; re-ingest with --force to get them"
+            )
+        }
+    }
+    let _ = weak;
+    seal(body)
+}
+
+/// SHA-256 over the documents' SHA-256 identities, sorted and joined by commas; None unless every document has one.
+pub fn index_fingerprint_v2(store: &Store) -> Option<String> {
+    let mut h: Vec<&str> = Vec::new();
+    for i in 0..store.docs.len() {
+        h.push(store.doc_sha256(i)?);
+    }
+    h.sort();
+    Some(sha256_hex(h.join(",").as_bytes()))
 }
 
 pub fn verify_receipt(
@@ -1397,8 +1507,20 @@ pub fn verify_receipt(
     receipt: &Value,
     answer: Option<&str>,
 ) -> (bool, Vec<String>) {
+    verify_receipt_text(store, &receipt.to_string(), answer)
+}
+
+/// Verify a receipt as written in a file: any spacing and key order are accepted.
+pub fn verify_receipt_text(
+    store: Option<&Store>,
+    text: &str,
+    answer: Option<&str>,
+) -> (bool, Vec<String>) {
     let mut lines = Vec::new();
     let mut ok = true;
+    let Ok(receipt) = serde_json::from_str::<Value>(text) else {
+        return (false, vec!["✗ not a JSON receipt".into()]);
+    };
     let mut body = receipt.clone();
     let digest = body
         .as_object_mut()
@@ -1408,7 +1530,22 @@ pub fn verify_receipt(
         .as_object_mut()
         .and_then(|o| o.remove("hmac"))
         .and_then(|d| d.as_str().map(|s| s.to_string()));
-    let calc = sha256_hex(serde_json::to_string(&body).unwrap().as_bytes());
+    let v2 = body["format"].as_str() == Some("tezaur-receipt/2");
+    // The bytes the digest and the HMAC are computed over, and the HMAC message for this version.
+    let (calc, mac_msg): (String, Vec<u8>) = if v2 {
+        let canon = crate::jcs::parse(text).and_then(|mut j| {
+            j.take("digest");
+            j.take("hmac");
+            crate::jcs::canonical(&j, true)
+        });
+        match canon {
+            Ok(bytes) => (sha256_hex(&bytes), bytes),
+            Err(e) => return (false, vec![format!("✗ invalid receipt: {e}")]),
+        }
+    } else {
+        let c = sha256_hex(serde_json::to_string(&body).unwrap().as_bytes());
+        (c.clone(), c.into_bytes())
+    };
     if digest.as_deref() == Some(calc.as_str()) {
         lines.push("✓ receipt is intact (digest matches its contents)".into());
     } else {
@@ -1416,16 +1553,16 @@ pub fn verify_receipt(
         lines.push("✗ receipt was altered: digest does not match its contents".into());
     }
     if let Some(h) = hm {
-        match std::env::var("TEZAUR_RECEIPT_KEY") {
-            Ok(k) if !k.is_empty() => {
-                if hex(&hmac_sha256(k.as_bytes(), calc.as_bytes())) == h {
+        match receipt_key() {
+            Some(k) => {
+                if hex(&hmac_sha256(k.as_bytes(), &mac_msg)) == h {
                     lines.push("✓ HMAC matches your TEZAUR_RECEIPT_KEY".into());
                 } else {
                     ok = false;
                     lines.push("✗ HMAC does not match TEZAUR_RECEIPT_KEY".into());
                 }
             }
-            _ => lines.push(
+            None => lines.push(
                 "• receipt carries an HMAC, but TEZAUR_RECEIPT_KEY is not set — not checked".into(),
             ),
         }
@@ -1447,14 +1584,27 @@ pub fn verify_receipt(
                 e["page"].as_u64().unwrap_or(0) as usize,
                 e["chunk_sha256"].as_str().unwrap_or(""),
             );
+            let want_doc = e["doc_sha256"].as_str();
             if st.chunks.iter().any(|c| {
-                c.page == pg && st.docs[c.doc].path == p && sha256_hex(c.text.as_bytes()) == h
+                c.page == pg
+                    && st.docs[c.doc].path == p
+                    && sha256_hex(c.text.as_bytes()) == h
+                    && match (want_doc, st.doc_sha256(c.doc)) {
+                        (Some(w), Some(have)) => w == have,
+                        _ => true,
+                    }
             }) {
                 found += 1;
             } else {
                 lines.push(format!(
                     "✗ excerpt {} ({}, p. {}) is not in this index as recorded",
                     e["n"], p, pg
+                ));
+            }
+            if v2 && want_doc.is_none() {
+                lines.push(format!(
+                    "• excerpt {} names its document by a weak identity (64-bit, non-cryptographic)",
+                    e["n"]
                 ));
             }
         }
@@ -1577,19 +1727,45 @@ mod tests {
         let (m, g) =
             extract_cites("A claim [@smith2019, p. 3; @doe2020]. Not a cite [1] or [see here].");
         assert_eq!(m.matches('\u{1}').count(), 1);
-        assert_eq!(
-            g[0],
-            vec![
-                Cite {
-                    key: "smith2019".into(),
-                    page: Some(3)
-                },
-                Cite {
-                    key: "doe2020".into(),
-                    page: None
-                }
-            ]
-        );
+        let got: Vec<(&str, Option<usize>)> =
+            g[0].iter().map(|c| (c.key.as_str(), c.page)).collect();
+        assert_eq!(got, vec![("smith2019", Some(3)), ("doe2020", None)]);
+        assert_eq!(g[0][0].locators.len(), 1);
+    }
+
+    #[test]
+    fn locators_decide_what_is_a_page() {
+        let store = st();
+        let bib = BibMap {
+            entries: crate::bib::parse(
+                "@article{smith2019, author={Smith, J}, year={2019}, title={T}}",
+            ),
+            ..Default::default()
+        };
+        let claim =
+            "The burden of proof lies with the competent authority when it refuses recognition";
+        let run = |loc: &str| audit(&store, &bib, &format!("{claim} [@smith2019{loc}]."));
+        let verdicts =
+            |loc: &str| -> Vec<&'static str> { run(loc).iter().map(|x| x.verdict).collect() };
+        // chapter: not compared with a page, never "out of range"
+        assert_eq!(verdicts(", cap. 12"), vec!["supported"]);
+        assert!(run(", cap. 12")[0].note.contains("chapter 12"));
+        // a range is supported when any page in it supports the sentence
+        assert_eq!(verdicts(", pp. 2\u{2013}4"), vec!["supported"]);
+        assert_eq!(verdicts(", pp. 3-5"), vec!["supported"]);
+        // Roman page: kept, not checked, no error
+        assert_eq!(verdicts(", p. xii"), vec!["supported"]);
+        // the work's own year is not a page
+        assert_eq!(verdicts(", 2019"), vec!["supported"]);
+        // list of pages
+        assert_eq!(verdicts(", p. 1, 3"), vec!["supported"]);
+        // range ending beyond the document (10 pages)
+        assert_eq!(verdicts(", pp. 9\u{2013}12"), vec!["page-out-of-range"]);
+        // inverted interval is its own finding
+        assert_eq!(verdicts(", pp. 5\u{2013}3"), vec!["bad-range"]);
+        // a page that does not hold the sentence still gets the old wrong-page verdict
+        assert_eq!(verdicts(", p. 5"), vec!["wrong-page"]);
+        assert!(audit_markdown(&run(", pp. 5\u{2013}3")).contains("bad page interval 1"));
     }
 
     #[test]
@@ -1696,7 +1872,7 @@ mod tests {
     #[test]
     fn receipts_detect_tampering() {
         let store = st();
-        let r = make_receipt(&store, "m", "ask", "q?", &[0, 2], "answer [1]");
+        let r = make_receipt(&store, "m", "ask", "q?", &[0, 2], "answer [1]").unwrap();
         let (ok, l) = verify_receipt(Some(&store), &r, Some("answer [1]"));
         assert!(ok, "{l:?}");
         let (ok2, _) = verify_receipt(Some(&store), &r, Some("answer [1] edited"));
@@ -1710,6 +1886,143 @@ mod tests {
         assert_eq!(civil(0), "1970-01-01");
         assert_eq!(civil(1_800_000_000), "2027-01-15");
         assert!(declaration(&[r], false).contains("AI-use statement"));
+    }
+
+    static KEY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    fn with_key<T>(k: Option<&str>, f: impl FnOnce() -> T) -> T {
+        let _g = KEY_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        unsafe {
+            match k {
+                Some(k) => std::env::set_var("TEZAUR_RECEIPT_KEY", k),
+                None => std::env::remove_var("TEZAUR_RECEIPT_KEY"),
+            }
+        }
+        let r = f();
+        unsafe { std::env::remove_var("TEZAUR_RECEIPT_KEY") };
+        r
+    }
+
+    fn st_sha() -> Store {
+        let mut s = st();
+        for (i, d) in s.docs.iter().enumerate() {
+            s.sha.insert(
+                d.path.clone(),
+                (d.hash, sha256_hex(format!("doc{i}").as_bytes())),
+            );
+        }
+        s
+    }
+
+    #[test]
+    fn v2_survives_reformatting_and_detects_edits() {
+        with_key(None, || {
+            let store = st_sha();
+            let r = make_receipt(&store, "m", "ask", "q?", &[0, 2], "answer [1]").unwrap();
+            assert_eq!(r["format"], "tezaur-receipt/2");
+            assert!(r["index"].is_string() && r["excerpts"][0]["doc_sha256"].is_string());
+            // reformatted: indented, keys reversed
+            let mut o: Vec<(String, Value)> = r.as_object().unwrap().clone().into_iter().collect();
+            o.reverse();
+            let mut text = String::from("{\n");
+            for (i, (k, v)) in o.iter().enumerate() {
+                text.push_str(&format!(
+                    "    {}  :   {}{}\n",
+                    json!(k),
+                    v,
+                    if i + 1 < o.len() { "," } else { "" }
+                ));
+            }
+            text.push('}');
+            let (ok, l) = verify_receipt_text(Some(&store), &text, Some("answer [1]"));
+            assert!(ok, "{l:?}");
+            // one character changed in the question, the answer fingerprint, a passage fingerprint
+            let ans = r["answer_sha256"].to_string();
+            let chunk = r["excerpts"][0]["chunk_sha256"].to_string();
+            let flip = |q: &str| {
+                format!(
+                    "\"{}{}",
+                    if q.as_bytes()[1] == b'0' { '1' } else { '0' },
+                    &q[2..]
+                )
+            };
+            for (from, to) in [
+                ("\"q?\"".to_string(), "\"q!\"".to_string()),
+                (ans.clone(), flip(&ans)),
+                (chunk.clone(), flip(&chunk)),
+            ] {
+                let t = r.to_string().replacen(&from, &to, 1);
+                assert_ne!(t, r.to_string());
+                assert!(!verify_receipt_text(None, &t, None).0, "{from}");
+            }
+            let (ok, _) = verify_receipt_text(None, &r.to_string(), Some("answer [1] edited"));
+            assert!(!ok);
+            // unknown fields are kept in the digest
+            let mut extra = r.clone();
+            extra["note"] = json!("x");
+            assert!(!verify_receipt(None, &extra, None).0);
+            // duplicate property and fractional number: invalid
+            let dup =
+                r.to_string()
+                    .replacen("\"mode\":\"ask\"", "\"mode\":\"ask\",\"mode\":\"ask\"", 1);
+            assert!(!verify_receipt_text(None, &dup, None).0);
+            let frac = r
+                .to_string()
+                .replacen("\"created\":", "\"created\":1.5,\"x\":", 1);
+            assert!(!verify_receipt_text(None, &frac, None).0);
+        });
+    }
+
+    #[test]
+    fn v2_hmac_cases() {
+        let store = st_sha();
+        let r = with_key(Some("secret"), || {
+            make_receipt(&store, "m", "ask", "q", &[0], "a").unwrap()
+        });
+        assert_eq!(r["hmac"].as_str().unwrap().len(), 64);
+        assert_eq!(r["digest"].as_str().unwrap().len(), 64);
+        let (ok, l) = with_key(Some("secret"), || verify_receipt(None, &r, None));
+        assert!(ok && l.iter().any(|x| x.contains("HMAC matches")), "{l:?}");
+        let (ok, l) = with_key(Some("wrong"), || verify_receipt(None, &r, None));
+        assert!(!ok && l.iter().any(|x| x.contains("does not match")));
+        let (ok, l) = with_key(None, || verify_receipt(None, &r, None));
+        assert!(ok && l.iter().any(|x| x.contains("not checked")));
+        let (ok, _) = with_key(Some(""), || verify_receipt(None, &r, None));
+        assert!(ok);
+    }
+
+    #[test]
+    fn v1_receipts_still_verify() {
+        let store = st();
+        for key in [None, Some("k")] {
+            with_key(key, || {
+                let body = json!({"format": "tezaur-receipt/1", "created": 5, "tool": "t", "model": "m", "mode": "ask", "question": "q", "answer_sha256": sha256_hex(b"a"), "index": index_fingerprint(&store), "excerpts": []});
+                let r = seal_v1(body);
+                let (ok, l) = verify_receipt(Some(&store), &r, Some("a"));
+                assert!(ok, "{l:?}");
+                let mut bad = r.clone();
+                bad["model"] = json!("x");
+                assert!(!verify_receipt(None, &bad, None).0);
+            });
+        }
+    }
+
+    #[test]
+    fn old_documents_get_weak_identity_and_no_index_fingerprint() {
+        with_key(None, || {
+            let mut store = st_sha();
+            store.sha.remove(&store.docs[0].path.clone());
+            let r = make_receipt(&store, "m", "ask", "q", &[0, 2], "a").unwrap();
+            assert!(r.get("index").is_none() && r["index_omitted"].is_string());
+            assert!(r["excerpts"][0].get("doc_sha256").is_none());
+            assert!(
+                r["excerpts"][0]["doc_identity"]
+                    .as_str()
+                    .unwrap()
+                    .contains("weak")
+            );
+            let (ok, l) = verify_receipt(Some(&store), &r, None);
+            assert!(ok && l.iter().any(|x| x.contains("weak identity")), "{l:?}");
+        });
     }
 
     #[test]

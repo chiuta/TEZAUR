@@ -31,6 +31,31 @@ pub struct Store {
     /// Where this store was loaded from; lets the BM25 cache live next to it (`<index>.bm25`).
     #[serde(skip)]
     pub source: Option<std::path::PathBuf>,
+    /// SHA-256 of each document's bytes at ingestion, keyed by doc path with the 64-bit hash it belongs to.
+    /// Kept in a sidecar file (`<index>.sha256`) so the index format itself does not change.
+    #[serde(skip)]
+    pub sha: std::collections::HashMap<String, (u64, String)>,
+}
+
+fn sha_path(p: &Path) -> std::path::PathBuf {
+    let mut o = p.as_os_str().to_owned();
+    o.push(".sha256");
+    o.into()
+}
+
+fn read_sha(p: &Path) -> std::collections::HashMap<String, (u64, String)> {
+    let mut out = std::collections::HashMap::new();
+    if let Ok(b) = std::fs::read(sha_path(p))
+        && let Ok(m) =
+            serde_json::from_slice::<std::collections::HashMap<String, (String, String)>>(&b)
+    {
+        for (k, (h, s)) in m {
+            if let Ok(h) = u64::from_str_radix(&h, 16) {
+                out.insert(k, (h, s));
+            }
+        }
+    }
+    out
 }
 
 impl Store {
@@ -45,6 +70,7 @@ impl Store {
         let mut st: Store = bincode::deserialize(&bytes)
             .context("index file is corrupt or from another version")?;
         st.source = Some(path.to_path_buf());
+        st.sha = read_sha(path);
         Ok(st)
     }
 
@@ -61,7 +87,27 @@ impl Store {
             let _ = std::fs::remove_file(&tmp);
             return Err(e.into());
         }
+        let side = sha_path(path);
+        if self.sha.is_empty() {
+            let _ = std::fs::remove_file(&side);
+        } else {
+            let m: std::collections::BTreeMap<&String, (String, &String)> = self
+                .sha
+                .iter()
+                .map(|(k, (h, s))| (k, (format!("{h:016x}"), s)))
+                .collect();
+            std::fs::write(&side, serde_json::to_vec(&m)?)?;
+        }
         Ok(())
+    }
+
+    /// The SHA-256 recorded when this document was ingested, if it matches the document as stored.
+    pub fn doc_sha256(&self, id: usize) -> Option<&str> {
+        let d = self.docs.get(id)?;
+        match self.sha.get(&d.path) {
+            Some((h, s)) if *h == d.hash => Some(s),
+            _ => None,
+        }
     }
 
     pub fn doc_by_path(&self, p: &str) -> Option<usize> {
@@ -70,7 +116,8 @@ impl Store {
 
     /// Remove a document and its chunks, keeping doc ids consistent.
     pub fn remove_doc(&mut self, id: usize) {
-        self.docs.remove(id);
+        let gone = self.docs.remove(id);
+        self.sha.remove(&gone.path);
         self.chunks.retain(|c| c.doc != id);
         for c in &mut self.chunks {
             if c.doc > id {
@@ -98,31 +145,9 @@ pub fn fold(c: char) -> char {
     }
 }
 
-/// Characters kept per token. Cheap prefix "stemming" that works across
-/// Romanian / English / French inflections without language-specific rules.
-const STEM: usize = 7;
-
+/// Index tokens of a text (Unicode folding and word segmentation, see `unitext`).
 pub fn tokenize(s: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut cur = String::new();
-    let flush = |cur: &mut String, out: &mut Vec<String>| {
-        if cur.chars().count() >= 2 {
-            out.push(cur.chars().take(STEM).collect());
-        }
-        cur.clear();
-    };
-    for ch in s.chars() {
-        for lc in ch.to_lowercase() {
-            let f = fold(lc);
-            if f.is_alphanumeric() {
-                cur.push(f);
-            } else {
-                flush(&mut cur, &mut out);
-            }
-        }
-    }
-    flush(&mut cur, &mut out);
-    out
+    crate::unitext::token_strings(s)
 }
 
 // --------------------------------------------------------------------- BM25
@@ -201,7 +226,8 @@ impl Bm25 {
 /// Fraction (0..1) of the query's distinct terms that occur in `text`. A cheap, honest
 /// relevance signal: low values mean the passage barely matches what was asked.
 pub fn coverage(query: &str, text: &str) -> f32 {
-    let q: std::collections::HashSet<String> = tokenize(query).into_iter().collect();
+    let q: std::collections::HashSet<String> =
+        tokenize(&crate::phrase::plain(query)).into_iter().collect();
     if q.is_empty() {
         return 0.0;
     }
@@ -270,6 +296,7 @@ fn library_key(st: &Store) -> u64 {
         eat(d.path.as_bytes());
         eat(&d.hash.to_le_bytes());
     }
+    eat(&crate::unitext::RULES_VERSION.to_le_bytes()); // token rules changed: rebuild the cache
     eat(&(st.chunks.len() as u64).to_le_bytes());
     eat(&(st.chunks.iter().map(|c| c.text.len()).sum::<usize>() as u64).to_le_bytes());
     h
@@ -329,10 +356,64 @@ impl<'a> Searcher<'a> {
         max_per_doc: usize,
         allow: Option<&std::collections::HashSet<usize>>,
     ) -> Vec<Hit> {
+        self.search_with(query, q_emb, k, max_per_doc, allow, true)
+    }
+
+    /// As `search`, but the text is plain terms: quotes and `~k` mean nothing (headings, audit).
+    pub fn search_terms(
+        &self,
+        query: &str,
+        q_emb: Option<&[f32]>,
+        k: usize,
+        max_per_doc: usize,
+        allow: Option<&std::collections::HashSet<usize>>,
+    ) -> Vec<Hit> {
+        self.search_with(query, q_emb, k, max_per_doc, allow, false)
+    }
+
+    fn search_with(
+        &self,
+        query: &str,
+        q_emb: Option<&[f32]>,
+        k: usize,
+        max_per_doc: usize,
+        allow: Option<&std::collections::HashSet<usize>>,
+        phrases: bool,
+    ) -> Vec<Hit> {
         const POOL: usize = 200;
         const RRF: f32 = 60.0;
         let chunks = &self.store.chunks;
-        let keep = |ci: usize| allow.map(|a| a.contains(&chunks[ci].doc)).unwrap_or(true);
+        let parsed = if phrases {
+            crate::phrase::parse(query)
+        } else {
+            Default::default()
+        };
+        for w in &parsed.warnings {
+            eprintln!("warning: {w}");
+        }
+        if let Some(e) = &parsed.error {
+            eprintln!("error: query not run: {e}");
+            return vec![];
+        }
+        // phrase syntax removed; phrase words still count as scoring terms
+        let query = if phrases {
+            parsed.scoring.as_str()
+        } else {
+            query
+        };
+        // passages must contain every phrase; decided once per passage, before ranking
+        let verdicts: std::cell::RefCell<HashMap<usize, bool>> = Default::default();
+        let phrase_ok = |ci: usize| -> bool {
+            if parsed.phrases.is_empty() {
+                return true;
+            }
+            *verdicts
+                .borrow_mut()
+                .entry(ci)
+                .or_insert_with(|| crate::phrase::passage_ok(&parsed.phrases, &chunks[ci].text))
+        };
+        let keep =
+            |ci: usize| allow.map(|a| a.contains(&chunks[ci].doc)).unwrap_or(true) && phrase_ok(ci);
         let mut fused: HashMap<usize, f32> = HashMap::new();
         for (rank, (ci, _)) in self.bm25.search(query, POOL, &keep).into_iter().enumerate() {
             *fused.entry(ci).or_default() += 1.0 / (RRF + rank as f32 + 1.0);
@@ -374,6 +455,28 @@ impl<'a> Searcher<'a> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn sha256_sidecar_roundtrips_and_index_format_is_unchanged() {
+        let dir = std::env::temp_dir().join(format!("tz-sha-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("i.bin");
+        let mut s = mk(&["alpha beta"]);
+        s.docs[0].hash = 77;
+        s.sha.insert(s.docs[0].path.clone(), (77, "ab".repeat(32)));
+        s.save(&p).unwrap();
+        let l = Store::load(&p).unwrap();
+        assert_eq!(l.doc_sha256(0), Some("ab".repeat(32).as_str()));
+        // an index written without the sidecar (older version) still loads, with no identity
+        std::fs::remove_file(dir.join("i.bin.sha256")).unwrap();
+        assert_eq!(Store::load(&p).unwrap().doc_sha256(0), None);
+        // a sidecar for a different file version is ignored
+        let mut s2 = Store::load(&p).unwrap();
+        s2.sha
+            .insert(s2.docs[0].path.clone(), (78, "cd".repeat(32)));
+        assert_eq!(s2.doc_sha256(0), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     fn mk(texts: &[&str]) -> Store {
         let mut s = Store::default();
         s.docs.push(Doc {
@@ -399,6 +502,70 @@ mod tests {
             tokenize("Științific ȘI țară"),
             tokenize("stiintific si tara")
         );
+    }
+
+    #[test]
+    fn ligature_query_finds_plain_text_and_back_with_same_ranking() {
+        let s = mk(&[
+            "The final report of the committee",
+            "Cooking pasta requires boiling water",
+            "A final decision and a final appeal",
+        ]);
+        let plain = Searcher::new(&s).search("final", None, 3, 10, None);
+        let lig = Searcher::new(&s).search("\u{fb01}nal", None, 3, 10, None);
+        let ids = |r: &[Hit]| r.iter().map(|h| h.chunk).collect::<Vec<_>>();
+        assert_eq!(ids(&plain), ids(&lig));
+        assert!(!plain.is_empty() && plain.iter().all(|h| h.chunk != 1));
+        let s2 = mk(&["The \u{fb01}nal report", "Cooking pasta"]);
+        assert_eq!(
+            Searcher::new(&s2).search("final", None, 3, 10, None)[0].chunk,
+            0
+        );
+    }
+
+    #[test]
+    fn phrase_queries_filter_passages() {
+        let s = mk(&[
+            "The burden of proof lies with the authority",
+            "The proof of the burden is heavy",
+            "The burden of proof is on the claimant, not the authority or the tribunal",
+        ]);
+        let ids = |q: &str| {
+            let mut v: Vec<usize> = Searcher::new(&s)
+                .search(q, None, 5, 10, None)
+                .iter()
+                .map(|h| h.chunk)
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(ids("\"burden of proof\""), vec![0, 2]);
+        assert_eq!(ids("burden of proof"), vec![0, 1, 2]);
+        // ordinary term next to a phrase: only phrase passages, and the term raises the score
+        let r = Searcher::new(&s).search("\"burden of proof\" authority", None, 5, 10, None);
+        assert_eq!(r.len(), 2);
+        assert!(r.iter().all(|h| h.chunk != 1));
+        // proximity, mistakes, one-word phrases
+        assert_eq!(ids("\"proof burden\"~2"), vec![0, 2]);
+        assert_eq!(ids("\"proof burden\"~3"), vec![0, 1, 2]);
+        assert!(ids("\"burden proof\"~0").is_empty());
+        assert_eq!(ids("\"burden of proof"), vec![0, 1, 2]);
+        assert_eq!(ids("\"proof\""), ids("proof"));
+        assert!(ids("\"zzzz yyyy\"").is_empty());
+    }
+
+    #[test]
+    fn phrase_does_not_cross_a_page_boundary() {
+        let mut s = mk(&[
+            "The burden of",
+            "proof lies here",
+            "Then the burden of proof returns",
+        ]);
+        s.chunks[0].page = 3;
+        s.chunks[1].page = 4;
+        s.chunks[2].page = 4;
+        let r = Searcher::new(&s).search("\"burden of proof\"", None, 5, 10, None);
+        assert_eq!(r.iter().map(|h| h.chunk).collect::<Vec<_>>(), vec![2]);
     }
 
     #[test]

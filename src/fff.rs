@@ -236,7 +236,7 @@ mod tests {
         assert_eq!(e.len(), 1);
         assert_eq!(e[0].year, "2001");
         assert!(e[0].note.contains("sha256:abcdef"));
-        let m = crate::bib::BibMap { entries: e };
+        let m = crate::bib::BibMap { entries: e, ..Default::default() };
         assert!(m.find(&format!("fff-inbox/{key}.fff.json")).is_some());
         let out = csl_envelope(&m.entries);
         assert!(out.contains("\"citation/csl\"") && out.contains("Popescu"));

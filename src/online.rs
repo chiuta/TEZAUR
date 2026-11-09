@@ -1,12 +1,15 @@
 //! Opt-in online lookups: literature search and reference checking against OpenAlex and Crossref.
 //! This is the only module that sends anything off the computer, and only when the user runs `lit` or `refs --online`.
 //! Base URLs can be redirected with TEZAUR_OPENALEX / TEZAUR_CROSSREF (used by the tests, and by institutional mirrors).
-//! Set TEZAUR_MAILTO to join the services' "polite pool".
+//! Set TEZAUR_MAILTO (or `--mailto`) to join the services' "polite pool". Crossref is reached through
+//! `crossref::Client` (rate limits, retries, cache, agency check, retraction records; spec 12).
 
 use crate::bib::Entry;
+use crate::crossref::{self, Lookup};
 use crate::index::coverage;
 use anyhow::{Result, anyhow};
 use serde_json::{Value, json};
+use std::path::PathBuf;
 use std::time::Duration;
 
 fn openalex() -> String {
@@ -22,7 +25,30 @@ fn crossref() -> String {
         .to_string()
 }
 
-fn get(url: &str, query: &[(&str, &str)]) -> Result<Option<Value>> {
+/// Settings shared by the online commands.
+#[derive(Clone, Debug, Default)]
+pub struct Opts {
+    /// Contact address for the services' polite pools.
+    pub contact: Option<String>,
+    /// Where Crossref answers are remembered (None: not at all).
+    pub cache_dir: Option<PathBuf>,
+    /// Ask again even if an answer is remembered.
+    pub bypass_cache: bool,
+}
+
+impl Opts {
+    fn client(&self) -> crossref::Client {
+        crossref::Client::new(crossref::Config {
+            base: crossref(),
+            contact: self.contact.clone(),
+            cache_dir: self.cache_dir.clone(),
+            bypass_cache: self.bypass_cache,
+            fake_clock: false,
+        })
+    }
+}
+
+fn get(url: &str, query: &[(&str, &str)], contact: Option<&str>) -> Result<Option<Value>> {
     let agent = ureq::AgentBuilder::new()
         .timeout_connect(Duration::from_secs(8))
         .timeout_read(Duration::from_secs(25))
@@ -34,8 +60,8 @@ fn get(url: &str, query: &[(&str, &str)]) -> Result<Option<Value>> {
     for (k, v) in query {
         r = r.query(k, v);
     }
-    if let Ok(m) = std::env::var("TEZAUR_MAILTO") {
-        r = r.query("mailto", &m);
+    if let Some(m) = contact {
+        r = r.query("mailto", m);
     }
     match r.call() {
         Ok(resp) => Ok(Some(resp.into_json()?)),
@@ -57,6 +83,9 @@ pub struct Work {
 }
 
 fn strip_doi(d: &str) -> String {
+    if let Some(f) = crate::ids::normalize_doi(d) {
+        return f.display; // label / URL host removed, original spelling kept
+    }
     d.trim()
         .trim_start_matches("https://doi.org/")
         .trim_start_matches("http://doi.org/")
@@ -201,11 +230,12 @@ impl Work {
 }
 
 /// Search OpenAlex; fall back to Crossref when OpenAlex is unreachable or empty.
-pub fn search(query: &str, n: usize) -> Result<Vec<Work>> {
-    let n = n.clamp(1, 50).to_string();
+pub fn search(query: &str, n: usize, o: &Opts) -> Result<Vec<Work>> {
+    let n = n.clamp(1, 50);
     let first = get(
         &format!("{}/works", openalex()),
-        &[("search", query), ("per-page", &n)],
+        &[("search", query), ("per-page", &n.to_string())],
+        o.contact.as_deref(),
     );
     if let Ok(Some(v)) = &first {
         let w: Vec<Work> = v["results"]
@@ -216,34 +246,61 @@ pub fn search(query: &str, n: usize) -> Result<Vec<Work>> {
             return Ok(w);
         }
     }
-    match get(
-        &format!("{}/works", crossref()),
-        &[("query", query), ("rows", &n)],
-    ) {
-        Ok(Some(v)) => Ok(v["message"]["items"]
-            .as_array()
-            .map(|a| a.iter().map(Work::from_crossref).collect())
-            .unwrap_or_default()),
-        Ok(None) => Ok(vec![]),
+    let mut cl = o.client();
+    let second = cl.search(query, n, n);
+    eprintln!("{}", summary(&cl));
+    match second {
+        Ok(items) => Ok(items.iter().map(Work::from_crossref).collect()),
         Err(e2) => Err(match first {
             Err(e1) => anyhow!("OpenAlex: {e1}; Crossref: {e2}"),
-            _ => e2,
+            _ => anyhow!("Crossref: {e2}"),
         }),
     }
 }
 
-fn lookup_doi(doi: &str) -> Result<Option<Work>> {
-    let d = strip_doi(doi);
-    if let Ok(Some(v)) = get(&format!("{}/works/https://doi.org/{}", openalex(), d), &[]) {
-        return Ok(Some(Work::from_openalex(&v)));
-    }
-    Ok(get(&format!("{}/works/{}", crossref(), d), &[])?
-        .map(|v| Work::from_crossref(&v["message"])))
+fn summary(cl: &crossref::Client) -> String {
+    let s = cl.stats;
+    format!(
+        "[Crossref: {} request(s) sent, {} answered from the local cache, {} refused by the server]",
+        s.sent, s.cached, s.refused
+    )
 }
 
-/// Existence, metadata and retraction status for each reference. Statuses: ok, retracted, metadata-mismatch, not-found, unchecked, error.
-pub fn check_entries(entries: &[&Entry]) -> Value {
+/// OpenAlex first (unchanged), then Crossref through the polite client.
+enum Found {
+    Work(Box<Work>, bool),
+    Missing,
+    Elsewhere(String),
+    Limited,
+    Blocked,
+    Failed(String),
+}
+
+fn lookup_doi(doi: &str, o: &Opts, cl: &mut crossref::Client) -> Found {
+    let d = strip_doi(doi);
+    let url = format!(
+        "{}/works/https://doi.org/{}",
+        openalex(),
+        crossref::encode(&d, true)
+    );
+    if let Ok(Some(v)) = get(&url, &[], o.contact.as_deref()) {
+        return Found::Work(Box::new(Work::from_openalex(&v)), true);
+    }
+    match cl.work(&d) {
+        Lookup::Found(m) => Found::Work(Box::new(Work::from_crossref(&m)), false),
+        Lookup::NotFound => Found::Missing,
+        Lookup::Elsewhere(a) => Found::Elsewhere(a),
+        Lookup::RateLimited => Found::Limited,
+        Lookup::Blocked => Found::Blocked,
+        Lookup::Failed(e) => Found::Failed(e),
+    }
+}
+
+/// Existence, metadata and retraction status for each reference. Statuses: ok, retracted, metadata-mismatch,
+/// not-found, registered-elsewhere (another DOI agency), rate-limited, blocked, unchecked, error.
+pub fn check_entries(entries: &[&Entry], o: &Opts) -> Value {
     let mut out = Vec::new();
+    let mut cl = o.client();
     for e in entries {
         let r = (|| -> Result<(String, String)> {
             if e.doi.is_empty() && e.title.is_empty() {
@@ -252,10 +309,52 @@ pub fn check_entries(entries: &[&Entry]) -> Value {
                     "no DOI and no title in the .bib entry".into(),
                 ));
             }
+            if cl.is_blocked() {
+                return Ok((
+                    "unchecked".into(),
+                    "not sent: Crossref blocked this client earlier in the run (HTTP 403)".into(),
+                ));
+            }
+            let mut via_openalex = false;
             let found = if !e.doi.is_empty() {
-                lookup_doi(&e.doi)?
+                match lookup_doi(&e.doi, o, &mut cl) {
+                    Found::Work(w, oa) => {
+                        via_openalex = oa;
+                        Some(*w)
+                    }
+                    Found::Missing => None,
+                    Found::Elsewhere(a) => {
+                        return Ok((
+                            "registered-elsewhere".into(),
+                            format!(
+                                "DOI {} is registered with another DOI agency ({a}); it cannot be checked here",
+                                e.doi
+                            ),
+                        ));
+                    }
+                    Found::Limited => {
+                        return Ok((
+                            "rate-limited".into(),
+                            "Crossref kept answering “too many requests”; try again later".into(),
+                        ));
+                    }
+                    Found::Blocked => {
+                        return Ok(if cl.announce_block() {
+                            (
+                                "blocked".into(),
+                                "Crossref refused this client (HTTP 403); remaining references are left unchecked. Set a contact (--mailto) and write to Crossref support".into(),
+                            )
+                        } else {
+                            (
+                                "unchecked".into(),
+                                "not sent: Crossref blocked this client".into(),
+                            )
+                        });
+                    }
+                    Found::Failed(er) => return Err(anyhow!("{er}")),
+                }
             } else {
-                search(&e.title, 3)?.into_iter().find(|w| {
+                search(&e.title, 3, o)?.into_iter().find(|w| {
                     coverage(&e.title, &w.title) >= 0.8 && coverage(&w.title, &e.title) >= 0.8
                 })
             };
@@ -269,7 +368,16 @@ pub fn check_entries(entries: &[&Entry]) -> Value {
                     },
                 ));
             };
-            if w.retracted {
+            // Retraction: OpenAlex flag, or an editorial record in Crossref that retracts this DOI.
+            let mut retracted = via_openalex && w.retracted;
+            let mut caveat = String::new();
+            if !retracted && !e.doi.is_empty() {
+                match cl.retracted(&strip_doi(&e.doi)) {
+                    Ok(r) => retracted = r,
+                    Err(er) => caveat = format!(" (retraction check unavailable: {er})"),
+                }
+            }
+            if retracted {
                 return Ok((
                     "retracted".into(),
                     format!("“{}” is marked as retracted", w.title),
@@ -283,14 +391,18 @@ pub fn check_entries(entries: &[&Entry]) -> Value {
                 diffs.push(format!("year {} vs {}", e.year, w.year));
             }
             Ok(if diffs.is_empty() {
-                ("ok".into(), format!("{} ({})", w.title, w.year))
+                ("ok".into(), format!("{} ({}){caveat}", w.title, w.year))
             } else {
-                ("metadata-mismatch".into(), diffs.join("; "))
+                (
+                    "metadata-mismatch".into(),
+                    format!("{}{caveat}", diffs.join("; ")),
+                )
             })
         })();
         let (status, note) = r.unwrap_or_else(|er| ("error".into(), er.to_string()));
         out.push(json!({"key": e.key, "status": status, "note": note}));
     }
+    eprintln!("{}", summary(&cl));
     json!(out)
 }
 

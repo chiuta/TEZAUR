@@ -7,22 +7,38 @@
 //! Portable: when run from a PortableApps.com-style folder (App\Tezaur\tezaur.exe + Data\),
 //! the index, library and settings all live in Data\ and nothing is written elsewhere.
 
+mod a11y;
 mod audit;
 mod bib;
+mod bibtex;
+mod crossref;
+mod csljson;
+mod dedup;
+mod epubpages;
 mod eval;
 mod export;
 mod fff;
+mod ids;
 mod index;
 mod ingest;
+mod jcs;
+mod kinds;
 mod llm;
+mod locator;
 mod mesh;
+mod names;
+mod oaipmh;
 mod online;
 mod pdfx;
+mod phrase;
 mod portable;
 mod prompt;
+mod ris;
 mod serve;
 mod sha256;
+mod unitext;
 mod verify;
+mod xmlmini;
 
 use anyhow::{Result, bail};
 use bib::BibMap;
@@ -75,6 +91,17 @@ struct Cli {
     /// Extra BibTeX file(s) for author/year citations. *.bib files in Data/ are found automatically.
     #[arg(long, global = true)]
     bib: Vec<PathBuf>,
+    /// Merge references that share a DOI (or the ISBN of a whole book) into one entry; the other keys stay
+    /// valid as aliases in `[@key]` citations. Conflicting records (different year/title) are never merged.
+    #[arg(long, global = true)]
+    unify_duplicates: bool,
+    /// Contact address sent to OpenAlex/Crossref with online lookups (their "polite pool"); optional.
+    #[arg(long, env = "TEZAUR_MAILTO", global = true)]
+    mailto: Option<String>,
+    /// Online lookups: ignore remembered Crossref answers and ask again (answers are otherwise kept
+    /// for 30 days, "not found" for one day, in <index>/crossref-cache).
+    #[arg(long, global = true)]
+    refresh_online: bool,
     /// Without a command, starts the interactive mode.
     /// Re-order the retrieved passages with the model before answering (slower, often more relevant).
     #[arg(long, global = true)]
@@ -425,6 +452,41 @@ enum Cmd {
         /// (VERIGA --fff-in, AcademiSearch). Same as `--to fff -o FILE`.
         #[arg(long, value_name = "FILE")]
         fff_out: Option<PathBuf>,
+        /// Instead of exporting, report duplicate references (same DOI, or same ISBN of a whole book),
+        /// conflicts and unusable identifiers. Nothing is changed or written.
+        #[arg(long)]
+        duplicates: bool,
+        /// With --duplicates: machine-readable output.
+        #[arg(long, requires = "duplicates")]
+        json: bool,
+    },
+    /// Harvest an institutional repository over OAI-PMH (Dublin Core) into a .bib file. Opt-in and online: only the
+    /// archive you name is contacted. Records the archive reports as deleted are listed, not imported.
+    Oai {
+        /// Base URL of the repository's OAI-PMH endpoint.
+        url: String,
+        /// Metadata format.
+        #[arg(long, default_value = "oai_dc")]
+        prefix: String,
+        /// Only this set (as `ListSets` names it).
+        #[arg(long)]
+        set: Option<String>,
+        /// Only records changed from this UTC date (YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ).
+        #[arg(long)]
+        from: Option<String>,
+        /// Only records changed until this UTC date (same granularity as --from).
+        #[arg(long)]
+        until: Option<String>,
+        /// Stop after this many records.
+        #[arg(long, default_value_t = 1000)]
+        max: usize,
+        /// Start from the newest datestamp of the last complete run for this archive and set; new records are
+        /// appended to the output file (otherwise the file is rewritten).
+        #[arg(long)]
+        incremental: bool,
+        /// Output .bib file (default: <index>/oai-<host>.bib, found automatically afterwards).
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     /// Pull your Zotero library: fetch BibTeX from Zotero's local API (Zotero must be running with "Allow other
     /// applications to communicate with Zotero" on) and index the attachments in Zotero's storage folder.
@@ -478,6 +540,9 @@ pub(crate) struct Ctx {
     llm: Llm,
     embed_model: Option<String>,
     bib_files: Vec<PathBuf>,
+    unify_duplicates: bool,
+    mailto: Option<String>,
+    refresh_online: bool,
     /// Session-wide document filter (`--only`, or `/only` in interactive mode).
     only: RefCell<Option<String>>,
     rerank: bool,
@@ -487,6 +552,24 @@ pub(crate) struct Ctx {
 impl Ctx {
     /// Re-read per command so a freshly exported .bib is picked up without restarting.
     fn load_bib(&self) -> BibMap {
+        let b = self.load_bib_raw();
+        if self.unify_duplicates {
+            b.unified()
+        } else {
+            b
+        }
+    }
+
+    fn online_opts(&self) -> online::Opts {
+        online::Opts {
+            contact: self.mailto.clone(),
+            cache_dir: Some(self.base.join("crossref-cache")),
+            bypass_cache: self.refresh_online,
+        }
+    }
+
+    /// As loaded, duplicates included.
+    fn load_bib_raw(&self) -> BibMap {
         let depth = if self.data.is_some() { 3 } else { 1 };
         BibMap::load(std::slice::from_ref(&self.base), &self.bib_files, depth)
     }
@@ -868,7 +951,7 @@ fn ask_json(
         q,
         &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(),
         &answer,
-    );
+    )?;
     Ok(
         serde_json::json!({"answer": answer, "references": r.references, "warnings": r.warnings, "excerpts": excerpts, "receipt": receipt}),
     )
@@ -1049,11 +1132,19 @@ fn ingest_paths(ctx: &Ctx, paths: &[PathBuf], force: bool) -> Result<()> {
 fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
     let bib = ctx.load_bib();
     match cmd {
-        Cmd::Ingest { paths, force, fff_in } => {
+        Cmd::Ingest {
+            paths,
+            force,
+            fff_in,
+        } => {
             let mut paths: Vec<PathBuf> = paths.clone();
             for f in fff_in {
                 let (dest, key) = fff::import(&ctx.base, f)?;
-                eprintln!("FFF envelope {} -> {} (cite as [@{key}])", f.display(), dest.display());
+                eprintln!(
+                    "FFF envelope {} -> {} (cite as [@{key}])",
+                    f.display(),
+                    dest.display()
+                );
                 paths.push(dest);
             }
             let paths: Vec<PathBuf> = if paths.is_empty() {
@@ -1120,10 +1211,134 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             eprintln!("wrote {}", out.display());
         }
 
-        Cmd::Bib { to, output, fff_out } => {
+        Cmd::Oai {
+            url,
+            prefix,
+            set,
+            from,
+            until,
+            max,
+            incremental,
+            output,
+        } => {
+            eprintln!("[online: requests go to {url}; no other service is contacted]");
+            let slug: String = url
+                .split("://")
+                .last()
+                .unwrap_or(url)
+                .chars()
+                .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+                .collect::<String>()
+                .trim_matches('-')
+                .chars()
+                .take(60)
+                .collect();
+            let out = output
+                .clone()
+                .unwrap_or_else(|| ctx.base.join(format!("oai-{slug}.bib")));
+            let out_name = out.file_name().map(|n| n.to_string_lossy().into_owned());
+            let raw = ctx.load_bib_raw();
+            let mut known = oaipmh::Known::default();
+            for e in raw
+                .entries
+                .iter()
+                .filter(|e| Some(&e.source) != out_name.as_ref() || *incremental)
+            {
+                known.keys.insert(e.key.to_lowercase());
+                if let Some(d) = ids::doi_key(&e.doi) {
+                    known.dois.insert(d);
+                }
+            }
+            let state_path = ctx.base.join("oai-state.json");
+            let mut state = oaipmh::load_state(&state_path);
+            let skey = oaipmh::state_key(url, set);
+            let from = from.clone().or_else(|| {
+                if *incremental {
+                    state.get(&skey).cloned()
+                } else {
+                    None
+                }
+            });
+            if let Some(f) = &from {
+                eprintln!("[from {f}]");
+            }
+            let cfg = oaipmh::Config {
+                base: url.clone(),
+                prefix: prefix.clone(),
+                set: set.clone(),
+                from,
+                until: until.clone(),
+                max_records: *max,
+                contact: ctx.mailto.clone(),
+                fake_clock: false,
+            };
+            let o = oaipmh::harvest(&cfg, &known).map_err(|e| anyhow::anyhow!(e))?;
+            for w in &o.warnings {
+                eprintln!("warning: {w}");
+            }
+            if !o.entries.is_empty() {
+                let text: String = o.entries.iter().map(|e| e.to_bibtex() + "\n").collect();
+                if *incremental && out.exists() {
+                    use std::io::Write as _;
+                    let mut f = std::fs::OpenOptions::new().append(true).open(&out)?;
+                    f.write_all(text.as_bytes())?;
+                } else {
+                    std::fs::write(&out, text)?;
+                }
+            }
+            if o.complete {
+                if let Some(n) = &o.newest {
+                    state.insert(skey, n.clone());
+                    oaipmh::save_state(&state_path, &state)?;
+                }
+            } else {
+                eprintln!(
+                    "note: the run stopped at the cap, so the incremental state was not advanced"
+                );
+            }
+            eprintln!(
+                "{} record(s) imported, {} already in the bibliography, {} deleted by the archive, {} request(s){}",
+                o.entries.len(),
+                o.skipped_known,
+                o.deleted.len(),
+                o.requests,
+                o.list_size
+                    .map(|n| format!(", archive reports {n} in total"))
+                    .unwrap_or_default()
+            );
+            for d in &o.deleted {
+                println!("deleted: {d}");
+            }
+            if !o.entries.is_empty() {
+                eprintln!("wrote {}", out.display());
+            }
+        }
+        Cmd::Bib {
+            to,
+            output,
+            fff_out,
+            duplicates,
+            json,
+        } => {
+            if *duplicates {
+                let raw = ctx.load_bib_raw();
+                for w in &raw.warnings {
+                    eprintln!("warning: {w}");
+                }
+                let rep = dedup::analyze(&raw.entries);
+                if *json {
+                    println!("{}", serde_json::to_string_pretty(&rep.to_json())?);
+                } else {
+                    print!("{}", rep.render(raw.entries.len()));
+                }
+                return Ok(());
+            }
             let bib = ctx.load_bib();
             let to = if fff_out.is_some() { BibTo::Fff } else { *to };
             let output = fff_out.as_ref().or(output.as_ref());
+            for w in &bib.warnings {
+                eprintln!("warning: {w}");
+            }
             if bib.entries.is_empty() {
                 bail!("no .bib entries found next to the index or via --bib");
             }
@@ -1226,8 +1441,11 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             }
             let on = if *online {
                 let (_, groups) = audit::extract_cites(&text);
-                let mut keys: Vec<String> =
-                    groups.iter().flatten().map(|c| c.key.clone()).collect();
+                let mut keys: Vec<String> = groups
+                    .iter()
+                    .flatten()
+                    .map(|c| bib.canonical_key(&c.key))
+                    .collect();
                 keys.sort_by_key(|k| k.to_lowercase());
                 keys.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
                 let entries: Vec<&bib::Entry> = bib
@@ -1239,7 +1457,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     "[online: sending {} DOIs/titles to OpenAlex and Crossref]",
                     entries.len()
                 );
-                Some(online::check_entries(&entries))
+                Some(online::check_entries(&entries, &ctx.online_opts()))
             } else {
                 None
             };
@@ -1283,13 +1501,16 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 let entries: Vec<&bib::Entry> = bib
                     .entries
                     .iter()
-                    .filter(|e| used.iter().any(|k| k.eq_ignore_ascii_case(&e.key)))
+                    .filter(|e| {
+                        used.iter()
+                            .any(|k| bib.canonical_key(k).eq_ignore_ascii_case(&e.key))
+                    })
                     .collect();
                 eprintln!(
                     "[online: sending {} DOIs/titles to OpenAlex and Crossref]",
                     entries.len()
                 );
-                v["online"] = online::check_entries(&entries);
+                v["online"] = online::check_entries(&entries, &ctx.online_opts());
             }
             if *json {
                 println!("{}", serde_json::to_string_pretty(&v)?)
@@ -1416,7 +1637,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             json,
         } => {
             eprintln!("[online: the query is sent to OpenAlex and Crossref]");
-            let works = online::search(query, *n)?;
+            let works = online::search(query, *n, &ctx.online_opts())?;
             if *json {
                 println!(
                     "{}",
@@ -1467,13 +1688,13 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
         }
 
         Cmd::Receipt { file, answer } => {
-            let r: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(file)?)?;
+            let r = std::fs::read_to_string(file)?;
             let store = Store::load(&ctx.index).ok();
             let ans = match answer {
                 Some(p) => Some(std::fs::read_to_string(p)?),
                 None => None,
             };
-            let (ok, lines) = audit::verify_receipt(store.as_ref(), &r, ans.as_deref());
+            let (ok, lines) = audit::verify_receipt_text(store.as_ref(), &r, ans.as_deref());
             for l in lines {
                 println!("{l}");
             }
@@ -1520,7 +1741,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     question,
                     &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(),
                     &ans,
-                );
+                )?;
                 std::fs::write(p, serde_json::to_string_pretty(&r)?)?;
                 eprintln!("receipt written to {}", p.display());
             }
@@ -2618,6 +2839,9 @@ fn real_main() -> Result<()> {
         llm: Llm::new(cli.api, &host, &cli.model, cli.num_ctx, cli.api_key.clone()),
         embed_model: cli.embed_model.clone(),
         bib_files: cli.bib.clone(),
+        unify_duplicates: cli.unify_duplicates,
+        mailto: cli.mailto.clone().filter(|m| !m.trim().is_empty()),
+        refresh_online: cli.refresh_online,
         only: RefCell::new(cli.only.clone()),
         rerank: cli.rerank,
         verify: cli.verify,
