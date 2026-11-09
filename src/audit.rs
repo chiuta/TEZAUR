@@ -1269,7 +1269,7 @@ pub fn coverage_matrix(
     let mut rows = Vec::new();
     for h in headings {
         let e = emb(h);
-        let hits = searcher.search(h, e.as_deref(), 12, 3, None);
+        let hits = searcher.search_terms(h, e.as_deref(), 12, 3, None);
         let mut docs: Vec<(usize, f32)> = Vec::new();
         for x in &hits {
             let c = &store.chunks[x.chunk];
@@ -1339,7 +1339,7 @@ pub fn novelty(store: &Store, bib: &BibMap, text: &str) -> Value {
     let mut passages = Vec::new();
     let (mut covered, mut partial, mut new) = (0, 0, 0);
     for w in &wins {
-        let hits = searcher.search(w, None, 3, 3, None);
+        let hits = searcher.search_terms(w, None, 3, 3, None);
         let (cv, near) = hits
             .iter()
             .map(|h| (coverage(w, &store.chunks[h.chunk].text), h.chunk))

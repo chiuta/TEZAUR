@@ -108,6 +108,30 @@ pub fn tokens(s: &str) -> Vec<Tok> {
     out
 }
 
+/// One key per word, in order: the same words `tokens` numbers (so key `i` is word position `i`), but
+/// every word is kept, also the short ones. Keys are folded, stripped of internal marks (numbers keep
+/// them) and cut like index tokens, so phrase matching agrees with what is indexed.
+pub fn words(s: &str) -> Vec<String> {
+    let folded = fold_text(s);
+    let mut out = Vec::new();
+    for seg in folded.split_word_bounds() {
+        let word: String = seg.chars().filter(|c| !is_format(*c)).collect();
+        if !word.chars().any(|c| c.is_alphanumeric()) {
+            continue;
+        }
+        let numeric = word
+            .chars()
+            .all(|c| c.is_ascii_digit() || !c.is_alphanumeric());
+        let key: String = if numeric {
+            word
+        } else {
+            word.chars().filter(|c| c.is_alphanumeric()).collect()
+        };
+        out.push(key.chars().take(STEM).collect());
+    }
+    out
+}
+
 /// Token strings only (what the index and `coverage` use).
 pub fn token_strings(s: &str) -> Vec<String> {
     tokens(s).into_iter().map(|t| t.text).collect()

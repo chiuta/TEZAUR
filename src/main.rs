@@ -28,6 +28,7 @@ mod names;
 mod oaipmh;
 mod online;
 mod pdfx;
+mod phrase;
 mod portable;
 mod prompt;
 mod ris;

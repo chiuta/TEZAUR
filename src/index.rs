@@ -179,7 +179,8 @@ impl Bm25 {
 /// Fraction (0..1) of the query's distinct terms that occur in `text`. A cheap, honest
 /// relevance signal: low values mean the passage barely matches what was asked.
 pub fn coverage(query: &str, text: &str) -> f32 {
-    let q: std::collections::HashSet<String> = tokenize(query).into_iter().collect();
+    let q: std::collections::HashSet<String> =
+        tokenize(&crate::phrase::plain(query)).into_iter().collect();
     if q.is_empty() {
         return 0.0;
     }
@@ -308,10 +309,64 @@ impl<'a> Searcher<'a> {
         max_per_doc: usize,
         allow: Option<&std::collections::HashSet<usize>>,
     ) -> Vec<Hit> {
+        self.search_with(query, q_emb, k, max_per_doc, allow, true)
+    }
+
+    /// As `search`, but the text is plain terms: quotes and `~k` mean nothing (headings, audit).
+    pub fn search_terms(
+        &self,
+        query: &str,
+        q_emb: Option<&[f32]>,
+        k: usize,
+        max_per_doc: usize,
+        allow: Option<&std::collections::HashSet<usize>>,
+    ) -> Vec<Hit> {
+        self.search_with(query, q_emb, k, max_per_doc, allow, false)
+    }
+
+    fn search_with(
+        &self,
+        query: &str,
+        q_emb: Option<&[f32]>,
+        k: usize,
+        max_per_doc: usize,
+        allow: Option<&std::collections::HashSet<usize>>,
+        phrases: bool,
+    ) -> Vec<Hit> {
         const POOL: usize = 200;
         const RRF: f32 = 60.0;
         let chunks = &self.store.chunks;
-        let keep = |ci: usize| allow.map(|a| a.contains(&chunks[ci].doc)).unwrap_or(true);
+        let parsed = if phrases {
+            crate::phrase::parse(query)
+        } else {
+            Default::default()
+        };
+        for w in &parsed.warnings {
+            eprintln!("warning: {w}");
+        }
+        if let Some(e) = &parsed.error {
+            eprintln!("error: query not run: {e}");
+            return vec![];
+        }
+        // phrase syntax removed; phrase words still count as scoring terms
+        let query = if phrases {
+            parsed.scoring.as_str()
+        } else {
+            query
+        };
+        // passages must contain every phrase; decided once per passage, before ranking
+        let verdicts: std::cell::RefCell<HashMap<usize, bool>> = Default::default();
+        let phrase_ok = |ci: usize| -> bool {
+            if parsed.phrases.is_empty() {
+                return true;
+            }
+            *verdicts
+                .borrow_mut()
+                .entry(ci)
+                .or_insert_with(|| crate::phrase::passage_ok(&parsed.phrases, &chunks[ci].text))
+        };
+        let keep =
+            |ci: usize| allow.map(|a| a.contains(&chunks[ci].doc)).unwrap_or(true) && phrase_ok(ci);
         let mut fused: HashMap<usize, f32> = HashMap::new();
         for (rank, (ci, _)) in self.bm25.search(query, POOL, &keep).into_iter().enumerate() {
             *fused.entry(ci).or_default() += 1.0 / (RRF + rank as f32 + 1.0);
@@ -397,6 +452,51 @@ mod tests {
             Searcher::new(&s2).search("final", None, 3, 10, None)[0].chunk,
             0
         );
+    }
+
+    #[test]
+    fn phrase_queries_filter_passages() {
+        let s = mk(&[
+            "The burden of proof lies with the authority",
+            "The proof of the burden is heavy",
+            "The burden of proof is on the claimant, not the authority or the tribunal",
+        ]);
+        let ids = |q: &str| {
+            let mut v: Vec<usize> = Searcher::new(&s)
+                .search(q, None, 5, 10, None)
+                .iter()
+                .map(|h| h.chunk)
+                .collect();
+            v.sort();
+            v
+        };
+        assert_eq!(ids("\"burden of proof\""), vec![0, 2]);
+        assert_eq!(ids("burden of proof"), vec![0, 1, 2]);
+        // ordinary term next to a phrase: only phrase passages, and the term raises the score
+        let r = Searcher::new(&s).search("\"burden of proof\" authority", None, 5, 10, None);
+        assert_eq!(r.len(), 2);
+        assert!(r.iter().all(|h| h.chunk != 1));
+        // proximity, mistakes, one-word phrases
+        assert_eq!(ids("\"proof burden\"~2"), vec![0, 2]);
+        assert_eq!(ids("\"proof burden\"~3"), vec![0, 1, 2]);
+        assert!(ids("\"burden proof\"~0").is_empty());
+        assert_eq!(ids("\"burden of proof"), vec![0, 1, 2]);
+        assert_eq!(ids("\"proof\""), ids("proof"));
+        assert!(ids("\"zzzz yyyy\"").is_empty());
+    }
+
+    #[test]
+    fn phrase_does_not_cross_a_page_boundary() {
+        let mut s = mk(&[
+            "The burden of",
+            "proof lies here",
+            "Then the burden of proof returns",
+        ]);
+        s.chunks[0].page = 3;
+        s.chunks[1].page = 4;
+        s.chunks[2].page = 4;
+        let r = Searcher::new(&s).search("\"burden of proof\"", None, 5, 10, None);
+        assert_eq!(r.iter().map(|h| h.chunk).collect::<Vec<_>>(), vec![2]);
     }
 
     #[test]
