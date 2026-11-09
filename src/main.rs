@@ -14,6 +14,7 @@ mod export;
 mod fff;
 mod index;
 mod ingest;
+mod kinds;
 mod llm;
 mod mesh;
 mod online;
@@ -1049,11 +1050,19 @@ fn ingest_paths(ctx: &Ctx, paths: &[PathBuf], force: bool) -> Result<()> {
 fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
     let bib = ctx.load_bib();
     match cmd {
-        Cmd::Ingest { paths, force, fff_in } => {
+        Cmd::Ingest {
+            paths,
+            force,
+            fff_in,
+        } => {
             let mut paths: Vec<PathBuf> = paths.clone();
             for f in fff_in {
                 let (dest, key) = fff::import(&ctx.base, f)?;
-                eprintln!("FFF envelope {} -> {} (cite as [@{key}])", f.display(), dest.display());
+                eprintln!(
+                    "FFF envelope {} -> {} (cite as [@{key}])",
+                    f.display(),
+                    dest.display()
+                );
                 paths.push(dest);
             }
             let paths: Vec<PathBuf> = if paths.is_empty() {
@@ -1120,7 +1129,11 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             eprintln!("wrote {}", out.display());
         }
 
-        Cmd::Bib { to, output, fff_out } => {
+        Cmd::Bib {
+            to,
+            output,
+            fff_out,
+        } => {
             let bib = ctx.load_bib();
             let to = if fff_out.is_some() { BibTo::Fff } else { *to };
             let output = fff_out.as_ref().or(output.as_ref());

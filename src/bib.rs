@@ -2,6 +2,7 @@
 //! "Author (Year)" and to build a proper reference list. It never touches the index format:
 //! the `.bib` files are read at run time, so editing metadata needs no re-indexing.
 
+use crate::kinds::{self, Format, Genre};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -16,6 +17,9 @@ pub struct Entry {
     pub file: String,
     pub note: String,
     pub url: String,
+    /// Entry type as read, with the format it came from (kept so exports can reproduce it).
+    pub origin: Option<(Format, String)>,
+    pub genre: Option<Genre>,
 }
 
 fn clean(s: &str) -> String {
@@ -48,11 +52,13 @@ fn clean(s: &str) -> String {
     out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn parse_entry(body: &str) -> Option<Entry> {
+fn parse_entry(body: &str, typ: &str) -> Option<Entry> {
     let (key, rest) = body.split_once(',')?;
     let c: Vec<char> = rest.chars().collect();
     let mut e = Entry {
         key: key.trim().to_string(),
+        origin: Some((Format::Bibtex, typ.to_string())),
+        genre: kinds::to_csl(Format::Bibtex, typ).1,
         ..Default::default()
     };
     let mut i = 0;
@@ -128,6 +134,11 @@ fn parse_entry(body: &str) -> Option<Entry> {
             "publisher" | "school" | "institution" if e.container.is_empty() => e.container = v,
             "doi" => e.doi = v,
             "note" => e.note = v,
+            "type" => {
+                if let Some(g) = kinds::genre_from_text(&v) {
+                    e.genre = Some(g);
+                }
+            }
             "url" => e.url = v,
             "file" => e.file = val.trim().to_string(), // raw: Windows paths must not be LaTeX-cleaned
             _ => {}
@@ -174,7 +185,7 @@ pub fn parse(text: &str) -> Vec<Entry> {
             continue;
         }
         let body: String = c[start..i - 1].iter().collect();
-        if let Some(e) = parse_entry(&body) {
+        if let Some(e) = parse_entry(&body, &typ) {
             out.push(e);
         }
     }
@@ -263,15 +274,24 @@ impl Entry {
 }
 
 impl Entry {
-    /// RIS record (Zotero, Mendeley, EndNote import it). Entry type is not kept by the reader:
-    /// JOUR when a container is known, GEN otherwise.
+    /// CSL type of this entry: from the kept origin, else a container means a journal article.
+    fn csl_type(&self) -> &'static str {
+        match &self.origin {
+            Some((f, t)) => kinds::to_csl(*f, t).0,
+            None if self.container.is_empty() => "document",
+            None => "article-journal",
+        }
+    }
+
+    fn out_type(&self, target: Format) -> String {
+        let origin = self.origin.as_ref().map(|(f, t)| (*f, t.as_str()));
+        kinds::emit(target, self.csl_type(), self.genre, origin)
+    }
+
+    /// RIS record (Zotero, Mendeley, EndNote import it). Type from the crosswalk (spec 01).
     pub fn to_ris(&self) -> String {
         let mut s = String::new();
-        s.push_str(if self.container.is_empty() {
-            "TY  - GEN\n"
-        } else {
-            "TY  - JOUR\n"
-        });
+        s.push_str(&format!("TY  - {}\n", self.out_type(Format::Ris)));
         s.push_str(&format!("ID  - {}\n", self.key));
         for a in self.authors() {
             s.push_str(&format!("AU  - {a}\n"));
@@ -312,7 +332,7 @@ impl Entry {
             .collect();
         let mut v = serde_json::json!({
             "id": self.key,
-            "type": if self.container.is_empty() { "document" } else { "article-journal" },
+            "type": self.out_type(Format::Csl),
             "title": self.title,
             "author": authors,
         });
@@ -336,11 +356,7 @@ impl Entry {
 
     /// Minimal BibTeX (only the fields the reader keeps).
     pub fn to_bibtex(&self) -> String {
-        let kind = if self.container.is_empty() {
-            "misc"
-        } else {
-            "article"
-        };
+        let kind = self.out_type(Format::Bibtex);
         let mut s = format!("@{kind}{{{},\n", self.key);
         let mut f = |k: &str, v: &str| {
             if !v.is_empty() {
@@ -497,5 +513,21 @@ mod tests {
         assert_eq!(c["author"][0]["family"], "Smith");
         assert_eq!(c["issued"]["date-parts"][0][0], 2019);
         assert_eq!(parse(&e.to_bibtex())[0].title, "On proof");
+    }
+
+    #[test]
+    fn entry_type_survives_exports() {
+        let e = &parse("@phdthesis{t1, author={A, B}, title={T}, school={U}, year={2020}}")[0];
+        assert!(e.to_ris().starts_with("TY  - THES\n"));
+        assert_eq!(e.to_csl()["type"], "thesis");
+        assert!(e.to_bibtex().starts_with("@phdthesis{t1"));
+        let m = &parse("@thesis{t2, title={T}, type={Master's thesis}}")[0];
+        assert_eq!(m.genre, Some(Genre::Master));
+        let u = &parse("@software{s1, title={X}}")[0];
+        assert!(u.to_bibtex().starts_with("@misc{") && u.to_ris().starts_with("TY  - GEN"));
+        assert_eq!(u.to_csl()["type"], "document");
+        let man = &parse("@manual{m1, title={X}}")[0];
+        assert_eq!(man.to_csl()["type"], "report");
+        assert!(man.to_bibtex().starts_with("@manual{"));
     }
 }
