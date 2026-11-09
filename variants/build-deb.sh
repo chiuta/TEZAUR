@@ -8,6 +8,7 @@ R=$(mktemp -d)/tezaur_${VER}_${ARCH}
 mkdir -p "$R/usr/share/man/man1" "$R/DEBIAN" "$R/usr/bin" "$R/usr/share/doc/tezaur" "$R/usr/share/applications" "$R/usr/share/icons/hicolor/512x512/apps" "$R/usr/share/tezaur"
 install -m755 target/release/tezaur "$R/usr/bin/tezaur"
 install -m644 README.md "$R/usr/share/doc/tezaur/README.md"
+install -m644 THIRD-PARTY-NOTICES.md "$R/usr/share/doc/tezaur/THIRD-PARTY-NOTICES.md"
 install -m644 LICENSE "$R/usr/share/doc/tezaur/copyright"
 # changelog (Debian format, native package) and man page
 printf 'tezaur (%s) unstable; urgency=medium\n\n  * Release %s. See https://github.com/chiuta/TEZAUR/releases for the notes.\n\n -- Alexio <alexio@trom.tf>  %s\n' "$VER" "$VER" "$(date -R)" | gzip -9n > "$R/usr/share/doc/tezaur/changelog.gz"

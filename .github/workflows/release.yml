@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p out/tezaur-${{ matrix.name }}
-          cp LICENSE README.md out/tezaur-${{ matrix.name }}/
+          cp LICENSE README.md THIRD-PARTY-NOTICES.md out/tezaur-${{ matrix.name }}/
           if [ "${{ runner.os }}" = Windows ]; then cp target/release/tezaur.exe out/tezaur-${{ matrix.name }}/; (cd out && 7z a tezaur-${{ needs.release.outputs.tag }}-${{ matrix.name }}.zip tezaur-${{ matrix.name }}); else cp target/release/tezaur out/tezaur-${{ matrix.name }}/; tar -C out -czf out/tezaur-${{ needs.release.outputs.tag }}-${{ matrix.name }}.tar.gz tezaur-${{ matrix.name }}; fi
           if [ "${{ runner.os }}" = Linux ]; then ./variants/build-deb.sh && cp dist/*.deb out/; fi
           cd out && : > SHA256SUMS-${{ matrix.name }}.txt && for f in *.tar.gz *.zip *.deb; do [ -f "$f" ] && { sha256sum "$f" 2>/dev/null || shasum -a 256 "$f"; } >> SHA256SUMS-${{ matrix.name }}.txt; done; true

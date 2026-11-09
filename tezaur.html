@@ -220,8 +220,8 @@ let pdfjsP=null;
 function loadPdfjs(){
   if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
   if(pdfjsP)return pdfjsP;
-  const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
-  pdfjsP=new Promise((ok,no)=>{const s=document.createElement('script');s.src=base+'pdf.min.js';
+  const base='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/';
+  pdfjsP=new Promise((ok,no)=>{const s=document.createElement('script');s.src=base+'pdf.min.js';s.integrity='sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e';s.crossOrigin='anonymous';
     s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc=base+'pdf.worker.min.js';ok(pdfjsLib)};
     s.onerror=()=>{pdfjsP=null;no(new Error('PDF-urile cer biblioteca pdf.js (se încarcă o singură dată de pe internet). Conectează-te sau convertește PDF-ul în .txt/.docx.'))};
     document.head.appendChild(s)});
