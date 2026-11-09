@@ -20,7 +20,7 @@ Marcaje folosite în specificații: [observat] = afirmat în sursa publică citi
 | 08 | [citation-locators](08-citation-locators.md) | Localizatori de citare: pagină, capitol, interval, cifre romane | implementat (teste trec) | CSL 1.0.2 (lista Locators, intervale) + fișierele de localizare CSL | M | – | 10 |
 | 11 | [epub-page-list](11-epub-page-list.md) | Pagini tipărite pentru EPUB (page-list, pagebreak) | parțial: etichetele de pagină nearabe nu se păstrează în index; ediția tipărită neidentificată (INTREBARI 17–18) | EPUB 3.3 (W3C) | L | 08, 09 | 11 |
 | 09 | [unicode-index-text](09-unicode-index-text.md) | Normalizare, pliere, segmentare Unicode pentru indexare | implementat (teste trec) | UAX #15; UAX #29 | M | – | 12 |
-| 10 | [phrase-query](10-phrase-query.md) | Căutare de expresie exactă și apropiere | implementat (teste trec) | Introduction to Information Retrieval, cap. 2.4 | L | 09 | 13 |
+| 10 | [phrase-query](10-phrase-query.md) | Căutare de expresie exactă și apropiere | implementat (teste trec); implicit oprit, se activează cu `--phrases` | Introduction to Information Retrieval, cap. 2.4 | L | 09 | 13 |
 | 14 | [receipt-integrity](14-receipt-integrity.md) | Chitanțe: JSON canonic (JCS) și identitate SHA-256 | implementat (teste trec) | RFC 8785 (+ FIPS 180-4, RFC 4231 necitite) | M | – | 14 |
 | 15 | [ui-accessibility](15-ui-accessibility.md) | Cerințe WCAG 2.2 A/AA pentru interfața web | parțial: implementate verificările statice (nume, tastatură, regiuni de stare, contrast, țintă, lang); nu s-au putut verifica reflow 320 px, cititor de ecran, mărime randată (INTREBARI 25–26) | WCAG 2.2 (criterii de succes) | M | – | 15 |
 

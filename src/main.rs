@@ -85,6 +85,10 @@ struct Cli {
     /// Context window requested from the model (Ollama only; for Jan/LM Studio set it in their model settings).
     #[arg(long, env = "TEZAUR_NUM_CTX", default_value_t = 16384, global = true)]
     num_ctx: u32,
+    /// Treat "exact phrase" and "a b"~5 (within 5 words) in search and ask as required phrases: passages without
+    /// them are dropped. Off by default: quotation marks are ordinary punctuation, as before.
+    #[arg(long, env = "TEZAUR_PHRASES", global = true)]
+    phrases: bool,
     /// Restrict retrieval to documents whose title, path or citation contains this text.
     #[arg(long, global = true)]
     only: Option<String>,
@@ -554,9 +558,19 @@ pub(crate) struct Ctx {
     only: RefCell<Option<String>>,
     rerank: bool,
     verify: bool,
+    phrases: bool,
 }
 
 impl Ctx {
+    /// The query text for term-coverage figures: phrase syntax removed only when phrase queries are on.
+    pub(crate) fn cov_query(&self, q: &str) -> String {
+        if self.phrases {
+            phrase::plain(q)
+        } else {
+            q.to_string()
+        }
+    }
+
     /// Re-read per command so a freshly exported .bib is picked up without restarting.
     fn load_bib(&self) -> BibMap {
         let b = self.load_bib_raw();
@@ -653,7 +667,7 @@ fn retrieve_inner(
     per_doc: usize,
 ) -> Vec<Hit> {
     let allow = allowed_docs(ctx, store, bib);
-    let s = Searcher::new(store);
+    let s = Searcher::new(store).with_phrases(ctx.phrases);
     let per = k.max(4);
     let mut rounds: Vec<Vec<Hit>> = Vec::new();
     for q in queries {
@@ -664,7 +678,7 @@ fn retrieve_inner(
             let best = hits
                 .iter()
                 .take(3)
-                .map(|h| coverage(q, &store.chunks[h.chunk].text))
+                .map(|h| coverage(&ctx.cov_query(q), &store.chunks[h.chunk].text))
                 .fold(0.0, f32::max);
             if best < 0.4 {
                 eprintln!(
@@ -1430,7 +1444,9 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let store = Store::load(&ctx.index)?;
             let allow = allowed_docs(ctx, &store, &bib);
             let emb = embed_query(ctx, &store, query);
-            let hits = Searcher::new(&store).search(query, emb.as_deref(), *k, 4, allow.as_ref());
+            let hits = Searcher::new(&store)
+                .with_phrases(ctx.phrases)
+                .search(query, emb.as_deref(), *k, 4, allow.as_ref());
             if hits.is_empty() {
                 println!("no matches");
             }
@@ -1441,7 +1457,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     "[{}] {}  (terms matched {:.0}%)\n    {}…\n",
                     i + 1,
                     prompt::label(&store, &bib, h),
-                    coverage(query, text) * 100.0,
+                    coverage(&ctx.cov_query(query), text) * 100.0,
                     snippet
                 );
             }
@@ -2870,6 +2886,7 @@ fn real_main() -> Result<()> {
         only: RefCell::new(cli.only.clone()),
         rerank: cli.rerank,
         verify: cli.verify,
+        phrases: cli.phrases,
     };
     match &cli.cmd {
         Some(cmd) => run(&ctx, cmd),

@@ -311,12 +311,14 @@ fn api(
                         .collect()
                 });
             let emb = embed_query(ctx, &store, &q);
-            let hits = Searcher::new(&store).search(&q, emb.as_deref(), k, 3, allow.as_ref());
+            let hits = Searcher::new(&store)
+                .with_phrases(ctx.phrases)
+                .search(&q, emb.as_deref(), k, 3, allow.as_ref());
             let out: Vec<Value> = hits.iter().enumerate().map(|(i, h)| {
                 let c = &store.chunks[h.chunk];
                 let d = &store.docs[c.doc];
                 json!({"n": i + 1, "label": prompt::label(&store, &bib, h), "text": c.text, "page": c.page, "path": d.path,
-                       "title": d.title, "cov": coverage(&q, &c.text), "score": h.score})
+                       "title": d.title, "cov": coverage(&ctx.cov_query(&q), &c.text), "score": h.score})
             }).collect();
             let mut resp = json!({"hits": out});
             if get(params, "mesh") == Some("1") {

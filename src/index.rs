@@ -226,8 +226,7 @@ impl Bm25 {
 /// Fraction (0..1) of the query's distinct terms that occur in `text`. A cheap, honest
 /// relevance signal: low values mean the passage barely matches what was asked.
 pub fn coverage(query: &str, text: &str) -> f32 {
-    let q: std::collections::HashSet<String> =
-        tokenize(&crate::phrase::plain(query)).into_iter().collect();
+    let q: std::collections::HashSet<String> = tokenize(query).into_iter().collect();
     if q.is_empty() {
         return 0.0;
     }
@@ -280,6 +279,9 @@ pub struct Hit {
 pub struct Searcher<'a> {
     pub store: &'a Store,
     bm25: std::sync::Arc<Bm25>,
+    /// Quoted phrases and `~k` proximity in the query are hard filters. Off by default (a quote mark is
+    /// ordinary punctuation, as it always was); on with `with_phrases(true)`, i.e. `--phrases` / `TEZAUR_PHRASES=1`.
+    phrases: bool,
 }
 
 /// Building the BM25 index tokenises the whole library (seconds for a few million words), and `tezaur serve` / MCP would do it on every
@@ -315,6 +317,7 @@ impl<'a> Searcher<'a> {
             return Searcher {
                 store,
                 bm25: b.clone(),
+                phrases: false,
             };
         }
         // Second level: the on-disk cache next to the index, so a fresh CLI process does not re-tokenise the library.
@@ -330,7 +333,11 @@ impl<'a> Searcher<'a> {
         {
             let b = std::sync::Arc::new(b);
             *g = Some((key, b.clone()));
-            return Searcher { store, bm25: b };
+            return Searcher {
+                store,
+                bm25: b,
+                phrases: false,
+            };
         }
         let b = std::sync::Arc::new(Bm25::new(&store.chunks));
         if let Some(dp) = &disk
@@ -342,12 +349,22 @@ impl<'a> Searcher<'a> {
             }
         }
         *g = Some((key, b.clone()));
-        Searcher { store, bm25: b }
+        Searcher {
+            store,
+            bm25: b,
+            phrases: false,
+        }
     }
 
     /// Reciprocal-rank fusion of BM25 and (optionally) dense retrieval.
     /// `max_per_doc` keeps one big book from crowding out everything else.
     /// `allow`: restrict retrieval to these document ids (None = whole library).
+    /// Treat `"exact phrase"` and `"a b"~k` in queries as required phrases (spec 10). Off by default.
+    pub fn with_phrases(mut self, on: bool) -> Self {
+        self.phrases = on;
+        self
+    }
+
     pub fn search(
         &self,
         query: &str,
@@ -356,10 +373,10 @@ impl<'a> Searcher<'a> {
         max_per_doc: usize,
         allow: Option<&std::collections::HashSet<usize>>,
     ) -> Vec<Hit> {
-        self.search_with(query, q_emb, k, max_per_doc, allow, true)
+        self.search_with(query, q_emb, k, max_per_doc, allow, self.phrases)
     }
 
-    /// As `search`, but the text is plain terms: quotes and `~k` mean nothing (headings, audit).
+    /// As `search`, but the text is always plain terms: quotes and `~k` mean nothing (headings, audit), whatever `with_phrases` says.
     pub fn search_terms(
         &self,
         query: &str,
@@ -532,6 +549,7 @@ mod tests {
         ]);
         let ids = |q: &str| {
             let mut v: Vec<usize> = Searcher::new(&s)
+                .with_phrases(true)
                 .search(q, None, 5, 10, None)
                 .iter()
                 .map(|h| h.chunk)
@@ -542,7 +560,9 @@ mod tests {
         assert_eq!(ids("\"burden of proof\""), vec![0, 2]);
         assert_eq!(ids("burden of proof"), vec![0, 1, 2]);
         // ordinary term next to a phrase: only phrase passages, and the term raises the score
-        let r = Searcher::new(&s).search("\"burden of proof\" authority", None, 5, 10, None);
+        let r = Searcher::new(&s)
+            .with_phrases(true)
+            .search("\"burden of proof\" authority", None, 5, 10, None);
         assert_eq!(r.len(), 2);
         assert!(r.iter().all(|h| h.chunk != 1));
         // proximity, mistakes, one-word phrases
@@ -555,6 +575,32 @@ mod tests {
     }
 
     #[test]
+    fn quotes_are_ordinary_punctuation_unless_phrases_are_switched_on() {
+        let s = mk(&[
+            "The burden of proof lies with the authority",
+            "The proof of the burden is heavy",
+            "Pasta needs boiling water",
+        ]);
+        let ids = |q: &str, on: bool| {
+            Searcher::new(&s)
+                .with_phrases(on)
+                .search(q, None, 5, 10, None)
+                .iter()
+                .map(|h| (h.chunk, (h.score * 1e6) as i64))
+                .collect::<Vec<_>>()
+        };
+        // default: same hits and same scores as the unquoted text; nothing is dropped, nothing aborts
+        assert_eq!(ids("\"burden of proof\"", false), ids("burden of proof", false));
+        assert_eq!(ids("what is the \"clean room\" burden?", false).len(), 2);
+        assert_eq!(ids("\"proof burden\"~3", false), ids("proof burden 3", false));
+        assert_eq!(ids("\"zzzz yyyy\" burden", false), ids("burden", false));
+        assert!(!ids("\"proof burden\"~x", false).is_empty());
+        // opt-in: the filter applies
+        assert_eq!(ids("\"burden of proof\"", true).len(), 1);
+        assert!(ids("\"zzzz yyyy\" burden", true).is_empty());
+    }
+
+    #[test]
     fn phrase_does_not_cross_a_page_boundary() {
         let mut s = mk(&[
             "The burden of",
@@ -564,7 +610,9 @@ mod tests {
         s.chunks[0].page = 3;
         s.chunks[1].page = 4;
         s.chunks[2].page = 4;
-        let r = Searcher::new(&s).search("\"burden of proof\"", None, 5, 10, None);
+        let r = Searcher::new(&s)
+            .with_phrases(true)
+            .search("\"burden of proof\"", None, 5, 10, None);
         assert_eq!(r.iter().map(|h| h.chunk).collect::<Vec<_>>(), vec![2]);
     }
 

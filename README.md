@@ -125,8 +125,11 @@ Bibliography input and queries (all offline unless stated):
   BibTeX `@string`, `#` concatenation and `crossref` inheritance are read. DOIs, ISBNs, ISSNs and ORCID iDs
   are extracted and their check digits verified; `--unify-duplicates` lets entries with the same DOI/ISBN
   answer to each other's citation keys.
-- **Phrases and proximity** in search: `"exact phrase"` matches the words in order; `"a b"~5` matches them
-  within 5 words of each other. Matching is accent-, case- and Unicode-form-insensitive (the BM25 cache rebuilds once after upgrade).
+- **Phrases and proximity** (opt-in): with `--phrases` (or `TEZAUR_PHRASES=1`), `"exact phrase"` in `search`, `ask` and
+  the API matches the words in order and `"a b"~5` within 5 words of each other; passages without the phrase are
+  dropped, and a malformed `~k` stops the query with an error. Without the flag quotation marks are ordinary
+  punctuation, exactly as before, so natural-language questions containing quotes keep their partial matches.
+  Matching is accent-, case- and Unicode-form-insensitive (the BM25 cache rebuilds once after upgrade).
 - **Locators** in `audit`: `[@key, p. 3]`, `pp. 3-5`, `p. 12 ff.`, Roman numerals, `ch.`/`sec.` labels; a range
   is checked against every page it names (`page-out-of-range`, `bad-range`).
 - **EPUB**: printed page numbers (page-list / `epub:type="pagebreak"`) are used as page numbers when the book has them.
