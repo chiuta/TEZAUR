@@ -480,6 +480,9 @@ enum Cmd {
         /// Stop after this many records.
         #[arg(long, default_value_t = 1000)]
         max: usize,
+        /// Stop after this many HTTP requests (a repository that never ends cannot keep the command running).
+        #[arg(long, default_value_t = oaipmh::DEFAULT_MAX_REQUESTS)]
+        max_requests: usize,
         /// Start from the newest datestamp of the last complete run for this archive and set; new records are
         /// appended to the output file (otherwise the file is rewritten).
         #[arg(long)]
@@ -1234,6 +1237,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             from,
             until,
             max,
+            max_requests,
             incremental,
             output,
             force,
@@ -1289,6 +1293,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                 from,
                 until: until.clone(),
                 max_records: *max,
+                max_requests: *max_requests,
                 contact: ctx.mailto.clone(),
                 fake_clock: false,
             };

@@ -24,6 +24,8 @@ pub struct Config {
     pub until: Option<String>,
     /// Stop after this many records (0 = default 1000).
     pub max_records: usize,
+    /// Stop after this many HTTP requests, whatever they return (0 = default `DEFAULT_MAX_REQUESTS`).
+    pub max_requests: usize,
     pub contact: Option<String>,
     /// Tests: virtual clock.
     pub fake_clock: bool,
@@ -332,6 +334,11 @@ fn dc_entry(dc: &Node) -> Option<Entry> {
 }
 
 /// Harvests the archive. `known` is the bibliography already present (no duplicates are added).
+/// Default bound on the requests of one harvest (a page usually carries 20-500 records).
+pub const DEFAULT_MAX_REQUESTS: usize = 200;
+/// Pages in a row that bring no new record before the harvest stops.
+const MAX_EMPTY_PAGES: usize = 3;
+
 pub fn harvest(cfg: &Config, known: &Known) -> Result<Outcome, String> {
     let base = cfg.base.trim().to_string();
     if !(base.starts_with("http://") || base.starts_with("https://")) {
@@ -347,6 +354,11 @@ pub fn harvest(cfg: &Config, known: &Known) -> Result<Outcome, String> {
         1000
     } else {
         cfg.max_records
+    };
+    let max_requests = if cfg.max_requests == 0 {
+        DEFAULT_MAX_REQUESTS
+    } else {
+        cfg.max_requests
     };
     let mut http = Http {
         clock: Clock::new(cfg.fake_clock),
@@ -389,7 +401,15 @@ pub fn harvest(cfg: &Config, known: &Known) -> Result<Outcome, String> {
     let mut from = cfg.from.clone();
     let mut token: Option<String> = None;
     let mut restarts = 0;
+    let mut seen_tokens: HashSet<String> = HashSet::new();
+    let mut empty_pages = 0usize;
     'outer: loop {
+        if http.requests as usize >= max_requests {
+            out.warnings.push(format!(
+                "stopped after {max_requests} requests (raise it with --max-requests)"
+            ));
+            break;
+        }
         let url = match &token {
             Some(t) => url_for(&base, &[("verb", "ListRecords"), ("resumptionToken", t)]),
             None => {
@@ -469,6 +489,7 @@ pub fn harvest(cfg: &Config, known: &Known) -> Result<Outcome, String> {
         let Some(lr) = doc.child("ListRecords") else {
             return Err("the answer has no ListRecords element".into());
         };
+        let mut new_on_page = 0usize;
         for rec in lr.all("record") {
             let Some(h) = rec.child("header") else {
                 continue;
@@ -477,6 +498,7 @@ pub fn harvest(cfg: &Config, known: &Known) -> Result<Outcome, String> {
             if !seen_ids.insert(id.clone()) {
                 continue; // already received before a restart
             }
+            new_on_page += 1;
             if let Some(d) = h.child_text("datestamp").filter(|d| gran_of(d).is_some()) {
                 if out.newest.as_ref().is_none_or(|n| pad(d) > pad(n)) {
                     out.newest = Some(d.to_string());
@@ -518,7 +540,26 @@ pub fn harvest(cfg: &Config, known: &Known) -> Result<Outcome, String> {
             out.list_size = Some(n);
         }
         match rt.map(|r| r.text().to_string()).filter(|t| !t.is_empty()) {
-            Some(t) => token = Some(t),
+            Some(t) => {
+                if new_on_page == 0 {
+                    empty_pages += 1;
+                } else {
+                    empty_pages = 0;
+                }
+                if !seen_tokens.insert(t.clone()) {
+                    out.warnings.push(
+                        "the archive repeated a resumption token; stopped to avoid looping".into(),
+                    );
+                    break;
+                }
+                if empty_pages >= MAX_EMPTY_PAGES {
+                    out.warnings.push(format!(
+                        "{MAX_EMPTY_PAGES} pages in a row brought no new record; stopped"
+                    ));
+                    break;
+                }
+                token = Some(t);
+            }
             None => {
                 out.complete = true;
                 break;
@@ -881,6 +922,64 @@ mod tests {
         assert!(!o.complete);
         let err = harvest(&cfg("ftp://x"), &Known::default()).unwrap_err();
         assert!(err.contains("http"));
+    }
+
+    #[test]
+    fn a_repeated_token_or_empty_pages_cannot_loop_forever() {
+        // same token every time, same record every time
+        let (b1, seen1) = serve(Box::new(|u, _| {
+            if u.contains("Identify") {
+                identify("YYYY-MM-DD")
+            } else {
+                env(&format!(
+                    "<ListRecords>{}<resumptionToken>same</resumptionToken></ListRecords>",
+                    rec("a", "2020-01-01", "A")
+                ))
+            }
+        }));
+        let o = harvest(&cfg(&b1), &Known::default()).unwrap();
+        assert!(!o.complete && o.entries.len() == 1);
+        assert!(o.warnings.iter().any(|w| w.contains("repeated a resumption token")));
+        assert!(seen1.lock().unwrap().len() <= 4, "{:?}", seen1.lock().unwrap());
+        // a new token on every (empty) page
+        let n = std::sync::atomic::AtomicUsize::new(0);
+        let (b2, seen2) = serve(Box::new(move |u, _| {
+            if u.contains("Identify") {
+                identify("YYYY-MM-DD")
+            } else {
+                let i = n.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                env(&format!(
+                    "<ListRecords><resumptionToken>t{i}</resumptionToken></ListRecords>"
+                ))
+            }
+        }));
+        let o = harvest(&cfg(&b2), &Known::default()).unwrap();
+        assert!(!o.complete && o.warnings.iter().any(|w| w.contains("no new record")));
+        assert!(seen2.lock().unwrap().len() <= 6);
+        // fresh records and fresh tokens forever: the request cap stops it
+        let n = std::sync::atomic::AtomicUsize::new(0);
+        let (b3, seen3) = serve(Box::new(move |u, _| {
+            if u.contains("Identify") {
+                identify("YYYY-MM-DD")
+            } else {
+                let i = n.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                env(&format!(
+                    "<ListRecords>{}<resumptionToken>t{i}</resumptionToken></ListRecords>",
+                    rec(&format!("r{i}"), "2020-01-01", "R")
+                ))
+            }
+        }));
+        let o = harvest(
+            &Config {
+                max_requests: 5,
+                max_records: 100,
+                ..cfg(&b3)
+            },
+            &Known::default(),
+        )
+        .unwrap();
+        assert!(!o.complete && o.warnings.iter().any(|w| w.contains("--max-requests")));
+        assert!(seen3.lock().unwrap().len() <= 5, "{}", seen3.lock().unwrap().len());
     }
 
     #[test]
