@@ -268,3 +268,7 @@ Overall: flagged-when-it-should-be recall 73 % (70/96); precision 97 % (70/72); 
 Reading it: wrong sources, unrelated sentences and changed figures are caught; negations and single swapped words are **not** (use `audit --semantic` with a local model, whose quality is untested with a real model); paraphrases are sent to a human by design.
 
 `tezaur audit draft.md --online [--fail]` additionally checks that each cited reference exists and is not retracted (OpenAlex/Crossref). It is opt-in, prints what it sends to stderr, and sends only the DOI/title of cited `.bib` entries. Tested against mock services; the real services were not reachable from the development sandbox.
+
+## Network use and external tools
+
+The browser variants (`tezaur.html`, PWA, extension) load pdf.js from cdnjs and transformers.js from jsDelivr (and the Whisper tiny model from Hugging Face), without Subresource Integrity hashes yet; bots forward messages through third-party services. "Local" therefore applies to your documents and the retrieval index, not to every variant at all times. PDF and OCR features need `pdftotext`, `pdftoppm` and `tesseract` installed. Recommended models (`llama3.1:8b`, `bge-m3`) are not bundled and carry their own licences (Llama 3.1 has its own community licence with use restrictions). Provenance: `docs/clean-room/PROVENANCE.md`.
