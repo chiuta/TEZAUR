@@ -86,6 +86,9 @@ tezaur sources                                   # what is indexed (+ BibTeX cit
 tezaur serve                                     # local web server: web app + API + OCR + model proxy (variants/README.md)
 tezaur export draft.md --to tex|docx|html|pdf|odt|epub   # LaTeX with \cite{} (+ --bib-name), Word, HTML; pdf needs pdflatex, odt/epub need pandoc
 tezaur bib --to ris|csl-json|bibtex              # your bibliography for Zotero, Mendeley, pandoc, Word
+tezaur bib --duplicates [--json]                 # entries that share a DOI or ISBN (reported, never merged unless --unify-duplicates)
+tezaur oai https://repo.example/oai --prefix oai_dc [--set S] [--from D] [--until D] [--max N] [--incremental] -o out.bib
+                                                 # opt-in ONLINE harvest of an OAI-PMH repository into BibTeX (records from the repository leave nothing of yours)
 tezaur mesh share smith; tezaur mesh add ana http://192.168.1.20:8787 --token X; tezaur mesh search "burden of proof"; tezaur mesh pull
                                                  # peer-to-peer exchange with colleagues, opt-in (variants/MESH.md)
 tezaur audit draft.md [--fail]                   # check each [@key, p. 3] against the cited page; quotes word-for-word; no model needed
@@ -114,6 +117,26 @@ tezaur                                           # no command: interactive mode 
 Settings (flags / env / `tezaur.conf`): `--api/TEZAUR_API`, `--host/TEZAUR_HOST` (Ollama also `OLLAMA_HOST`),
 `--api-key/TEZAUR_API_KEY`, `--model/TEZAUR_MODEL`, `--embed-model/TEZAUR_EMBED_MODEL`,
 `--num-ctx/TEZAUR_NUM_CTX` (Ollama), `--index/TEZAUR_INDEX`, `--only`, `--bib`.
+
+Bibliography input and queries (all offline unless stated):
+
+- **Formats**: next to `.bib`, files ending `.ris` and `.csl.json` in the bibliography folder are loaded too
+  (`--bib file.json` loads any CSL JSON file explicitly). Reference types are mapped through CSL JSON;
+  BibTeX `@string`, `#` concatenation and `crossref` inheritance are read. DOIs, ISBNs, ISSNs and ORCID iDs
+  are extracted and their check digits verified; `--unify-duplicates` lets entries with the same DOI/ISBN
+  answer to each other's citation keys.
+- **Phrases and proximity** in search: `"exact phrase"` matches the words in order; `"a b"~5` matches them
+  within 5 words of each other. Matching is accent-, case- and Unicode-form-insensitive (the BM25 cache rebuilds once after upgrade).
+- **Locators** in `audit`: `[@key, p. 3]`, `pp. 3-5`, `p. 12 ff.`, Roman numerals, `ch.`/`sec.` labels; a range
+  is checked against every page it names (`page-out-of-range`, `bad-range`).
+- **EPUB**: printed page numbers (page-list / `epub:type="pagebreak"`) are used as page numbers when the book has them.
+- **Receipts**: `ask --receipt` writes `tezaur-receipt/2`: the digest and the optional HMAC (`TEZAUR_RECEIPT_KEY`)
+  are over the RFC 8785 canonical form, so reformatting the file does not matter. Documents are named by SHA-256
+  (recorded at ingestion in `<index>.sha256`); documents ingested earlier are marked "weak identity" until re-ingested
+  with `--force`. `tezaur-receipt/1` receipts still verify as before.
+- **Crossref politeness** (`refs --online`, `lit`): `--mailto you@example.org` (or `TEZAUR_MAILTO`) puts your address
+  in the User-Agent for Crossref's polite pool; requests follow the server's rate headers, back off on 429, stop on 403,
+  and answers are cached on disk (30 days for hits, 1 day for misses); `--refresh-online` bypasses the cache.
 
 ## Source chain (FFF envelopes, offline)
 
@@ -179,7 +202,7 @@ Raspberry Pi / Termux / NixOS recipes, and **Mesh** (peer-to-peer exchange betwe
   It can rescue a correct paraphrase and catch a negation that word overlap accepts; every verdict it changes is marked `[model]` in the note.
   It is only as good as the model you run, and it has been tested here only against a scripted stand-in (see REVIEW.md).
 - **`refs`** is bookkeeping: cited keys that exist in neither the `.bib` nor the library, `.bib` entries and indexed documents your text never cites.
-  `refs --online` and `lit` are the **only** commands that contact the internet (OpenAlex, Crossref; `TEZAUR_MAILTO` for their polite pool;
+  `refs --online`, `lit` and `oai` (OAI-PMH harvest of the repository URL you give) are the **only** commands that contact the internet (OpenAlex, Crossref; `TEZAUR_MAILTO` for their polite pool;
   `TEZAUR_OPENALEX` / `TEZAUR_CROSSREF` to point at a mirror). They never run implicitly and print a notice before sending anything.
 - **Tables and equations in PDFs** (v0.4): `ingest` keeps a table together as one Markdown passage (caption first, header repeated if it must be split) and writes
   display equations as `[equation] $$ LaTeX $$ (eq. N)`; `tezaur tables FILE [--csv|--json|-o DIR]` and `tezaur equations FILE` export them. Two-column pages are read column by column.
