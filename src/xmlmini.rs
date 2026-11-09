@@ -4,7 +4,7 @@
 //! expansion. Nesting depth and input size are bounded. Namespace prefixes are dropped: names
 //! are compared by their local part.
 
-pub const MAX_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_BYTES: usize = 16 * 512 * 1024;
 const MAX_DEPTH: usize = 128;
 
 #[derive(Debug, Default, Clone)]
@@ -52,7 +52,9 @@ fn unescape(s: &str) -> String {
     while let Some(i) = rest.find('&') {
         out.push_str(&rest[..i]);
         rest = &rest[i..];
-        let Some(j) = rest.find(';').filter(|j| *j <= 10) else {
+        // only the next 11 bytes can hold the ';' of an entity: searching further would make many '&' quadratic
+        let window = &rest.as_bytes()[..rest.len().min(11)];
+        let Some(j) = window.iter().position(|&b| b == b';') else {
             out.push('&');
             rest = &rest[1..];
             continue;
@@ -258,6 +260,21 @@ pub fn parse(s: &str) -> Result<Node, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn many_ampersands_are_linear() {
+        // millions of '&' without any ';' (the 16 MB cap of an OAI answer allows 16 million) used to take hours
+        let n = 2 * 512 * 1024;
+        let t = std::time::Instant::now();
+        let big = "&".repeat(n);
+        assert_eq!(unescape(&big).len(), n);
+        let doc = format!("<a><t>{}</t></a>", "&".repeat(512 * 1024));
+        let r = parse(&doc).unwrap();
+        assert_eq!(r.child_text("t").unwrap().len(), 512 * 1024);
+        // entities still work next to the long runs, including multi-byte text around them
+        assert_eq!(unescape("é&amp;&#233;&#x41;&bogus;&;ü&"), "é&éA&bogus;&;ü&");
+        assert!(t.elapsed().as_millis() < 1000, "{:?}", t.elapsed());
+    }
 
     #[test]
     fn reads_nested_elements_and_namespaces() {
