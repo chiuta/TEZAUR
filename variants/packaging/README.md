@@ -1,6 +1,6 @@
 # Package-manager manifests
 
-These need a **published release** before they can work: replace `OWNER` with your GitHub account/organisation, the version,
+These need a **published release** before they can work: the repository owner is already set to `chiuta`; replace the version,
 and every `SHA256-OF-…` value (`sha256sum file`). They were written from the packaging formats' documentation and have **not**
 been run through the managers' own linters/builders — treat each as a starting point.
 

@@ -10,7 +10,7 @@ depends=('gcc-libs')
 makedepends=('cargo')
 options=('!lto')
 optdepends=('poppler: text extraction fallback for difficult PDFs')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/OWNER/tezaur/archive/refs/tags/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/chiuta/TEZAUR/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {

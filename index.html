@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TEZAUR — fiecare afirmație, legată de o pagină</title>
-<meta name="description" content="TEZAUR: asistent local de cercetare pentru teze. Răspunde doar din biblioteca ta, citează pagina și își verifică singur citările. Open source, MIT.">
+<meta name="description" content="TEZAUR: asistent local de cercetare pentru teze. Instruit să răspundă din sursele tale, citează pagina; citările sunt verificate mecanic. Open source, MIT.">
 <meta name="theme-color" content="#0b0f1a">
 <link rel="canonical" href="https://tezaur.chiuta.ro/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%230b0f1a'/%3E%3Ctext%20x='32'%20y='45'%20font-size='38'%20text-anchor='middle'%20fill='%23e8b53f'%20font-family='Georgia,serif'%3ET%3C/text%3E%3C/svg%3E">
@@ -13,7 +13,7 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta property="og:type" content="website"><meta property="og:site_name" content="TEZAUR">
 <meta property="og:title" content="TEZAUR — fiecare afirmație, legată de o pagină">
-<meta property="og:description" content="Asistent local de cercetare pentru teze: răspunde doar din biblioteca ta, citează pagina și își verifică singur citările.">
+<meta property="og:description" content="Asistent local de cercetare pentru teze: instruit să răspundă din sursele tale, cu citări verificate mecanic.">
 <meta property="og:url" content="https://tezaur.chiuta.ro/"><meta property="og:image" content="https://tezaur.chiuta.ro/assets/tutorials/01-first-question.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -851,7 +851,7 @@ render();
 /* ---------- catalog de variante ---------- */
 const CAT=[
  ['Desktop & CLI','CLI Linux · macOS · Windows','cargo build --release','r'],
- ['Desktop & CLI','Binar unic Linux x86_64','fără dependențe','r'],
+ ['Desktop & CLI','Binar unic Linux x86_64','dependențe externe opționale (pdftotext, pdftoppm, tesseract)','r'],
  ['Desktop & CLI','Pachet .deb','Debian · Ubuntu · Mint','r'],
  ['Desktop & CLI','Pachet .rpm','construit și inspectat cu rpm real','r'],
  ['Desktop & CLI','PortableApps.com (stick USB)','test de relocare pe Linux; exe Windows nebuilt','s'],
@@ -905,7 +905,7 @@ const CAT=[
  ['Editoare','Word (add-in)','Office.js simulat','s'],
  ['Editoare','LibreOffice','UNO simulat','s'],
  ['Editoare','Google Docs','Apps Script simulat','s'],
- ['Editoare','Zotero 7','Zotero real (10.x) încarcă pluginul și îl pornește','r'],
+ ['Editoare','Zotero 7','Plugin neîncercat în Zotero (captura arată editorul de cod)','r'],
  ['Editoare','Zotero (API local) → bibliotecă','contra unui mock','s'],
  ['Editoare','Joplin · Logseq','','s'],
  ['Editoare','Calibre','','s'],

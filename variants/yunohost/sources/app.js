@@ -65,10 +65,10 @@ let pdfjsP=null;
 function loadPdfjs(){
   if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
   if(pdfjsP)return pdfjsP;
-  const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  const base='vendor/pdfjs/';
   pdfjsP=new Promise((ok,no)=>{const s=document.createElement('script');s.src=base+'pdf.min.js';
     s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc=base+'pdf.worker.min.js';ok(pdfjsLib)};
-    s.onerror=()=>{pdfjsP=null;no(new Error('PDF-urile cer biblioteca pdf.js (se încarcă o singură dată de pe internet). Conectează-te sau convertește PDF-ul în .txt/.docx.'))};
+    s.onerror=()=>{pdfjsP=null;no(new Error('PDF-urile cer biblioteca pdf.js (inclusă local, nu s-a putut încărca). Reîncarcă pagina sau convertește PDF-ul în .txt/.docx.'))};
     document.head.appendChild(s)});
   return pdfjsP;
 }

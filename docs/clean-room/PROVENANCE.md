@@ -58,6 +58,6 @@ Ieșiri din rețea din binar doar la `lit` și `refs --online` (OpenAlex, Crossr
 Sursa: conversația claude.ai 706f078b-… (TEZAUR, 109 ture; citită doar la început).
 - **Precedent 0.3.0 / dezvoltare:** sesiunea a pornit din cererea generică a titularului și o verificare a toolchain-ului; nu apare o aplicație țintă de replicat. Dezvoltarea a fost realizată de Claude la cererea titularului (vezi REVIEW.md). Ce a precedat 0.3.0 în afara acestui chat: neconfirmat: ______
 - **Iconițe „T":** origine nedeterminată în istoricul citit: ______
-- **Licențe Whisper tiny (Xenova), Romanian.isl, Llama 3.1:** verificarea nu apare în istoric. Titularul verifică: ______
+- **Licențe:** Whisper tiny (Xenova) este Apache-2.0 conform paginii modelului (verificat 2026-11-09, fără fișier de licență citit). Llama 3.1 și bge-m3 sunt doar recomandate, nu incluse (vezi `THIRD-PARTY-NOTICES.md`). `Romanian.isl` rămâne neverificat (antetul nu a putut fi citit); titularul verifică antetul și licența Inno Setup: ______
 
 **Limite:** nu s-au rulat build-uri sau `cargo deny`; licențele npm/Gradle tranzitive nu au fost verificate; nu s-a făcut comparare de similaritate cu cod terț. Nu este opinie juridică.
