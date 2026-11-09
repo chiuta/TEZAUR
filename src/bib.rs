@@ -100,7 +100,7 @@ fn to_entry(r: &crate::bibtex::RawEntry) -> Entry {
         .iter()
         .find_map(|n| g(n).map(clean))
         .or_else(|| {
-            ["publisher", "school", "institution"]
+            ["publisher", "school", "institution", "howpublished"]
                 .iter()
                 .find_map(|n| g(n).map(clean))
         })
@@ -319,7 +319,8 @@ impl Entry {
         v
     }
 
-    /// Minimal BibTeX (only the fields the reader keeps).
+    /// BibTeX entry with the fields the reader keeps. The container goes to the field its type
+    /// uses: journal, booktitle, school, institution or publisher.
     pub fn to_bibtex(&self) -> String {
         let kind = self.out_type(Format::Bibtex);
         let mut s = format!("@{kind}{{{},\n", self.key);
@@ -329,10 +330,31 @@ impl Entry {
             }
         };
         f("author", &self.author);
+        f("editor", &self.editor);
         f("title", &self.title);
-        f("journal", &self.container);
+        let cont_key = match kind.as_str() {
+            "article" => "journal",
+            "inproceedings" | "conference" | "incollection" | "inbook" => "booktitle",
+            "mastersthesis" | "phdthesis" => "school",
+            "techreport" | "manual" => "institution",
+            "book" | "proceedings" | "booklet" => "publisher",
+            _ => "howpublished",
+        };
+        f(cont_key, &self.container);
+        if cont_key != "publisher" && self.publisher != self.container {
+            f("publisher", &self.publisher);
+        }
         f("year", &self.year);
+        f("volume", &self.volume);
+        f("number", &self.number);
+        f("pages", &self.pages);
+        f("address", &self.address);
+        f("edition", &self.edition);
         f("doi", &self.doi);
+        f("isbn", &self.isbn);
+        f("issn", &self.issn);
+        f("url", &self.url);
+        f("note", &self.note);
         s.push_str("}\n");
         s
     }

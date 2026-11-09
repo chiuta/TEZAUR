@@ -209,12 +209,17 @@ fn build(rec: &Rec, warnings: &mut Vec<String>, used: &mut HashSet<String>) -> E
     if !rec.closed {
         warnings.push(format!("record `{}` has no ER", e.title));
     }
-    // key
-    let explicit = first(&["ID"]);
+    e.key = unique_key(&e, &first(&["ID"]), used);
+    e
+}
+
+/// `explicit` if non-empty and unused; else surname + year (+ a, b, c...) not in `used`.
+/// The chosen key is added to `used`.
+pub fn unique_key(e: &Entry, explicit: &str, used: &mut HashSet<String>) -> String {
     let key = if !explicit.is_empty() && !used.contains(&explicit.to_lowercase()) {
-        explicit
+        explicit.to_string()
     } else {
-        let base = key_base(&e);
+        let base = key_base(e);
         let mut k = base.clone();
         let mut n = 0;
         while used.contains(&k.to_lowercase()) {
@@ -224,8 +229,7 @@ fn build(rec: &Rec, warnings: &mut Vec<String>, used: &mut HashSet<String>) -> E
         k
     };
     used.insert(key.to_lowercase());
-    e.key = key;
-    e
+    key
 }
 
 /// Reads RIS text. Returns the entries and warnings; never fails.

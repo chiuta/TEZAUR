@@ -60,21 +60,29 @@ pub enum Lookup {
     Failed(String),
 }
 
-struct Clock {
+/// Real or virtual (tests) clock; waits cost nothing when virtual.
+pub(crate) struct Clock {
     fake: bool,
     virt: Duration,
     start: Instant,
 }
 
 impl Clock {
-    fn now(&self) -> Duration {
+    pub(crate) fn new(fake: bool) -> Clock {
+        Clock {
+            fake,
+            virt: Duration::ZERO,
+            start: Instant::now(),
+        }
+    }
+    pub(crate) fn now(&self) -> Duration {
         if self.fake {
             self.virt
         } else {
             self.start.elapsed()
         }
     }
-    fn sleep(&mut self, d: Duration) {
+    pub(crate) fn sleep(&mut self, d: Duration) {
         if self.fake {
             self.virt += d;
         } else {
@@ -176,6 +184,15 @@ fn unix_now() -> u64 {
         .unwrap_or(0)
 }
 
+/// Agent header that names the program and, when configured, a contact.
+pub(crate) fn user_agent(contact: Option<&str>) -> String {
+    let v = env!("CARGO_PKG_VERSION");
+    match contact {
+        Some(c) => format!("tezaur/{v} (https://trom.tf; mailto:{c})"),
+        None => format!("tezaur/{v} (https://trom.tf)"),
+    }
+}
+
 impl Client {
     pub fn new(cfg: Config) -> Client {
         let fake = cfg.fake_clock;
@@ -203,11 +220,7 @@ impl Client {
     }
 
     pub fn user_agent(&self) -> String {
-        let v = env!("CARGO_PKG_VERSION");
-        match &self.cfg.contact {
-            Some(c) => format!("tezaur/{v} (https://trom.tf; mailto:{c})"),
-            None => format!("tezaur/{v} (https://trom.tf)"),
-        }
+        user_agent(self.cfg.contact.as_deref())
     }
 
     /// True once, for the request that met the block; later calls say false.

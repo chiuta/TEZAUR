@@ -23,6 +23,7 @@ mod kinds;
 mod llm;
 mod mesh;
 mod names;
+mod oaipmh;
 mod online;
 mod pdfx;
 mod portable;
@@ -31,6 +32,7 @@ mod ris;
 mod serve;
 mod sha256;
 mod verify;
+mod xmlmini;
 
 use anyhow::{Result, bail};
 use bib::BibMap;
@@ -451,6 +453,34 @@ enum Cmd {
         /// With --duplicates: machine-readable output.
         #[arg(long, requires = "duplicates")]
         json: bool,
+    },
+    /// Harvest an institutional repository over OAI-PMH (Dublin Core) into a .bib file. Opt-in and online: only the
+    /// archive you name is contacted. Records the archive reports as deleted are listed, not imported.
+    Oai {
+        /// Base URL of the repository's OAI-PMH endpoint.
+        url: String,
+        /// Metadata format.
+        #[arg(long, default_value = "oai_dc")]
+        prefix: String,
+        /// Only this set (as `ListSets` names it).
+        #[arg(long)]
+        set: Option<String>,
+        /// Only records changed from this UTC date (YYYY-MM-DD or YYYY-MM-DDThh:mm:ssZ).
+        #[arg(long)]
+        from: Option<String>,
+        /// Only records changed until this UTC date (same granularity as --from).
+        #[arg(long)]
+        until: Option<String>,
+        /// Stop after this many records.
+        #[arg(long, default_value_t = 1000)]
+        max: usize,
+        /// Start from the newest datestamp of the last complete run for this archive and set; new records are
+        /// appended to the output file (otherwise the file is rewritten).
+        #[arg(long)]
+        incremental: bool,
+        /// Output .bib file (default: <index>/oai-<host>.bib, found automatically afterwards).
+        #[arg(short, long)]
+        output: Option<PathBuf>,
     },
     /// Pull your Zotero library: fetch BibTeX from Zotero's local API (Zotero must be running with "Allow other
     /// applications to communicate with Zotero" on) and index the attachments in Zotero's storage folder.
@@ -1175,6 +1205,108 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             eprintln!("wrote {}", out.display());
         }
 
+        Cmd::Oai {
+            url,
+            prefix,
+            set,
+            from,
+            until,
+            max,
+            incremental,
+            output,
+        } => {
+            eprintln!("[online: requests go to {url}; no other service is contacted]");
+            let slug: String = url
+                .split("://")
+                .last()
+                .unwrap_or(url)
+                .chars()
+                .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+                .collect::<String>()
+                .trim_matches('-')
+                .chars()
+                .take(60)
+                .collect();
+            let out = output
+                .clone()
+                .unwrap_or_else(|| ctx.base.join(format!("oai-{slug}.bib")));
+            let out_name = out.file_name().map(|n| n.to_string_lossy().into_owned());
+            let raw = ctx.load_bib_raw();
+            let mut known = oaipmh::Known::default();
+            for e in raw
+                .entries
+                .iter()
+                .filter(|e| Some(&e.source) != out_name.as_ref() || *incremental)
+            {
+                known.keys.insert(e.key.to_lowercase());
+                if let Some(d) = ids::doi_key(&e.doi) {
+                    known.dois.insert(d);
+                }
+            }
+            let state_path = ctx.base.join("oai-state.json");
+            let mut state = oaipmh::load_state(&state_path);
+            let skey = oaipmh::state_key(url, set);
+            let from = from.clone().or_else(|| {
+                if *incremental {
+                    state.get(&skey).cloned()
+                } else {
+                    None
+                }
+            });
+            if let Some(f) = &from {
+                eprintln!("[from {f}]");
+            }
+            let cfg = oaipmh::Config {
+                base: url.clone(),
+                prefix: prefix.clone(),
+                set: set.clone(),
+                from,
+                until: until.clone(),
+                max_records: *max,
+                contact: ctx.mailto.clone(),
+                fake_clock: false,
+            };
+            let o = oaipmh::harvest(&cfg, &known).map_err(|e| anyhow::anyhow!(e))?;
+            for w in &o.warnings {
+                eprintln!("warning: {w}");
+            }
+            if !o.entries.is_empty() {
+                let text: String = o.entries.iter().map(|e| e.to_bibtex() + "\n").collect();
+                if *incremental && out.exists() {
+                    use std::io::Write as _;
+                    let mut f = std::fs::OpenOptions::new().append(true).open(&out)?;
+                    f.write_all(text.as_bytes())?;
+                } else {
+                    std::fs::write(&out, text)?;
+                }
+            }
+            if o.complete {
+                if let Some(n) = &o.newest {
+                    state.insert(skey, n.clone());
+                    oaipmh::save_state(&state_path, &state)?;
+                }
+            } else {
+                eprintln!(
+                    "note: the run stopped at the cap, so the incremental state was not advanced"
+                );
+            }
+            eprintln!(
+                "{} record(s) imported, {} already in the bibliography, {} deleted by the archive, {} request(s){}",
+                o.entries.len(),
+                o.skipped_known,
+                o.deleted.len(),
+                o.requests,
+                o.list_size
+                    .map(|n| format!(", archive reports {n} in total"))
+                    .unwrap_or_default()
+            );
+            for d in &o.deleted {
+                println!("deleted: {d}");
+            }
+            if !o.entries.is_empty() {
+                eprintln!("wrote {}", out.display());
+            }
+        }
         Cmd::Bib {
             to,
             output,
