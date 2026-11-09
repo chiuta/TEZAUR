@@ -8,3 +8,10 @@ path = "**"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Alexio <alexio@trom.tf>"
 SPDX-License-Identifier = "MIT"
+
+# pdf.js (pdfjs-dist 3.11.174, Mozilla Foundation and contributors), vendored unmodified in three places.
+[[annotations]]
+path = "**/vendor/pdfjs/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2023 Mozilla Foundation and pdf.js contributors"
+SPDX-License-Identifier = "Apache-2.0"
