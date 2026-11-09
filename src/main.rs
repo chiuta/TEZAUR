@@ -10,6 +10,7 @@
 mod audit;
 mod bib;
 mod bibtex;
+mod crossref;
 mod csljson;
 mod dedup;
 mod eval;
@@ -86,6 +87,13 @@ struct Cli {
     /// valid as aliases in `[@key]` citations. Conflicting records (different year/title) are never merged.
     #[arg(long, global = true)]
     unify_duplicates: bool,
+    /// Contact address sent to OpenAlex/Crossref with online lookups (their "polite pool"); optional.
+    #[arg(long, env = "TEZAUR_MAILTO", global = true)]
+    mailto: Option<String>,
+    /// Online lookups: ignore remembered Crossref answers and ask again (answers are otherwise kept
+    /// for 30 days, "not found" for one day, in <index>/crossref-cache).
+    #[arg(long, global = true)]
+    refresh_online: bool,
     /// Without a command, starts the interactive mode.
     /// Re-order the retrieved passages with the model before answering (slower, often more relevant).
     #[arg(long, global = true)]
@@ -497,6 +505,8 @@ pub(crate) struct Ctx {
     embed_model: Option<String>,
     bib_files: Vec<PathBuf>,
     unify_duplicates: bool,
+    mailto: Option<String>,
+    refresh_online: bool,
     /// Session-wide document filter (`--only`, or `/only` in interactive mode).
     only: RefCell<Option<String>>,
     rerank: bool,
@@ -511,6 +521,14 @@ impl Ctx {
             b.unified()
         } else {
             b
+        }
+    }
+
+    fn online_opts(&self) -> online::Opts {
+        online::Opts {
+            contact: self.mailto.clone(),
+            cache_dir: Some(self.base.join("crossref-cache")),
+            bypass_cache: self.refresh_online,
         }
     }
 
@@ -1301,7 +1319,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     "[online: sending {} DOIs/titles to OpenAlex and Crossref]",
                     entries.len()
                 );
-                Some(online::check_entries(&entries))
+                Some(online::check_entries(&entries, &ctx.online_opts()))
             } else {
                 None
             };
@@ -1354,7 +1372,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     "[online: sending {} DOIs/titles to OpenAlex and Crossref]",
                     entries.len()
                 );
-                v["online"] = online::check_entries(&entries);
+                v["online"] = online::check_entries(&entries, &ctx.online_opts());
             }
             if *json {
                 println!("{}", serde_json::to_string_pretty(&v)?)
@@ -1481,7 +1499,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             json,
         } => {
             eprintln!("[online: the query is sent to OpenAlex and Crossref]");
-            let works = online::search(query, *n)?;
+            let works = online::search(query, *n, &ctx.online_opts())?;
             if *json {
                 println!(
                     "{}",
@@ -2684,6 +2702,8 @@ fn real_main() -> Result<()> {
         embed_model: cli.embed_model.clone(),
         bib_files: cli.bib.clone(),
         unify_duplicates: cli.unify_duplicates,
+        mailto: cli.mailto.clone().filter(|m| !m.trim().is_empty()),
+        refresh_online: cli.refresh_online,
         only: RefCell::new(cli.only.clone()),
         rerank: cli.rerank,
         verify: cli.verify,

@@ -10,3 +10,7 @@ Format: spec · punct · ce lipsește · ce s-a făcut.
 6. **06 · Descoperirea fișierelor CSL JSON** · Spec nu spune ce fișiere `.json` se încarcă automat. S-a ales: automat doar `*.csl.json` din directoarele de date; orice `.json` dat explicit prin `--bib`.
 7. **07 · Test de acceptanță 2 (ISBN)** · Textul dă `978-92-95055-12-4` și `9789295505124`; cifrele diferă (…055… vs …505…), deci literal cele două nu sunt același ISBN. S-a testat intenția (același număr cu și fără cratime: `9789295055124`). De confirmat de titular.
 8. **07 · Pragul de conflict pe titlu** · Spec: „mai puțin de jumătate din jetoanele comune”, pragul [necunoscut]. S-a ales: jetoane comune / (setul mai mare) < 0,5.
+9. **12 · Forma răspunsului `/works/{doi}/agency`** · Spec spune doar că ruta „arată agenția”; structura JSON nu e dată. Clientul acceptă `message.agency` ca șir sau obiect cu `id`/`label` (testele folosesc `{"agency":{"id":"datacite"}}`, scris de implementator). De confirmat din documentația API.
+10. **12 · Câmpurile `update-to`** · Testul 7 folosește `{DOI, type}` (chei din spec). Prag lent (3x mediană, min. 5 s) implementat ca funcție pură testată; neobservat pe rețea reală.
+11. **12 · „refuzate” în rezumat** · Interpretat ca numărul de răspunsuri 429/403 primite. `select` se aplică doar interogărilor-listă (căutare, `updates:`), nu rutei unei singure lucrări (spec nu spune).
+12. **12 · OpenAlex** · Spec acoperă doar Crossref; căutarea în OpenAlex rămâne neschimbată (în afara DOI codificat procentual în cale).
