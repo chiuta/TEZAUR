@@ -18,6 +18,7 @@ mod ingest;
 mod kinds;
 mod llm;
 mod mesh;
+mod names;
 mod online;
 mod pdfx;
 mod portable;

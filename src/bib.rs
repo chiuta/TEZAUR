@@ -3,6 +3,7 @@
 //! the `.bib` files are read at run time, so editing metadata needs no re-indexing.
 
 use crate::kinds::{self, Format, Genre};
+use crate::names::{self, NameList};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -10,6 +11,8 @@ use walkdir::WalkDir;
 pub struct Entry {
     pub key: String,
     pub author: String,
+    /// Author (or editor) field as written, braces and LaTeX intact, for name parsing.
+    pub raw_author: String,
     pub year: String,
     pub title: String,
     pub container: String,
@@ -22,7 +25,7 @@ pub struct Entry {
     pub genre: Option<Genre>,
 }
 
-fn clean(s: &str) -> String {
+pub(crate) fn clean(s: &str) -> String {
     let ch: Vec<char> = s.chars().collect();
     let mut out = String::new();
     let mut i = 0;
@@ -125,8 +128,14 @@ fn parse_entry(body: &str, typ: &str) -> Option<Entry> {
         }
         let v = clean(val.trim());
         match name.as_str() {
-            "author" => e.author = v,
-            "editor" if e.author.is_empty() => e.author = v,
+            "author" => {
+                e.author = v;
+                e.raw_author = val.trim().to_string();
+            }
+            "editor" if e.author.is_empty() => {
+                e.author = v;
+                e.raw_author = val.trim().to_string();
+            }
             "year" => e.year = v,
             "date" if e.year.is_empty() => e.year = v.chars().take(4).collect(),
             "title" => e.title = v,
@@ -192,53 +201,65 @@ pub fn parse(text: &str) -> Vec<Entry> {
     out
 }
 
-fn last_name(a: &str) -> String {
-    let a = a.trim();
-    match a.split_once(',') {
-        Some((last, _)) => last.trim().to_string(),
-        None => {
-            // Institutional authors ("Council of Europe") are cited whole, people by surname.
-            const ORG: [&str; 12] = [
-                "of",
-                "for",
-                "the",
-                "council",
-                "university",
-                "institute",
-                "commission",
-                "union",
-                "association",
-                "ministry",
-                "organization",
-                "organisation",
-            ];
-            let lower = a.to_lowercase();
-            if lower.split_whitespace().any(|w| ORG.contains(&w)) {
-                a.to_string()
-            } else {
-                a.split_whitespace().last().unwrap_or(a).to_string()
-            }
-        }
-    }
-}
+/// Words that mark an unbraced, comma-less name as an institution ("Council of Europe").
+const ORG: [&str; 12] = [
+    "of",
+    "for",
+    "the",
+    "council",
+    "university",
+    "institute",
+    "commission",
+    "union",
+    "association",
+    "ministry",
+    "organization",
+    "organisation",
+];
 
 impl Entry {
-    fn authors(&self) -> Vec<&str> {
-        self.author
-            .split(" and ")
-            .map(str::trim)
-            .filter(|a| !a.is_empty())
-            .collect()
+    /// Parsed authors (spec 04). A name without comma containing an institution word is kept
+    /// whole as one literal name.
+    fn people(&self) -> NameList {
+        let src = if self.raw_author.is_empty() {
+            &self.author
+        } else {
+            &self.raw_author
+        };
+        let mut l = names::parse_names(src);
+        for p in &mut l.people {
+            if p.inverted_form {
+                continue;
+            }
+            let toks: Vec<&String> = p.first.iter().chain(&p.von).chain(&p.last).collect();
+            let org = toks
+                .iter()
+                .any(|t| ORG.contains(&t.to_lowercase().as_str()));
+            if org && toks.len() > 1 {
+                let whole = toks
+                    .iter()
+                    .map(|t| t.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                *p = names::Person {
+                    last: vec![format!("{{{whole}}}")],
+                    ..Default::default()
+                };
+            }
+        }
+        l
     }
 
     /// "Smith (2019)", "Smith & Jones (2019)", "Smith et al. (2019)".
     pub fn cite(&self) -> String {
-        let a = self.authors();
+        let l = self.people();
+        let a = &l.people;
         let who = match a.len() {
             0 => String::new(),
-            1 => last_name(a[0]),
-            2 => format!("{} & {}", last_name(a[0]), last_name(a[1])),
-            _ => format!("{} et al.", last_name(a[0])),
+            _ if l.et_al => format!("{} et al.", a[0].short()),
+            1 => a[0].short(),
+            2 => format!("{} & {}", a[0].short(), a[1].short()),
+            _ => format!("{} et al.", a[0].short()),
         };
         match (who.is_empty(), self.year.is_empty()) {
             (true, _) if !self.title.is_empty() => self.title.clone(),
@@ -251,8 +272,13 @@ impl Entry {
     /// Full reference line for the bibliography.
     pub fn reference(&self) -> String {
         let mut s = String::new();
-        if !self.author.is_empty() {
-            s.push_str(&self.authors().join("; "));
+        let l = self.people();
+        if !l.people.is_empty() {
+            let mut v: Vec<String> = l.people.iter().map(|p| p.inverted()).collect();
+            if l.et_al {
+                v.push("et al.".into());
+            }
+            s.push_str(&v.join("; "));
             s.push_str(". ");
         }
         if !self.year.is_empty() {
@@ -293,8 +319,8 @@ impl Entry {
         let mut s = String::new();
         s.push_str(&format!("TY  - {}\n", self.out_type(Format::Ris)));
         s.push_str(&format!("ID  - {}\n", self.key));
-        for a in self.authors() {
-            s.push_str(&format!("AU  - {a}\n"));
+        for p in &self.people().people {
+            s.push_str(&format!("AU  - {}\n", p.inverted()));
         }
         if !self.title.is_empty() {
             s.push_str(&format!("TI  - {}\n", self.title));
@@ -314,22 +340,8 @@ impl Entry {
 
     /// CSL JSON item (pandoc --citeproc, Zotero, Word/LibreOffice plugins).
     pub fn to_csl(&self) -> serde_json::Value {
-        let authors: Vec<serde_json::Value> = self
-            .authors()
-            .iter()
-            .map(|a| {
-                if let Some((fam, giv)) = a.split_once(',') {
-                    serde_json::json!({"family": fam.trim(), "given": giv.trim()})
-                } else {
-                    let parts: Vec<&str> = a.split_whitespace().collect();
-                    if parts.len() >= 2 {
-                        serde_json::json!({"family": parts[parts.len()-1], "given": parts[..parts.len()-1].join(" ")})
-                    } else {
-                        serde_json::json!({"literal": a})
-                    }
-                }
-            })
-            .collect();
+        let authors: Vec<serde_json::Value> =
+            self.people().people.iter().map(|p| p.to_csl()).collect();
         let mut v = serde_json::json!({
             "id": self.key,
             "type": self.out_type(Format::Csl),
@@ -529,5 +541,23 @@ mod tests {
         let man = &parse("@manual{m1, title={X}}")[0];
         assert_eq!(man.to_csl()["type"], "report");
         assert!(man.to_bibtex().starts_with("@manual{"));
+    }
+
+    #[test]
+    fn names_flow_into_citations_and_csl() {
+        let e = &parse(
+            "@book{b, author={von Beethoven, Ludwig and Doe, Jr., John}, title={T}, year={1800}}",
+        )[0];
+        assert_eq!(e.cite(), "von Beethoven & Doe (1800)");
+        let c = e.to_csl();
+        assert_eq!(c["author"][0]["family"], "Beethoven");
+        assert_eq!(c["author"][0]["non-dropping-particle"], "von");
+        assert_eq!(c["author"][1]["suffix"], "Jr.");
+        let o = &parse("@misc{o, author={Doe, John and others}, year={2001}}")[0];
+        assert_eq!(o.cite(), "Doe et al. (2001)");
+        assert!(!o.to_ris().contains("others"));
+        let b = &parse("@misc{q, author={{Barnes and Noble, Inc}}, year={2001}}")[0];
+        assert_eq!(b.cite(), "Barnes and Noble, Inc (2001)");
+        assert_eq!(b.to_csl()["author"][0]["literal"], "Barnes and Noble, Inc");
     }
 }
