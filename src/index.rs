@@ -31,6 +31,31 @@ pub struct Store {
     /// Where this store was loaded from; lets the BM25 cache live next to it (`<index>.bm25`).
     #[serde(skip)]
     pub source: Option<std::path::PathBuf>,
+    /// SHA-256 of each document's bytes at ingestion, keyed by doc path with the 64-bit hash it belongs to.
+    /// Kept in a sidecar file (`<index>.sha256`) so the index format itself does not change.
+    #[serde(skip)]
+    pub sha: std::collections::HashMap<String, (u64, String)>,
+}
+
+fn sha_path(p: &Path) -> std::path::PathBuf {
+    let mut o = p.as_os_str().to_owned();
+    o.push(".sha256");
+    o.into()
+}
+
+fn read_sha(p: &Path) -> std::collections::HashMap<String, (u64, String)> {
+    let mut out = std::collections::HashMap::new();
+    if let Ok(b) = std::fs::read(sha_path(p))
+        && let Ok(m) =
+            serde_json::from_slice::<std::collections::HashMap<String, (String, String)>>(&b)
+    {
+        for (k, (h, s)) in m {
+            if let Ok(h) = u64::from_str_radix(&h, 16) {
+                out.insert(k, (h, s));
+            }
+        }
+    }
+    out
 }
 
 impl Store {
@@ -45,6 +70,7 @@ impl Store {
         let mut st: Store = bincode::deserialize(&bytes)
             .context("index file is corrupt or from another version")?;
         st.source = Some(path.to_path_buf());
+        st.sha = read_sha(path);
         Ok(st)
     }
 
@@ -61,7 +87,27 @@ impl Store {
             let _ = std::fs::remove_file(&tmp);
             return Err(e.into());
         }
+        let side = sha_path(path);
+        if self.sha.is_empty() {
+            let _ = std::fs::remove_file(&side);
+        } else {
+            let m: std::collections::BTreeMap<&String, (String, &String)> = self
+                .sha
+                .iter()
+                .map(|(k, (h, s))| (k, (format!("{h:016x}"), s)))
+                .collect();
+            std::fs::write(&side, serde_json::to_vec(&m)?)?;
+        }
         Ok(())
+    }
+
+    /// The SHA-256 recorded when this document was ingested, if it matches the document as stored.
+    pub fn doc_sha256(&self, id: usize) -> Option<&str> {
+        let d = self.docs.get(id)?;
+        match self.sha.get(&d.path) {
+            Some((h, s)) if *h == d.hash => Some(s),
+            _ => None,
+        }
     }
 
     pub fn doc_by_path(&self, p: &str) -> Option<usize> {
@@ -70,7 +116,8 @@ impl Store {
 
     /// Remove a document and its chunks, keeping doc ids consistent.
     pub fn remove_doc(&mut self, id: usize) {
-        self.docs.remove(id);
+        let gone = self.docs.remove(id);
+        self.sha.remove(&gone.path);
         self.chunks.retain(|c| c.doc != id);
         for c in &mut self.chunks {
             if c.doc > id {
@@ -407,6 +454,28 @@ impl<'a> Searcher<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sha256_sidecar_roundtrips_and_index_format_is_unchanged() {
+        let dir = std::env::temp_dir().join(format!("tz-sha-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join("i.bin");
+        let mut s = mk(&["alpha beta"]);
+        s.docs[0].hash = 77;
+        s.sha.insert(s.docs[0].path.clone(), (77, "ab".repeat(32)));
+        s.save(&p).unwrap();
+        let l = Store::load(&p).unwrap();
+        assert_eq!(l.doc_sha256(0), Some("ab".repeat(32).as_str()));
+        // an index written without the sidecar (older version) still loads, with no identity
+        std::fs::remove_file(dir.join("i.bin.sha256")).unwrap();
+        assert_eq!(Store::load(&p).unwrap().doc_sha256(0), None);
+        // a sidecar for a different file version is ignored
+        let mut s2 = Store::load(&p).unwrap();
+        s2.sha
+            .insert(s2.docs[0].path.clone(), (78, "cd".repeat(32)));
+        assert_eq!(s2.doc_sha256(0), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     fn mk(texts: &[&str]) -> Store {
         let mut s = Store::default();

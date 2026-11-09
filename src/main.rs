@@ -20,6 +20,7 @@ mod fff;
 mod ids;
 mod index;
 mod ingest;
+mod jcs;
 mod kinds;
 mod llm;
 mod locator;
@@ -949,7 +950,7 @@ fn ask_json(
         q,
         &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(),
         &answer,
-    );
+    )?;
     Ok(
         serde_json::json!({"answer": answer, "references": r.references, "warnings": r.warnings, "excerpts": excerpts, "receipt": receipt}),
     )
@@ -1686,13 +1687,13 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
         }
 
         Cmd::Receipt { file, answer } => {
-            let r: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(file)?)?;
+            let r = std::fs::read_to_string(file)?;
             let store = Store::load(&ctx.index).ok();
             let ans = match answer {
                 Some(p) => Some(std::fs::read_to_string(p)?),
                 None => None,
             };
-            let (ok, lines) = audit::verify_receipt(store.as_ref(), &r, ans.as_deref());
+            let (ok, lines) = audit::verify_receipt_text(store.as_ref(), &r, ans.as_deref());
             for l in lines {
                 println!("{l}");
             }
@@ -1739,7 +1740,7 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
                     question,
                     &hits.iter().map(|h| h.chunk).collect::<Vec<_>>(),
                     &ans,
-                );
+                )?;
                 std::fs::write(p, serde_json::to_string_pretty(&r)?)?;
                 eprintln!("receipt written to {}", p.display());
             }

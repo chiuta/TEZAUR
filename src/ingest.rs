@@ -656,6 +656,7 @@ pub fn doc_key(path: &Path, base: &Path) -> String {
 pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> Result<Outcome> {
     let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     let hash = fnv1a(&bytes);
+    let sha = crate::sha256::sha256_hex(&bytes);
     drop(bytes);
     let key = doc_key(path, base);
 
@@ -690,6 +691,7 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
         return Ok(Outcome::NoText);
     }
     let n = new_chunks.len();
+    store.sha.insert(key.clone(), (hash, sha));
     store.docs.push(Doc {
         path: key,
         title: if crate::fff::is_fff_path(path) {
@@ -707,6 +709,22 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ingest_records_sha256_identity() {
+        let dir = std::env::temp_dir().join(format!("tz-ing-sha-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("a.txt");
+        std::fs::write(&f, "abc and some more words to index here").unwrap();
+        let mut st = Store::default();
+        ingest_file(&mut st, &f, &dir, false).unwrap();
+        assert_eq!(
+            st.doc_sha256(0).unwrap(),
+            crate::sha256::sha256_hex(b"abc and some more words to index here")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
 
     #[test]
     fn chunking_overlaps_and_covers() {
