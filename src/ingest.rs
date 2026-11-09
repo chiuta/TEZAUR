@@ -543,12 +543,35 @@ fn ends_sentence(w: &str) -> bool {
     t.chars().count() > 2 && t.ends_with(['.', '!', '?', '…'])
 }
 
+/// Joins `word-<newline>rest` when a letter precedes the hyphen and a lower-case letter follows the
+/// line break; a hyphen before a digit or a capital is kept (list item, dash, compound with a name).
+fn rejoin_hyphenated(text: &str) -> String {
+    let ch: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < ch.len() {
+        if ch[i] == '-'
+            && ch.get(i + 1) == Some(&'\n')
+            && i > 0
+            && ch[i - 1].is_alphabetic()
+            && ch.get(i + 2).is_some_and(|c| c.is_lowercase())
+        {
+            i += 2;
+            continue;
+        }
+        out.push(ch[i]);
+        i += 1;
+    }
+    out
+}
+
+
 /// Splits text into overlapping word windows of about `size` words. Windows end at a sentence
 /// boundary when one lies in the last 30% of the window, and the overlap starts at a sentence
 /// start when possible, so passages read as whole sentences. Text with no punctuation falls
 /// back to plain fixed windows.
 pub fn chunk_words(text: &str, size: usize, overlap: usize) -> Vec<String> {
-    let text = text.replace("-\n", ""); // re-join hyphenated line breaks
+    let text = rejoin_hyphenated(text); // re-join hyphenated line breaks
     let words: Vec<&str> = text.split_whitespace().collect();
     let n = words.len();
     if n == 0 {
@@ -814,6 +837,14 @@ mod tests {
         assert_eq!(percent_decode("100%"), "100%");
         assert_eq!(percent_decode("%é9"), "%é9"); // would panic if the &str were sliced
         assert_eq!(percent_decode("%zz"), "%zz");
+    }
+
+    #[test]
+    fn dehyphenation_only_between_letters() {
+        assert_eq!(rejoin_hyphenated("dip-\nlomas"), "diplomas");
+        assert_eq!(rejoin_hyphenated("see-\nSmith"), "see-\nSmith");
+        assert_eq!(rejoin_hyphenated("page 3-\n4"), "page 3-\n4");
+        assert_eq!(rejoin_hyphenated("țară-\nîn"), "țarăîn");
     }
 
     #[test]

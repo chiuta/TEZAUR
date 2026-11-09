@@ -98,31 +98,9 @@ pub fn fold(c: char) -> char {
     }
 }
 
-/// Characters kept per token. Cheap prefix "stemming" that works across
-/// Romanian / English / French inflections without language-specific rules.
-const STEM: usize = 7;
-
+/// Index tokens of a text (Unicode folding and word segmentation, see `unitext`).
 pub fn tokenize(s: &str) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut cur = String::new();
-    let flush = |cur: &mut String, out: &mut Vec<String>| {
-        if cur.chars().count() >= 2 {
-            out.push(cur.chars().take(STEM).collect());
-        }
-        cur.clear();
-    };
-    for ch in s.chars() {
-        for lc in ch.to_lowercase() {
-            let f = fold(lc);
-            if f.is_alphanumeric() {
-                cur.push(f);
-            } else {
-                flush(&mut cur, &mut out);
-            }
-        }
-    }
-    flush(&mut cur, &mut out);
-    out
+    crate::unitext::token_strings(s)
 }
 
 // --------------------------------------------------------------------- BM25
@@ -270,6 +248,7 @@ fn library_key(st: &Store) -> u64 {
         eat(d.path.as_bytes());
         eat(&d.hash.to_le_bytes());
     }
+    eat(&crate::unitext::RULES_VERSION.to_le_bytes()); // token rules changed: rebuild the cache
     eat(&(st.chunks.len() as u64).to_le_bytes());
     eat(&(st.chunks.iter().map(|c| c.text.len()).sum::<usize>() as u64).to_le_bytes());
     h
@@ -398,6 +377,25 @@ mod tests {
         assert_eq!(
             tokenize("Științific ȘI țară"),
             tokenize("stiintific si tara")
+        );
+    }
+
+    #[test]
+    fn ligature_query_finds_plain_text_and_back_with_same_ranking() {
+        let s = mk(&[
+            "The final report of the committee",
+            "Cooking pasta requires boiling water",
+            "A final decision and a final appeal",
+        ]);
+        let plain = Searcher::new(&s).search("final", None, 3, 10, None);
+        let lig = Searcher::new(&s).search("\u{fb01}nal", None, 3, 10, None);
+        let ids = |r: &[Hit]| r.iter().map(|h| h.chunk).collect::<Vec<_>>();
+        assert_eq!(ids(&plain), ids(&lig));
+        assert!(!plain.is_empty() && plain.iter().all(|h| h.chunk != 1));
+        let s2 = mk(&["The \u{fb01}nal report", "Cooking pasta"]);
+        assert_eq!(
+            Searcher::new(&s2).search("final", None, 3, 10, None)[0].chunk,
+            0
         );
     }
 

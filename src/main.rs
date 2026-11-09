@@ -33,6 +33,7 @@ mod prompt;
 mod ris;
 mod serve;
 mod sha256;
+mod unitext;
 mod verify;
 mod xmlmini;
 
