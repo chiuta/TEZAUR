@@ -484,9 +484,13 @@ enum Cmd {
         /// appended to the output file (otherwise the file is rewritten).
         #[arg(long)]
         incremental: bool,
-        /// Output .bib file (default: <index>/oai-<host>.bib, found automatically afterwards).
+        /// Output .bib file (default: <index>/oai-<host>.bib, found automatically afterwards). An existing file
+        /// given here is never overwritten unless --force; with --incremental new records are appended to it.
         #[arg(short, long)]
         output: Option<PathBuf>,
+        /// Allow -o to replace an existing non-empty file.
+        #[arg(long)]
+        force: bool,
     },
     /// Pull your Zotero library: fetch BibTeX from Zotero's local API (Zotero must be running with "Allow other
     /// applications to communicate with Zotero" on) and index the attachments in Zotero's storage folder.
@@ -1129,6 +1133,18 @@ fn ingest_paths(ctx: &Ctx, paths: &[PathBuf], force: bool) -> Result<()> {
     Ok(())
 }
 
+/// `oai -o FILE` must not silently destroy a bibliography: an existing non-empty file is only written to
+/// with `--incremental` (append) or `--force` (replace).
+fn oai_check_output(out: &Path, incremental: bool, force: bool) -> Result<()> {
+    let non_empty = std::fs::metadata(out).map(|m| m.len() > 0).unwrap_or(false);
+    anyhow::ensure!(
+        !non_empty || incremental || force,
+        "{} already exists and is not empty; refusing to overwrite it. Use --incremental to append new records to it, --force to replace it, or another -o",
+        out.display()
+    );
+    Ok(())
+}
+
 fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
     let bib = ctx.load_bib();
     match cmd {
@@ -1220,7 +1236,11 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             max,
             incremental,
             output,
+            force,
         } => {
+            if let Some(o) = output {
+                oai_check_output(o, *incremental, *force)?;
+            }
             eprintln!("[online: requests go to {url}; no other service is contacted]");
             let slug: String = url
                 .split("://")
@@ -2855,6 +2875,22 @@ fn real_main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn oai_output_never_silently_overwrites() {
+        let d = std::env::temp_dir().join(format!("tz-oai-out-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let f = d.join("mine.bib");
+        assert!(oai_check_output(&f, false, false).is_ok(), "missing file");
+        std::fs::write(&f, "").unwrap();
+        assert!(oai_check_output(&f, false, false).is_ok(), "empty file");
+        std::fs::write(&f, "@book{a, title={T}}").unwrap();
+        let e = oai_check_output(&f, false, false).unwrap_err().to_string();
+        assert!(e.contains("refusing to overwrite"), "{e}");
+        assert!(oai_check_output(&f, true, false).is_ok(), "--incremental appends");
+        assert!(oai_check_output(&f, false, true).is_ok(), "--force replaces");
+        std::fs::remove_dir_all(&d).ok();
+    }
 
     #[test]
     fn splits_quoted_args_and_keeps_windows_paths() {
