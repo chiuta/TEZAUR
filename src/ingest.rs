@@ -11,12 +11,12 @@ pub const OVERLAP_WORDS: usize = 40;
 pub fn is_supported(p: &Path) -> bool {
     crate::fff::is_fff_path(p)
         || matches!(
-            p.extension()
-                .and_then(|e| e.to_str())
-                .map(|e| e.to_lowercase())
-                .as_deref(),
-            Some("pdf" | "docx" | "epub" | "txt" | "md" | "markdown" | "html" | "htm" | "tex")
-        )
+        p.extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_lowercase())
+            .as_deref(),
+        Some("pdf" | "docx" | "epub" | "txt" | "md" | "markdown" | "html" | "htm" | "tex")
+    )
 }
 
 pub fn collect_files(paths: &[PathBuf]) -> Vec<PathBuf> {
@@ -664,9 +664,7 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
     store.docs.push(Doc {
         path: key,
         title: if crate::fff::is_fff_path(path) {
-            crate::fff::read(path)
-                .map(|d| d.title)
-                .unwrap_or_else(|_| pretty_title(path))
+            crate::fff::read(path).map(|d| d.title).unwrap_or_else(|_| pretty_title(path))
         } else {
             pretty_title(path)
         },

@@ -34,17 +34,12 @@ pub struct FffDoc {
 }
 
 fn s(v: &Value, k: &str) -> String {
-    v.get(k)
-        .and_then(|x| x.as_str())
-        .unwrap_or("")
-        .trim()
-        .to_string()
+    v.get(k).and_then(|x| x.as_str()).unwrap_or("").trim().to_string()
 }
 
 /// Citește un plic (forma canonică `fff:2` cu `payload`, sau compat `fff:1` cu `data`).
 pub fn read(path: &Path) -> Result<FffDoc> {
-    let raw =
-        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let raw = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
     parse(&raw)
 }
 
@@ -83,11 +78,7 @@ pub fn parse(raw: &str) -> Result<FffDoc> {
             if d.lang.is_empty() {
                 d.lang = s(payload, "lang");
             }
-            for p in payload
-                .get("pages")
-                .and_then(|x| x.as_array())
-                .context("document/ocr without pages")?
-            {
+            for p in payload.get("pages").and_then(|x| x.as_array()).context("document/ocr without pages")? {
                 let n = p.get("n").and_then(|x| x.as_u64()).unwrap_or(0) as usize;
                 let t = s(p, "text");
                 if !t.is_empty() {
@@ -96,25 +87,16 @@ pub fn parse(raw: &str) -> Result<FffDoc> {
             }
         }
         "text/plain" | "text/markdown" => {
-            let t = payload
-                .as_str()
-                .context("text envelope with a non-text payload")?;
+            let t = payload.as_str().context("text envelope with a non-text payload")?;
             d.pages.push((0, t.to_string()));
         }
-        other => {
-            bail!("envelope type {other} is not accepted (document/ocr, text/plain, text/markdown)")
-        }
+        other => bail!("envelope type {other} is not accepted (document/ocr, text/plain, text/markdown)"),
     }
     if d.pages.is_empty() {
         bail!("the envelope has no text");
     }
     if d.sha256.is_empty() {
-        let all: String = d
-            .pages
-            .iter()
-            .map(|p| p.1.as_str())
-            .collect::<Vec<_>>()
-            .join("\n");
+        let all: String = d.pages.iter().map(|p| p.1.as_str()).collect::<Vec<_>>().join("\n");
         d.sha256 = sha256_hex(all.as_bytes());
     }
     if d.title.is_empty() {
@@ -143,11 +125,7 @@ fn slug(title: &str, sha: &str) -> String {
         }
     }
     let s = s.trim_end_matches('-');
-    format!(
-        "{}-{}",
-        if s.is_empty() { "doc" } else { s },
-        &sha[..sha.len().min(8)]
-    )
+    format!("{}-{}", if s.is_empty() { "doc" } else { s }, &sha[..sha.len().min(8)])
 }
 
 fn bib_escape(t: &str) -> String {
@@ -170,16 +148,8 @@ pub fn import(base: &Path, src: &Path) -> Result<(PathBuf, String)> {
     if !doc.year.is_empty() {
         b.push_str(&format!("  year = {{{}}},\n", bib_escape(&doc.year)));
     }
-    let via = if doc.app.is_empty() {
-        "FFF envelope".to_string()
-    } else {
-        format!("FFF envelope from {}", doc.app)
-    };
-    let file = if doc.file.is_empty() {
-        String::new()
-    } else {
-        format!(" ({})", doc.file)
-    };
+    let via = if doc.app.is_empty() { "FFF envelope".to_string() } else { format!("FFF envelope from {}", doc.app) };
+    let file = if doc.file.is_empty() { String::new() } else { format!(" ({})", doc.file) };
     b.push_str(&format!(
         "  note = {{sha256:{}{}; {}; lang {}}},\n  file = {{{key}.fff.json}},\n}}\n",
         doc.sha256,
@@ -208,12 +178,7 @@ fn iso_now() -> String {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let m = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if m <= 2 { y + 1 } else { y };
-    format!(
-        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}.000Z",
-        rem / 3600,
-        rem % 3600 / 60,
-        rem % 60
-    )
+    format!("{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}.000Z", rem / 3600, rem % 3600 / 60, rem % 60)
 }
 
 /// Bibliografia ca plic `citation/csl` (forma canonică `fff:2`).
@@ -253,19 +218,13 @@ mod tests {
         let d = parse(c).unwrap();
         assert_eq!(d.pages, vec![(0, "un text".to_string())]);
         assert!(!d.sha256.is_empty());
-        assert!(
-            parse(r#"{"fff":2,"type":"table/csv","payload":"a,b","created":"x","app":"y"}"#)
-                .is_err()
-        );
+        assert!(parse(r#"{"fff":2,"type":"table/csv","payload":"a,b","created":"x","app":"y"}"#).is_err());
         assert!(parse("{}").is_err());
     }
 
     #[test]
     fn import_writes_bib_and_inbox_copy() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("target")
-            .join("test-tmp")
-            .join("fff");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("target").join("test-tmp").join("fff");
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(&root).unwrap();
         let src = root.join("in.fff.json");
@@ -277,10 +236,7 @@ mod tests {
         assert_eq!(e.len(), 1);
         assert_eq!(e[0].year, "2001");
         assert!(e[0].note.contains("sha256:abcdef"));
-        let m = crate::bib::BibMap {
-            entries: e,
-            ..Default::default()
-        };
+        let m = crate::bib::BibMap { entries: e, ..Default::default() };
         assert!(m.find(&format!("fff-inbox/{key}.fff.json")).is_some());
         let out = csl_envelope(&m.entries);
         assert!(out.contains("\"citation/csl\"") && out.contains("Popescu"));
