@@ -21,6 +21,7 @@ mod index;
 mod ingest;
 mod kinds;
 mod llm;
+mod locator;
 mod mesh;
 mod names;
 mod oaipmh;

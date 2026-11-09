@@ -14,7 +14,11 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cite {
     pub key: String,
+    /// First checkable page, as written (a year-like bare number is sorted out later, against the
+    /// cited work's year).
     pub page: Option<usize>,
+    /// Everything written after the key, interpreted (spec 08).
+    pub locators: Vec<crate::locator::Locator>,
 }
 
 /// Replaces every pandoc-style group `[@a, p. 3; @b]` with a \u{1} marker; returns the groups in order.
@@ -59,15 +63,12 @@ fn parse_group(inner: &str) -> Vec<Cite> {
         if key.is_empty() {
             continue;
         }
-        let tail = &rest[key.len()..];
-        let digits: String = tail
-            .chars()
-            .skip_while(|c| !c.is_ascii_digit())
-            .take_while(|c| c.is_ascii_digit())
-            .collect();
+        let locators = crate::locator::parse(&rest[key.len()..]);
+        let page = locators.iter().find_map(|l| l.page_range()).map(|(a, _)| a);
         v.push(Cite {
             key,
-            page: digits.parse().ok(),
+            page,
+            locators,
         });
     }
     v
@@ -820,9 +821,48 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                 continue;
             };
             let doc = &store.docs[d];
-            if let Some(p) = c.page
+            // Locators: a bare number equal to the cited work's year is not a page (spec 08).
+            let year = bib
+                .entries
+                .iter()
+                .find(|e| e.key.eq_ignore_ascii_case(&c.key))
+                .map(|e| e.year.as_str())
+                .unwrap_or("");
+            let locs: Vec<&crate::locator::Locator> = c
+                .locators
+                .iter()
+                .filter(|l| {
+                    !(l.label == "page"
+                        && !l.explicit_label
+                        && matches!(&l.from, crate::locator::Val::Num(n) if n.to_string() == year))
+                })
+                .collect();
+            let ranges: Vec<(usize, usize)> = locs.iter().filter_map(|l| l.page_range()).collect();
+            let other: Vec<String> = locs
+                .iter()
+                .filter(|l| l.page_range().is_none())
+                .map(|l| l.describe())
+                .collect();
+            let f = |verdict, support, note: String| Finding {
+                page: ranges.first().map(|r| r.0),
+                note: if other.is_empty() {
+                    note.clone()
+                } else {
+                    format!("{note} [locator: {}]", other.join("; "))
+                },
+                ..f(verdict, support, note)
+            };
+            if let Some(bad) = locs.iter().find(|l| l.is_inverted()) {
+                out.push(f(
+                    "bad-range",
+                    0.0,
+                    format!("the interval {} ends before it starts", bad.describe()),
+                ));
+                continue;
+            }
+            if let Some(end) = ranges.iter().map(|r| r.1).max()
                 && doc.pages > 0
-                && p > doc.pages
+                && end > doc.pages
             {
                 out.push(f(
                     "page-out-of-range",
@@ -833,12 +873,22 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
             }
             // Text, EPUB and DOCX sources have no page numbers: a cited page cannot be checked there.
             let paged = store.chunks.iter().any(|ch| ch.doc == d && ch.page > 0);
-            let cpage = c.page.filter(|&p| p > 0 && paged);
-            let best = |only_page: Option<usize>| -> (f32, usize) {
+            let cpages: Option<Vec<usize>> = if paged && !ranges.is_empty() {
+                let v: Vec<usize> = ranges
+                    .iter()
+                    .flat_map(|&(a, b)| a..=b.min(a + 200))
+                    .filter(|&p| p > 0)
+                    .collect();
+                (!v.is_empty()).then_some(v)
+            } else {
+                None
+            };
+            let cpage = cpages.as_deref();
+            let best = |only: Option<&[usize]>| -> (f32, usize) {
                 store
                     .chunks
                     .iter()
-                    .filter(|ch| ch.doc == d && only_page.map(|p| ch.page == p).unwrap_or(true))
+                    .filter(|ch| ch.doc == d && only.map(|p| p.contains(&ch.page)).unwrap_or(true))
                     .map(|ch| (coverage(&claim, &ch.text), ch.page))
                     .fold((0.0, 0), |a, b| if b.0 > a.0 { b } else { a })
             };
@@ -847,7 +897,7 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
             let top = store
                 .chunks
                 .iter()
-                .filter(|ch| ch.doc == d && cpage.map(|p| ch.page == p).unwrap_or(true))
+                .filter(|ch| ch.doc == d && cpage.map(|p| p.contains(&ch.page)).unwrap_or(true))
                 .max_by(|a, b| {
                     coverage(&claim, &a.text)
                         .partial_cmp(&coverage(&claim, &b.text))
@@ -863,7 +913,7 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                         sup * 100.0
                     ),
                 )
-            } else if cpage.is_some() && any >= SUPPORTED && Some(anyp) != cpage {
+            } else if cpage.is_some() && any >= SUPPORTED && !cpage.unwrap().contains(&anyp) {
                 (
                     "wrong-page",
                     format!(
@@ -1031,7 +1081,7 @@ pub fn semantic_pass(
 pub fn audit_markdown(f: &[Finding]) -> String {
     let n = |v: &str| f.iter().filter(|x| x.verdict == v).count();
     let mut s = format!(
-        "# Citation audit\n\n{} checks — supported {}, weak {}, contradicted {}, unsupported {}, wrong page {}, figure mismatch {}, unknown source {}, page out of range {}, uncited {}; quotations: verbatim {}, elsewhere {}, not found {}.\n\nThis is a mechanical term-overlap check, not proof. Open the page for everything below.\n\n",
+        "# Citation audit\n\n{} checks — supported {}, weak {}, contradicted {}, unsupported {}, wrong page {}, figure mismatch {}, unknown source {}, page out of range {}, bad page interval {}, uncited {}; quotations: verbatim {}, elsewhere {}, not found {}.\n\nThis is a mechanical term-overlap check, not proof. Open the page for everything below.\n\n",
         f.len(),
         n("supported"),
         n("weak"),
@@ -1041,6 +1091,7 @@ pub fn audit_markdown(f: &[Finding]) -> String {
         n("number-mismatch"),
         n("unknown-source"),
         n("page-out-of-range"),
+        n("bad-range"),
         n("uncited"),
         n("quote-verbatim"),
         n("quote-elsewhere"),
@@ -1581,19 +1632,45 @@ mod tests {
         let (m, g) =
             extract_cites("A claim [@smith2019, p. 3; @doe2020]. Not a cite [1] or [see here].");
         assert_eq!(m.matches('\u{1}').count(), 1);
-        assert_eq!(
-            g[0],
-            vec![
-                Cite {
-                    key: "smith2019".into(),
-                    page: Some(3)
-                },
-                Cite {
-                    key: "doe2020".into(),
-                    page: None
-                }
-            ]
-        );
+        let got: Vec<(&str, Option<usize>)> =
+            g[0].iter().map(|c| (c.key.as_str(), c.page)).collect();
+        assert_eq!(got, vec![("smith2019", Some(3)), ("doe2020", None)]);
+        assert_eq!(g[0][0].locators.len(), 1);
+    }
+
+    #[test]
+    fn locators_decide_what_is_a_page() {
+        let store = st();
+        let bib = BibMap {
+            entries: crate::bib::parse(
+                "@article{smith2019, author={Smith, J}, year={2019}, title={T}}",
+            ),
+            ..Default::default()
+        };
+        let claim =
+            "The burden of proof lies with the competent authority when it refuses recognition";
+        let run = |loc: &str| audit(&store, &bib, &format!("{claim} [@smith2019{loc}]."));
+        let verdicts =
+            |loc: &str| -> Vec<&'static str> { run(loc).iter().map(|x| x.verdict).collect() };
+        // chapter: not compared with a page, never "out of range"
+        assert_eq!(verdicts(", cap. 12"), vec!["supported"]);
+        assert!(run(", cap. 12")[0].note.contains("chapter 12"));
+        // a range is supported when any page in it supports the sentence
+        assert_eq!(verdicts(", pp. 2\u{2013}4"), vec!["supported"]);
+        assert_eq!(verdicts(", pp. 3-5"), vec!["supported"]);
+        // Roman page: kept, not checked, no error
+        assert_eq!(verdicts(", p. xii"), vec!["supported"]);
+        // the work's own year is not a page
+        assert_eq!(verdicts(", 2019"), vec!["supported"]);
+        // list of pages
+        assert_eq!(verdicts(", p. 1, 3"), vec!["supported"]);
+        // range ending beyond the document (10 pages)
+        assert_eq!(verdicts(", pp. 9\u{2013}12"), vec!["page-out-of-range"]);
+        // inverted interval is its own finding
+        assert_eq!(verdicts(", pp. 5\u{2013}3"), vec!["bad-range"]);
+        // a page that does not hold the sentence still gets the old wrong-page verdict
+        assert_eq!(verdicts(", p. 5"), vec!["wrong-page"]);
+        assert!(audit_markdown(&run(", pp. 5\u{2013}3")).contains("bad page interval 1"));
     }
 
     #[test]

@@ -127,15 +127,26 @@ pub fn rewrite_cites(text: &str, labels: &[String]) -> String {
     out
 }
 
-/// Page numbers cited as "p. 12" (also inside "(p. 3; p. 5)").
+/// Page numbers cited as "p. 12" or "pp. 12\u{2013}15" (also inside "(p. 3; p. 5)"); intervals are
+/// expanded (at most 200 pages each).
 pub fn page_refs(text: &str) -> BTreeSet<usize> {
     let mut out = BTreeSet::new();
     let mut rest = text;
     while let Some(i) = rest.find("p. ") {
         let after = &rest[i + 3..];
-        let digits: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
-        if let Ok(n) = digits.parse() {
-            out.insert(n);
+        // "pp. 3-5" also contains "p. " at its second letter; look back for the extra p
+        let seg: String = after
+            .chars()
+            .take_while(|c| {
+                c.is_ascii_digit() || matches!(c, '-' | '\u{2013}' | '\u{2014}' | ',' | ' ')
+            })
+            .collect();
+        for l in crate::locator::parse(&format!("p. {}", seg.trim())) {
+            if let Some((a, b)) = l.page_range() {
+                out.extend(a..=b.min(a + 200));
+            } else if let crate::locator::Val::Num(n) = l.from {
+                out.insert(n as usize);
+            }
         }
         rest = after;
     }
@@ -302,6 +313,12 @@ mod tests {
                 .into_iter()
                 .collect::<Vec<_>>(),
             vec![4, 15]
+        );
+        assert_eq!(
+            page_refs("see (pp. 3\u{2013}5) and p. 9, 11")
+                .into_iter()
+                .collect::<Vec<_>>(),
+            vec![3, 4, 5, 9, 11]
         );
     }
 }
