@@ -2,7 +2,7 @@ Aprobare filtru: prin instrucțiunea titularului din conversație (2026-11-09), 
 
 # Index al specificațiilor funcționale (lotul 1, 2026-11-09)
 
-Toate sunt în stare **candidat**: nu sunt aprobate; bifa „Aprobată de mine” din fiecare fișier rămâne nebifată. Sesiune de analiză/specificare, etapa 1 din 2: nu s-a scris și nu s-a modificat cod de produs (`src/`, `variants/` neatinse).
+Toate sunt în stare **candidat**: nu sunt aprobate; bifa „Aprobată de mine” din fiecare fișier rămâne nebifată. Sesiune de analiză/specificare, etapa 1 din 2: nu s-a scris și nu s-a modificat cod de produs în această etapă; codul din `src/` a fost scris ulterior, în etapa 2 (lotul 1).
 
 Marcaje folosite în specificații: [observat] = afirmat în sursa publică citită în sesiune sau constatat prin citirea repo-ului (marcat „cod”); [dedus] = inferență sau decizie de proiectare; [necunoscut] = nestabilit. Sursele sunt standarde, specificații și documentații publice; `COMPETITION.md` a servit doar ca indiciu de temă, nu s-a copiat comportamentul niciunui produs numit.
 

@@ -1,7 +1,7 @@
 # TEZAUR
 
 A local, citation-grounded research assistant for writing a thesis. One Rust binary.
-Your books and articles never leave your machine.
+Your books and articles stay on your machine: nothing is sent anywhere unless you run one of the opt-in online commands (see "Network use").
 
 ```
 PDF / EPUB / DOCX / txt ──► chunk (page-tagged) ──► index (BM25 + optional embeddings)
@@ -136,8 +136,11 @@ Bibliography input and queries (all offline unless stated):
 - **Receipts**: `ask --receipt` writes `tezaur-receipt/1`, as before. Set `TEZAUR_RECEIPT_FORMAT=2` to write
   `tezaur-receipt/2` instead (CLI, HTTP API and MCP alike): the digest and the optional HMAC (`TEZAUR_RECEIPT_KEY`)
   are then over the RFC 8785 canonical form, so reformatting the file does not matter. Documents are named by SHA-256
-  (recorded at ingestion in `<index>.sha256`); documents ingested earlier are marked "weak identity" until re-ingested
-  with `--force`. Both receipt versions verify, whichever format is currently selected.
+  (recorded at ingestion in a new file `<index>.sha256` next to the index; the index file itself is byte-identical to
+  before, and the sidecar is written only when an index is written, never by read-only commands). Documents already in
+  an index built without it are marked "weak identity" until re-ingested with `--force`; a plain `ingest` of unchanged
+  files does not add it. `PUT`/`GET /api/index` copy only the index file, so a synced copy has no SHA-256 identities.
+  Both receipt versions verify, whichever format is currently selected.
 - **Crossref politeness** (`refs --online`, `lit`): `--mailto you@example.org` (or `TEZAUR_MAILTO`) puts your address
   in the User-Agent for Crossref's polite pool; requests follow the server's rate headers, back off on 429, stop on 403,
   and answers are cached on disk (30 days for hits, 1 day for misses); `--refresh-online` bypasses the cache.
@@ -190,7 +193,7 @@ Raspberry Pi / Termux / NixOS recipes, and **Mesh** (peer-to-peer exchange betwe
 ### Android / phone
 
 - **`pwa/`**: the same page as an installable web app (manifest + service worker). Put the folder on any HTTPS host
-  (e.g. your YunoHost) and use Chrome → "Install app". Works offline after the first visit.
+  (e.g. your YunoHost) and use Chrome → "Install app". Works offline after the first visit (page and PDF reading; the model server is separate, and browser dictation fetches its model from the internet when used).
 - **`android/`**: a small WebView project that bundles `tezaur.html` into an APK. No local toolchain is needed:
   GitHub → Actions → *android-apk* → Run workflow → download `Tezaur-apk` (debug-signed, installable). Or open
   `android/` in Android Studio. **Not built or run yet** (the SDK cannot be downloaded in my sandbox).

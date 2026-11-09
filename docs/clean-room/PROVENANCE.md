@@ -52,7 +52,7 @@ Pentru lansări comerciale sau donații semnificative, cere o opinie de la un av
 - Imaginea Docker instalează `poppler-utils` (GPL) și `tesseract-ocr` ca procese externe; distribuirea imaginii aduce obligațiile pachetelor Debian.
 
 ### Confidențialitate (observații)
-Ieșiri din rețea din binar doar la `lit` și `refs --online` (OpenAlex, Crossref); fără telemetrie găsită. Dictarea nativă din browser poate trimite sunetul la un serviciu cloud (avertizat în UI).
+Ieșiri din rețea din binar doar la `lit`, `refs --online`, `audit --online` și `oai` (OpenAlex, Crossref, depozitul OAI-PMH indicat de utilizator); fără telemetrie găsită. Dictarea nativă din browser poate trimite sunetul la un serviciu cloud (avertizat în UI).
 
 ### Completat din istoricul conversațiilor Claude (2026-11-08)
 Sursa: conversația claude.ai 706f078b-… (TEZAUR, 109 ture; citită doar la început).

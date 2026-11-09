@@ -1,5 +1,5 @@
 //! Opt-in online lookups: literature search and reference checking against OpenAlex and Crossref.
-//! This is the only module that sends anything off the computer, and only when the user runs `lit` or `refs --online`.
+//! With `crossref.rs` and `oaipmh.rs` it is one of the three places that send anything off the computer, and only when the user runs `lit`, `refs --online`, `audit --online` or `oai`.
 //! Base URLs can be redirected with TEZAUR_OPENALEX / TEZAUR_CROSSREF (used by the tests, and by institutional mirrors).
 //! Set TEZAUR_MAILTO (or `--mailto`) to join the services' "polite pool". Crossref is reached through
 //! `crossref::Client` (rate limits, retries, cache, agency check, retraction records; spec 12).
