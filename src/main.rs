@@ -7,6 +7,7 @@
 //! Portable: when run from a PortableApps.com-style folder (App\Tezaur\tezaur.exe + Data\),
 //! the index, library and settings all live in Data\ and nothing is written elsewhere.
 
+mod a11y;
 mod audit;
 mod bib;
 mod bibtex;
