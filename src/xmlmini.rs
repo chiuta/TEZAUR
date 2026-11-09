@@ -4,7 +4,7 @@
 //! expansion. Nesting depth and input size are bounded. Namespace prefixes are dropped: names
 //! are compared by their local part.
 
-pub const MAX_BYTES: usize = 16 * 512 * 1024;
+pub const MAX_BYTES: usize = 16 * 1024 * 1024;
 const MAX_DEPTH: usize = 128;
 
 #[derive(Debug, Default, Clone)]

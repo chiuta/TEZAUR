@@ -1451,7 +1451,13 @@ pub fn now_secs() -> u64 {
 /// True when `TEZAUR_RECEIPT_FORMAT=2` asks for the opt-in v2 receipt (RFC 8785 digest, SHA-256 document identity).
 pub fn receipt_v2_requested() -> bool {
     std::env::var("TEZAUR_RECEIPT_FORMAT")
-        .map(|v| v.trim() == "2")
+        .map(|v| {
+            let v = v.trim();
+            if !(v.is_empty() || v == "1" || v == "2") {
+                eprintln!("TEZAUR_RECEIPT_FORMAT={v:?} not recognised (use 1 or 2); using the default receipt format 1");
+            }
+            v == "2"
+        })
         .unwrap_or(false)
 }
 

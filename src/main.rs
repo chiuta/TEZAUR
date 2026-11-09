@@ -87,7 +87,7 @@ struct Cli {
     num_ctx: u32,
     /// Treat "exact phrase" and "a b"~5 (within 5 words) in search and ask as required phrases: passages without
     /// them are dropped. Off by default: quotation marks are ordinary punctuation, as before.
-    #[arg(long, env = "TEZAUR_PHRASES", global = true)]
+    #[arg(long, env = "TEZAUR_PHRASES", global = true, num_args = 0..=1, default_missing_value = "true", value_parser = clap::builder::BoolishValueParser::new())]
     phrases: bool,
     /// Restrict retrieval to documents whose title, path or citation contains this text.
     #[arg(long, global = true)]
