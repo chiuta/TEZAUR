@@ -10,8 +10,8 @@
 <link rel="icon" href="icon-192.png">
 
 <style>
-:root{--bg:#f6f4ef;--panel:#fffdf8;--ink:#23211c;--mute:#6d675b;--line:#ddd6c6;--acc:#8a4b14;--acc2:#f0e2cf;--bad:#a4271f;--ok:#2f6b3a;--warn:#8a6a00;--edge:#857e6d}
-@media (prefers-color-scheme:dark){:root{--bg:#171613;--panel:#1f1d19;--ink:#ece7da;--mute:#9b9484;--line:#38342c;--acc:#e0a463;--acc2:#3a2e1e;--bad:#ff8b80;--ok:#7fcf8c;--warn:#e2c15a;--edge:#8a8372}}
+:root{--bg:#f6f4ef;--panel:#fffdf8;--ink:#23211c;--mute:#6d675b;--line:#ddd6c6;--acc:#8a4b14;--acc2:#f0e2cf;--bad:#a4271f;--ok:#2f6b3a;--warn:#8a6a00}
+@media (prefers-color-scheme:dark){:root{--bg:#171613;--panel:#1f1d19;--ink:#ece7da;--mute:#9b9484;--line:#38342c;--acc:#e0a463;--acc2:#3a2e1e;--bad:#ff8b80;--ok:#7fcf8c;--warn:#e2c15a}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 .app{display:grid;grid-template-columns:330px 1fr;min-height:100vh}
@@ -20,9 +20,8 @@ main{padding:20px 24px;max-width:960px;width:100%}
 h1{font:700 22px Georgia,serif;letter-spacing:.14em;margin:0 0 2px;color:var(--acc)}
 .sub{color:var(--mute);font-size:12px;margin-bottom:14px}
 h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);margin:18px 0 6px}
-[hidden]{display:none!important}
 label{display:block;font-size:12px;color:var(--mute);margin:8px 0 2px}
-input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--edge);border-radius:6px;padding:6px 8px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
 textarea{resize:vertical}
 button{font:inherit;cursor:pointer;border:1px solid var(--acc);background:var(--acc);color:var(--panel);border-radius:6px;padding:6px 12px}
 button.alt{background:transparent;color:var(--acc)}
@@ -34,20 +33,16 @@ button:disabled{opacity:.5;cursor:default}
 .docs li{display:flex;gap:6px;align-items:center;padding:3px 0;border-bottom:1px dotted var(--line)}
 .docs li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .docs input{width:auto}
-.x{border:0;background:none;color:var(--mute);padding:2px 6px;min-width:24px;min-height:24px}
-:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.x{border:0;background:none;color:var(--mute);padding:0 4px}
 .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .tabs button{background:transparent;color:var(--ink);border-color:var(--line)}
-.tabs button.on{background:var(--acc2);border-color:var(--acc);color:var(--ink);font-weight:700;box-shadow:inset 0 -3px 0 var(--acc)}
+.tabs button.on{background:var(--acc2);border-color:var(--acc);color:var(--ink)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px}
 .out p{margin:.5em 0}.out h1,.out h2,.out h3,.out h4{font-family:Georgia,serif;text-transform:none;letter-spacing:0;color:var(--ink);font-size:17px;margin:1em 0 .3em}
 .out ul{margin:.4em 0 .4em 1.2em;padding:0}
 a.c{color:var(--acc);cursor:pointer;font-size:.85em;font-weight:600;vertical-align:super;padding:0 1px}
 a.c.bad{color:var(--bad);text-decoration:line-through}
 .warn{color:var(--warn);font-size:13px;margin:4px 0}.err{color:var(--bad);white-space:pre-wrap}.ok{color:var(--ok)}
-.ex table{border-collapse:collapse;margin:6px 0;font-size:12.5px}.ex td,.ex th{border:1px solid var(--line);padding:2px 8px;text-align:left}.ex th{background:var(--soft,rgba(128,128,128,.12));color:var(--ink)}
-.ex .eq{display:block;white-space:pre-wrap;font-family:ui-monospace,Menlo,Consolas,monospace;background:rgba(128,128,128,.1);padding:4px 8px;margin:4px 0;border-radius:4px;color:var(--ink);overflow-x:auto}
 .ex{border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;font-size:13px;color:var(--mute)}
 .ex.hl{border-color:var(--acc);background:var(--acc2);color:var(--ink)}
 .ex b{color:var(--ink)}
@@ -61,14 +56,12 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
 <aside>
   <h1>TEZAUR</h1>
   <div class="sub">asistent de cercetare pentru teză · local · cu citări verificabile</div>
-  <label class="small" for="uiLang" style="margin:0 0 6px">Limba interfeței / UI language</label>
-  <select id="uiLang" aria-label="Limba interfeței / UI language"><option value="ro">Română</option><option value="en">English</option><option value="fr">Français</option><option value="it">Italiano</option><option value="es">Español</option><option value="pt">Português</option><option value="de">Deutsch</option><option value="hu">Magyar</option></select>
 
   <h2>Bibliotecă</h2>
   <div class="row"><button id="addFiles">+ Fișiere</button><button id="addDir" class="alt">+ Folder</button></div>
   <input type="file" id="fFiles" multiple hidden accept=".pdf,.docx,.epub,.txt,.md,.markdown,.html,.htm,.tex">
   <input type="file" id="fDir" hidden>
-  <div class="small" id="status" role="status">Biblioteca e goală.</div>
+  <div class="small" id="status">Biblioteca e goală.</div>
   <ul class="docs" id="docs"></ul>
   <div class="row"><button class="alt" id="selAll">Toate</button><button class="alt" id="selNone">Niciuna</button><button class="alt" id="clearAll">Șterge tot</button></div>
   <div class="small">Bifează documentele la care se restrânge căutarea (ca <code>--only</code>).</div>
@@ -76,16 +69,16 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
   <h2>BibTeX (Zotero)</h2>
   <button class="alt" id="addBib">Încarcă .bib</button>
   <input type="file" id="fBib" multiple hidden accept=".bib,.bibtex,.txt">
-  <div class="small" id="bibStatus" role="status">Fără BibTeX: citările folosesc titlul fișierului.</div>
+  <div class="small" id="bibStatus">Fără BibTeX: citările folosesc titlul fișierului.</div>
 
   <h2>Mesh P2P</h2>
   <details id="mesh"><summary class="small">Schimb direct între cercetători, fără server central</summary>
-    <label for="mName">Numele nodului</label><input id="mName" placeholder="ana">
-    <label for="mShare">Ofer colegilor (text din cale/titlu; * = tot; gol = nimic)</label><input id="mShare" placeholder="smith, *">
+    <label>Numele nodului</label><input id="mName" placeholder="ana">
+    <label>Ofer colegilor (text din cale/titlu; * = tot; gol = nimic)</label><input id="mShare" placeholder="smith, *">
     <label class="small"><input type="checkbox" id="mRelay" style="width:auto"> reofer și documentele primite de la alții</label>
     <label class="small"><input type="checkbox" id="mStun" style="width:auto"> peste internet (cere unui server STUN Google adresa ta publică)</label>
     <div class="row"><button class="alt" id="mOffer">Creează invitație</button><button class="alt" id="mAccept">Acceptă cod</button></div>
-    <textarea id="mCode" aria-label="Cod de invitație sau de răspuns" rows="3" placeholder="cod de invitație sau de răspuns (se trimite prin orice canal)"></textarea>
+    <textarea id="mCode" rows="3" placeholder="cod de invitație sau de răspuns (se trimite prin orice canal)"></textarea>
     <div class="small" id="mStat">neconectat</div>
     <div class="row"><button class="alt" id="mSearch">Caută la peer</button><button class="alt" id="mPull">Copiază documentele lui</button></div>
     <div class="row"><button class="alt" id="mExp">Export pachet .tzb</button><button class="alt" id="mImp">Import .tzb</button></div>
@@ -99,37 +92,36 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
   </details>
 
   <h2>Model local</h2>
-  <label for="api">Server</label>
+  <label>Server</label>
   <select id="api" aria-label="Server de modele"><option value="ollama">Ollama</option><option value="jan">Jan</option><option value="openai">OpenAI-compatibil (LM Studio, llama.cpp…)</option></select>
-  <label for="host">Adresă</label><input id="host" aria-label="Adresă server">
-  <label for="modelSel">Model</label>
+  <label>Adresă</label><input id="host" aria-label="Adresă server">
+  <label>Model</label>
   <div class="row"><select id="modelSel" aria-label="Model"></select><button class="alt" id="listModels">Listează</button></div>
-  <input id="model" aria-label="Model (nume)" placeholder="sau scrie numele modelului" style="margin-top:6px">
-  <label for="key">Cheie API (opțional)</label><input id="key" aria-label="Cheie API" type="password" autocomplete="off">
-  <label for="numctx">Context (num_ctx, doar Ollama)</label><input id="numctx" aria-label="Context (num_ctx)" type="number" value="8192">
+  <input id="model" placeholder="sau scrie numele modelului" style="margin-top:6px">
+  <label>Cheie API (opțional)</label><input id="key" aria-label="Cheie API" type="password" autocomplete="off">
+  <label>Context (num_ctx, doar Ollama)</label><input id="numctx" aria-label="Context (num_ctx)" type="number" value="8192">
   <div class="row" style="margin-top:8px"><button class="alt" id="doctor">Verifică conexiunea</button></div>
   <div id="doctorOut" class="small"></div>
 </aside>
 
 <main>
-  <div class="tabs" id="tabs" role="group" aria-label="Mod de lucru"></div>
+  <div class="tabs" id="tabs"></div>
   <div class="card">
     <div id="modeHelp" class="small" style="margin-bottom:8px"></div>
-    <div id="fInput"><textarea id="q" aria-label="Întrebarea / tema" rows="3" placeholder="Întrebarea / tema…"></textarea></div>
-    <div id="fNotes" hidden><label for="notes">Note ale tale (opțional)</label><textarea id="notes" rows="3"></textarea></div>
+    <div id="fInput"><textarea id="q" rows="3" placeholder="Întrebarea / tema…"></textarea></div>
+    <div id="fNotes" hidden><label>Note ale tale (opțional)</label><textarea id="notes" rows="3"></textarea></div>
     <div class="row">
-      <div id="fKind" hidden><label for="kind">Tip</label><select id="kind"><option value="section">secțiune</option><option value="introduction">introducere</option><option value="lit-review">recenzie de literatură</option><option value="critical-review">recenzie critică</option></select></div>
-      <div id="fDoc" hidden><label for="docSel">Document</label><select id="docSel"></select></div>
-      <div><label for="k">Pasaje (k)</label><input id="k" aria-label="Pasaje (k)" type="number" value="8" min="1" max="30"></div>
-      <div><label for="lang">Limba răspunsului</label><input id="lang" placeholder="ca în cerere"></div>
+      <div id="fKind" hidden><label>Tip</label><select id="kind"><option value="section">secțiune</option><option value="introduction">introducere</option><option value="lit-review">recenzie de literatură</option><option value="critical-review">recenzie critică</option></select></div>
+      <div id="fDoc" hidden><label>Document</label><select id="docSel"></select></div>
+      <div><label>Pasaje (k)</label><input id="k" aria-label="Pasaje (k)" type="number" value="8" min="1" max="30"></div>
+      <div><label>Limba răspunsului</label><input id="lang" placeholder="ca în cerere"></div>
     </div>
-    <label id="fSem" hidden><input type="checkbox" id="sem" style="width:auto"> a doua opinie de la modelul local pentru fiecare citare (lent; prinde parafraze și negații, dar modelul poate greși)</label>
     <label id="fDec"><input type="checkbox" id="dec" style="width:auto"> descompune întrebarea în mai multe interogări (mai lent)</label>
-    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><button id="mic" class="alt" title="Dictare" aria-label="Dictare" hidden>🎤</button><button id="mic2" class="alt" aria-label="Dictare locală" title="Dictare locală (Whisper, rulează în browser; nimic nu pleacă din calculator)" hidden>🎙️</button><button id="speak" class="alt" title="Citește răspunsul" aria-label="Citește răspunsul" hidden>🔊</button><span class="small" id="runInfo"></span><span class="small" id="dictst"></span></div>
+    <div class="row" style="margin-top:10px"><button id="run">Rulează</button><button id="stop" class="alt" disabled>Oprește</button><button id="mic" class="alt" title="Dictare" hidden>🎤</button><button id="speak" class="alt" title="Citește răspunsul" hidden>🔊</button><span class="small" id="runInfo"></span></div>
   </div>
 
   <div class="card" id="resCard" hidden>
-    <div id="warns" role="status"></div><div id="announce" class="sr" role="status" aria-live="polite"></div>
+    <div id="warns"></div>
     <div class="out" id="out"></div>
     <div class="row" style="margin-top:10px">
       <button class="alt" id="copy">Copiază</button><button class="alt" id="dlMd">Descarcă .md</button><button class="alt" id="dlTsv" hidden>Descarcă .tsv (Anki)</button>
@@ -145,25 +137,6 @@ table{border-collapse:collapse;width:100%;font-size:13px}td,th{border:1px solid 
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ls={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
-
-/* ---------- limba interfeței: ro (sursa), en, fr, it, es, pt, de, hu ----------
-   Cheia = textul românesc din pagină; textul static, filele, ajutorul modurilor și mesajele frecvente se traduc.
-   Mesajele de diagnostic detaliate (erori de rețea, CORS, PDF) rămân în română sau engleză, după caz. Traducerile fr/it/es/pt/de/hu sunt automate, nerevizuite nativ. [traducere: fr=automat it=automat es=automat pt=automat de=automat hu=automat] */
-const I18N={"asistent de cercetare pentru teză · local · cu citări verificabile":{"en":"research assistant for your thesis · local · with verifiable citations","fr":"assistant de recherche pour la thèse · local · avec citations vérifiables","it":"assistente di ricerca per la tesi · locale · con citazioni verificabili","es":"asistente de investigación para la tesis · local · con citas verificables","pt":"assistente de investigação para a tese · local · com citações verificáveis","de":"Recherche-Assistent für die Abschlussarbeit · lokal · mit prüfbaren Zitaten","hu":"kutatási asszisztens a szakdolgozathoz · helyi · ellenőrizhető hivatkozásokkal"},"Bibliotecă":{"en":"Library","fr":"Bibliothèque","it":"Biblioteca","es":"Biblioteca","pt":"Biblioteca","de":"Bibliothek","hu":"Könyvtár"},"+ Fișiere":{"en":"+ Files","fr":"+ Fichiers","it":"+ File","es":"+ Archivos","pt":"+ Ficheiros","de":"+ Dateien","hu":"+ Fájlok"},"+ Folder":{"en":"+ Folder","fr":"+ Dossier","it":"+ Cartella","es":"+ Carpeta","pt":"+ Pasta","de":"+ Ordner","hu":"+ Mappa"},"Biblioteca e goală.":{"en":"The library is empty.","fr":"La bibliothèque est vide.","it":"La biblioteca è vuota.","es":"La biblioteca está vacía.","pt":"A biblioteca está vazia.","de":"Die Bibliothek ist leer.","hu":"A könyvtár üres."},"Toate":{"en":"All","fr":"Tous","it":"Tutti","es":"Todos","pt":"Todos","de":"Alle","hu":"Mind"},"Niciuna":{"en":"None","fr":"Aucun","it":"Nessuno","es":"Ninguno","pt":"Nenhum","de":"Keins","hu":"Egyik sem"},"Șterge tot":{"en":"Delete all","fr":"Tout supprimer","it":"Elimina tutto","es":"Borrar todo","pt":"Apagar tudo","de":"Alles löschen","hu":"Összes törlése"},"Bifează documentele la care se restrânge căutarea (ca":{"en":"Tick the documents the search is limited to (like","fr":"Cochez les documents auxquels la recherche est limitée (comme","it":"Spunta i documenti a cui limitare la ricerca (come","es":"Marca los documentos a los que se limita la búsqueda (como","pt":"Assinale os documentos a que a pesquisa se limita (como","de":"Haken Sie die Dokumente an, auf die sich die Suche beschränkt (wie","hu":"Jelölje be azokat a dokumentumokat, amelyekre a keresés korlátozódik (mint a"},"BibTeX (Zotero)":{"en":"BibTeX (Zotero)","fr":"BibTeX (Zotero)","it":"BibTeX (Zotero)","es":"BibTeX (Zotero)","pt":"BibTeX (Zotero)","de":"BibTeX (Zotero)","hu":"BibTeX (Zotero)"},"Încarcă .bib":{"en":"Load .bib","fr":"Charger .bib","it":"Carica .bib","es":"Cargar .bib","pt":"Carregar .bib","de":".bib laden","hu":".bib betöltése"},"Fără BibTeX: citările folosesc titlul fișierului.":{"en":"No BibTeX: citations use the file title.","fr":"Sans BibTeX : les citations utilisent le titre du fichier.","it":"Senza BibTeX: le citazioni usano il titolo del file.","es":"Sin BibTeX: las citas usan el título del archivo.","pt":"Sem BibTeX: as citações usam o título do ficheiro.","de":"Ohne BibTeX: Zitate verwenden den Dateititel.","hu":"BibTeX nélkül: a hivatkozások a fájl címét használják."},"Mesh P2P":{"en":"P2P mesh","fr":"Réseau P2P","it":"Rete P2P","es":"Malla P2P","pt":"Rede P2P","de":"P2P-Netz","hu":"P2P háló"},"Schimb direct între cercetători, fără server central":{"en":"Direct exchange between researchers, no central server","fr":"Échange direct entre chercheurs, sans serveur central","it":"Scambio diretto tra ricercatori, senza server centrale","es":"Intercambio directo entre investigadores, sin servidor central","pt":"Troca direta entre investigadores, sem servidor central","de":"Direkter Austausch zwischen Forschenden, ohne zentralen Server","hu":"Közvetlen csere kutatók között, központi szerver nélkül"},"Numele nodului":{"en":"Node name","fr":"Nom du nœud","it":"Nome del nodo","es":"Nombre del nodo","pt":"Nome do nó","de":"Knotenname","hu":"A csomópont neve"},"Ofer colegilor (text din cale/titlu; * = tot; gol = nimic)":{"en":"Offer to colleagues (text from path/title; * = everything; empty = nothing)","fr":"Offert aux collègues (texte du chemin/titre ; * = tout ; vide = rien)","it":"Offro ai colleghi (testo da percorso/titolo; * = tutto; vuoto = niente)","es":"Ofrezco a colegas (texto de ruta/título; * = todo; vacío = nada)","pt":"Ofereço a colegas (texto do caminho/título; * = tudo; vazio = nada)","de":"Kolleg:innen anbieten (Text aus Pfad/Titel; * = alles; leer = nichts)","hu":"Kollégáknak felajánlom (útvonal/cím szövege; * = minden; üres = semmi)"},"reofer și documentele primite de la alții":{"en":"also re-offer documents received from others","fr":"proposer aussi les documents reçus des autres","it":"offro anche i documenti ricevuti da altri","es":"ofrezco también los documentos recibidos de otros","pt":"ofereço também os documentos recebidos de outros","de":"auch von anderen erhaltene Dokumente weiterreichen","hu":"a másoktól kapott dokumentumokat is továbbadom"},"peste internet (cere unui server STUN Google adresa ta publică)":{"en":"over the internet (asks a Google STUN server for your public address)","fr":"via Internet (demande votre adresse publique à un serveur STUN de Google)","it":"via internet (chiede il tuo indirizzo pubblico a un server STUN di Google)","es":"por internet (pide tu dirección pública a un servidor STUN de Google)","pt":"pela internet (pede o seu endereço público a um servidor STUN da Google)","de":"über das Internet (fragt einen Google-STUN-Server nach Ihrer öffentlichen Adresse)","hu":"interneten át (egy Google STUN-szervertől kéri a nyilvános címét)"},"Creează invitație":{"en":"Create invitation","fr":"Créer une invitation","it":"Crea invito","es":"Crear invitación","pt":"Criar convite","de":"Einladung erstellen","hu":"Meghívó létrehozása"},"Acceptă cod":{"en":"Accept code","fr":"Accepter un code","it":"Accetta codice","es":"Aceptar código","pt":"Aceitar código","de":"Code annehmen","hu":"Kód elfogadása"},"neconectat":{"en":"not connected","fr":"non connecté","it":"non connesso","es":"sin conexión","pt":"não ligado","de":"nicht verbunden","hu":"nincs kapcsolat"},"Caută la peer":{"en":"Search at peer","fr":"Chercher chez le pair","it":"Cerca presso il peer","es":"Buscar en el par","pt":"Pesquisar no par","de":"Beim Peer suchen","hu":"Keresés a társnál"},"Copiază documentele lui":{"en":"Copy its documents","fr":"Copier ses documents","it":"Copia i suoi documenti","es":"Copiar sus documentos","pt":"Copiar os seus documentos","de":"Seine Dokumente kopieren","hu":"Dokumentumainak másolása"},"Export pachet .tzb":{"en":"Export .tzb package","fr":"Exporter le paquet .tzb","it":"Esporta pacchetto .tzb","es":"Exportar paquete .tzb","pt":"Exportar pacote .tzb","de":".tzb-Paket exportieren","hu":".tzb csomag exportálása"},"Import .tzb":{"en":"Import .tzb","fr":"Importer .tzb","it":"Importa .tzb","es":"Importar .tzb","pt":"Importar .tzb","de":".tzb importieren","hu":".tzb importálása"},"include și peers în căutare/răspuns (server)":{"en":"include peers in search/answer (server)","fr":"inclure aussi les pairs dans la recherche/réponse (serveur)","it":"includi anche i peer nella ricerca/risposta (server)","es":"incluir también los pares en la búsqueda/respuesta (servidor)","pt":"incluir também os pares na pesquisa/resposta (servidor)","de":"Peers in Suche/Antwort einbeziehen (Server)","hu":"a társakat is bevonja a keresésbe/válaszba (szerver)"},"Adaugă peer":{"en":"Add peer","fr":"Ajouter un pair","it":"Aggiungi peer","es":"Añadir par","pt":"Adicionar par","de":"Peer hinzufügen","hu":"Társ hozzáadása"},"Trage de la peers":{"en":"Pull from peers","fr":"Récupérer auprès des pairs","it":"Scarica dai peer","es":"Traer de los pares","pt":"Obter dos pares","de":"Von Peers holen","hu":"Letöltés a társaktól"},"Peers văd doar ce ai ales să oferi. Textele primite sunt ale lor: verifică sursa înainte să citezi.":{"en":"Peers see only what you chose to offer. Received texts are theirs: check the source before you cite.","fr":"Les pairs ne voient que ce que vous avez choisi d’offrir. Les textes reçus sont les leurs : vérifiez la source avant de citer.","it":"I peer vedono solo ciò che hai scelto di offrire. I testi ricevuti sono loro: verifica la fonte prima di citare.","es":"Los pares solo ven lo que elegiste ofrecer. Los textos recibidos son suyos: comprueba la fuente antes de citar.","pt":"Os pares veem apenas o que escolheu oferecer. Os textos recebidos são deles: verifique a fonte antes de citar.","de":"Peers sehen nur, was Sie anbieten. Erhaltene Texte gehören ihnen: Quelle prüfen, bevor Sie zitieren.","hu":"A társak csak azt látják, amit felajánlott. A kapott szövegek az övék: idézés előtt ellenőrizze a forrást."},"Model local":{"en":"Local model","fr":"Modèle local","it":"Modello locale","es":"Modelo local","pt":"Modelo local","de":"Lokales Modell","hu":"Helyi modell"},"Server":{"en":"Server","fr":"Serveur","it":"Server","es":"Servidor","pt":"Servidor","de":"Server","hu":"Szerver"},"OpenAI-compatibil (LM Studio, llama.cpp…)":{"en":"OpenAI-compatible (LM Studio, llama.cpp…)","fr":"Compatible OpenAI (LM Studio, llama.cpp…)","it":"Compatibile OpenAI (LM Studio, llama.cpp…)","es":"Compatible con OpenAI (LM Studio, llama.cpp…)","pt":"Compatível com OpenAI (LM Studio, llama.cpp…)","de":"OpenAI-kompatibel (LM Studio, llama.cpp…)","hu":"OpenAI-kompatibilis (LM Studio, llama.cpp…)"},"Adresă":{"en":"Address","fr":"Adresse","it":"Indirizzo","es":"Dirección","pt":"Endereço","de":"Adresse","hu":"Cím"},"Model":{"en":"Model","fr":"Modèle","it":"Modello","es":"Modelo","pt":"Modelo","de":"Modell","hu":"Modell"},"Listează":{"en":"List","fr":"Lister","it":"Elenca","es":"Listar","pt":"Listar","de":"Auflisten","hu":"Listázás"},"Cheie API (opțional)":{"en":"API key (optional)","fr":"Clé API (facultative)","it":"Chiave API (facoltativa)","es":"Clave API (opcional)","pt":"Chave API (opcional)","de":"API-Schlüssel (optional)","hu":"API-kulcs (nem kötelező)"},"Context (num_ctx, doar Ollama)":{"en":"Context (num_ctx, Ollama only)","fr":"Contexte (num_ctx, Ollama seulement)","it":"Contesto (num_ctx, solo Ollama)","es":"Contexto (num_ctx, solo Ollama)","pt":"Contexto (num_ctx, só Ollama)","de":"Kontext (num_ctx, nur Ollama)","hu":"Kontextus (num_ctx, csak Ollama)"},"Verifică conexiunea":{"en":"Check connection","fr":"Vérifier la connexion","it":"Verifica la connessione","es":"Comprobar la conexión","pt":"Verificar a ligação","de":"Verbindung prüfen","hu":"Kapcsolat ellenőrzése"},"Note ale tale (opțional)":{"en":"Your notes (optional)","fr":"Vos notes (facultatif)","it":"Le tue note (facoltative)","es":"Tus notas (opcional)","pt":"As suas notas (opcional)","de":"Ihre Notizen (optional)","hu":"Saját jegyzetei (nem kötelező)"},"Tip":{"en":"Type","fr":"Type","it":"Tipo","es":"Tipo","pt":"Tipo","de":"Typ","hu":"Típus"},"secțiune":{"en":"section","fr":"section","it":"sezione","es":"sección","pt":"secção","de":"Abschnitt","hu":"szakasz"},"introducere":{"en":"introduction","fr":"introduction","it":"introduzione","es":"introducción","pt":"introdução","de":"Einleitung","hu":"bevezetés"},"recenzie de literatură":{"en":"literature review","fr":"revue de la littérature","it":"rassegna della letteratura","es":"revisión de la literatura","pt":"revisão da literatura","de":"Literaturübersicht","hu":"irodalmi áttekintés"},"recenzie critică":{"en":"critical review","fr":"revue critique","it":"recensione critica","es":"revisión crítica","pt":"revisão crítica","de":"kritische Besprechung","hu":"kritikai áttekintés"},"Document":{"en":"Document","fr":"Document","it":"Documento","es":"Documento","pt":"Documento","de":"Dokument","hu":"Dokumentum"},"Pasaje (k)":{"en":"Passages (k)","fr":"Passages (k)","it":"Brani (k)","es":"Pasajes (k)","pt":"Passagens (k)","de":"Passagen (k)","hu":"Szövegrészek (k)"},"Limba răspunsului":{"en":"Answer language","fr":"Langue de la réponse","it":"Lingua della risposta","es":"Idioma de la respuesta","pt":"Idioma da resposta","de":"Antwortsprache","hu":"A válasz nyelve"},"a doua opinie de la modelul local pentru fiecare citare (lent; prinde parafraze și negații, dar modelul poate greși)":{"en":"second opinion from the local model for each citation (slow; catches paraphrases and negations, but the model can be wrong)","fr":"deuxième avis du modèle local pour chaque citation (lent ; repère paraphrases et négations, mais le modèle peut se tromper)","it":"seconda opinione del modello locale per ogni citazione (lento; coglie parafrasi e negazioni, ma il modello può sbagliare)","es":"segunda opinión del modelo local para cada cita (lento; detecta paráfrasis y negaciones, pero el modelo puede equivocarse)","pt":"segunda opinião do modelo local para cada citação (lento; apanha paráfrases e negações, mas o modelo pode errar)","de":"zweite Meinung des lokalen Modells zu jedem Zitat (langsam; erkennt Umschreibungen und Verneinungen, das Modell kann sich aber irren)","hu":"a helyi modell második véleménye minden hivatkozásra (lassú; felismeri az átfogalmazást és a tagadást, de a modell tévedhet)"},"descompune întrebarea în mai multe interogări (mai lent)":{"en":"split the question into several queries (slower)","fr":"décomposer la question en plusieurs requêtes (plus lent)","it":"scomponi la domanda in più interrogazioni (più lento)","es":"descomponer la pregunta en varias consultas (más lento)","pt":"decompor a pergunta em várias consultas (mais lento)","de":"Frage in mehrere Abfragen zerlegen (langsamer)","hu":"a kérdést több lekérdezésre bontja (lassabb)"},"Rulează":{"en":"Run","fr":"Exécuter","it":"Esegui","es":"Ejecutar","pt":"Executar","de":"Ausführen","hu":"Futtatás"},"Oprește":{"en":"Stop","fr":"Arrêter","it":"Ferma","es":"Detener","pt":"Parar","de":"Stopp","hu":"Leállítás"},"Copiază":{"en":"Copy","fr":"Copier","it":"Copia","es":"Copiar","pt":"Copiar","de":"Kopieren","hu":"Másolás"},"Descarcă .md":{"en":"Download .md","fr":"Télécharger .md","it":"Scarica .md","es":"Descargar .md","pt":"Descarregar .md","de":".md herunterladen","hu":".md letöltése"},"Descarcă .tsv (Anki)":{"en":"Download .tsv (Anki)","fr":"Télécharger .tsv (Anki)","it":"Scarica .tsv (Anki)","es":"Descargar .tsv (Anki)","pt":"Descarregar .tsv (Anki)","de":".tsv herunterladen (Anki)","hu":".tsv letöltése (Anki)"},"Pasaje folosite":{"en":"Passages used","fr":"Passages utilisés","it":"Brani usati","es":"Pasajes usados","pt":"Passagens usadas","de":"Verwendete Passagen","hu":"Felhasznált szövegrészek"},"TEZAUR verifică mecanic existența citărilor, nu dacă pasajul susține afirmația. Deschide pagina citată.":{"en":"TEZAUR checks mechanically that citations exist, not whether the passage supports the claim. Open the cited page.","fr":"TEZAUR vérifie mécaniquement l’existence des citations, pas si le passage étaye l’affirmation. Ouvrez la page citée.","it":"TEZAUR verifica meccanicamente l’esistenza delle citazioni, non se il brano sostiene l’affermazione. Apri la pagina citata.","es":"TEZAUR comprueba mecánicamente que las citas existen, no que el pasaje respalde la afirmación. Abre la página citada.","pt":"O TEZAUR verifica mecanicamente a existência das citações, não se a passagem sustenta a afirmação. Abra a página citada.","de":"TEZAUR prüft mechanisch, ob Zitate existieren, nicht ob die Passage die Aussage stützt. Öffnen Sie die zitierte Seite.","hu":"A TEZAUR gépiesen ellenőrzi, hogy a hivatkozások léteznek-e, nem azt, hogy a szövegrész alátámasztja-e az állítást. Nyissa meg a hivatkozott oldalt."},"cod de invitație sau de răspuns (se trimite prin orice canal)":{"en":"invitation or reply code (send it over any channel)","fr":"code d’invitation ou de réponse (à envoyer par n’importe quel canal)","it":"codice di invito o di risposta (si invia con qualsiasi canale)","es":"código de invitación o de respuesta (se envía por cualquier canal)","pt":"código de convite ou de resposta (envia-se por qualquer canal)","de":"Einladungs- oder Antwortcode (über jeden Kanal senden)","hu":"meghívó- vagy válaszkód (bármely csatornán elküldhető)"},"Server de modele":{"en":"Model server","fr":"Serveur de modèles","it":"Server dei modelli","es":"Servidor de modelos","pt":"Servidor de modelos","de":"Modellserver","hu":"Modellszerver"},"Adresă server":{"en":"Server address","fr":"Adresse du serveur","it":"Indirizzo del server","es":"Dirección del servidor","pt":"Endereço do servidor","de":"Serveradresse","hu":"Szerver címe"},"sau scrie numele modelului":{"en":"or type the model name","fr":"ou saisissez le nom du modèle","it":"oppure scrivi il nome del modello","es":"o escribe el nombre del modelo","pt":"ou escreva o nome do modelo","de":"oder Modellnamen eingeben","hu":"vagy írja be a modell nevét"},"Cheie API":{"en":"API key","fr":"Clé API","it":"Chiave API","es":"Clave API","pt":"Chave API","de":"API-Schlüssel","hu":"API-kulcs"},"Context (num_ctx)":{"en":"Context (num_ctx)","fr":"Context (num_ctx)","it":"Context (num_ctx)","es":"Context (num_ctx)","pt":"Context (num_ctx)","de":"Context (num_ctx)","hu":"Context (num_ctx)"},"Întrebarea / tema…":{"en":"The question / topic…","fr":"La question / le thème…","it":"La domanda / il tema…","es":"La pregunta / el tema…","pt":"A pergunta / o tema…","de":"Frage / Thema…","hu":"A kérdés / téma…"},"ca în cerere":{"en":"as in the request","fr":"comme dans la demande","it":"come nella richiesta","es":"como en la solicitud","pt":"como no pedido","de":"wie in der Anfrage","hu":"mint a kérésben"},"Dictare":{"en":"Dictation","fr":"Dictée","it":"Dettatura","es":"Dictado","pt":"Ditado","de":"Diktat","hu":"Diktálás"},"Dictare locală (Whisper, rulează în browser; nimic nu pleacă din calculator)":{"en":"Local dictation (Whisper, runs in the browser; nothing leaves the computer)","fr":"Dictée locale (Whisper, s’exécute dans le navigateur ; rien ne quitte l’ordinateur)","it":"Dettatura locale (Whisper, gira nel browser; nulla lascia il computer)","es":"Dictado local (Whisper, se ejecuta en el navegador; nada sale del ordenador)","pt":"Ditado local (Whisper, corre no navegador; nada sai do computador)","de":"Lokales Diktat (Whisper, läuft im Browser; nichts verlässt den Computer)","hu":"Helyi diktálás (Whisper, a böngészőben fut; semmi sem hagyja el a számítógépet)"},"Citește răspunsul":{"en":"Read the answer aloud","fr":"Lire la réponse à voix haute","it":"Leggi la risposta ad alta voce","es":"Leer la respuesta en voz alta","pt":"Ler a resposta em voz alta","de":"Antwort vorlesen","hu":"Válasz felolvasása"},"Căutare":{"en":"Search","fr":"Recherche","it":"Ricerca","es":"Búsqueda","pt":"Pesquisa","de":"Suche","hu":"Keresés"},"Doar pasajele relevante, fără model. Arată % din termenii interogării găsiți.":{"en":"Only the relevant passages, no model. Shows the % of query terms found.","fr":"Seulement les passages pertinents, sans modèle. Indique le % de termes de la requête trouvés.","it":"Solo i brani rilevanti, senza modello. Mostra la % di termini della ricerca trovati.","es":"Solo los pasajes relevantes, sin modelo. Muestra el % de términos de la consulta encontrados.","pt":"Apenas as passagens relevantes, sem modelo. Mostra a % de termos da consulta encontrados.","de":"Nur die relevanten Passagen, ohne Modell. Zeigt den Anteil gefundener Suchbegriffe in %.","hu":"Csak a releváns szövegrészek, modell nélkül. Megmutatja a megtalált keresőszavak %-át."},"Ce cauți?":{"en":"What are you looking for?","fr":"Que cherchez-vous ?","it":"Cosa cerchi?","es":"¿Qué buscas?","pt":"O que procura?","de":"Wonach suchen Sie?","hu":"Mit keres?"},"Întreabă":{"en":"Ask","fr":"Demander","it":"Chiedi","es":"Preguntar","pt":"Perguntar","de":"Fragen","hu":"Kérdezz"},"Răspuns cu citări [n] doar din pasajele regăsite.":{"en":"Answer with [n] citations only from the retrieved passages.","fr":"Réponse avec citations [n] uniquement tirées des passages retrouvés.","it":"Risposta con citazioni [n] solo dai brani recuperati.","es":"Respuesta con citas [n] solo de los pasajes recuperados.","pt":"Resposta com citações [n] apenas das passagens recuperadas.","de":"Antwort mit Zitaten [n] nur aus den gefundenen Passagen.","hu":"Válasz [n] hivatkozásokkal, kizárólag a megtalált szövegrészekből."},"Întrebarea ta…":{"en":"Your question…","fr":"Votre question…","it":"La tua domanda…","es":"Tu pregunta…","pt":"A sua pergunta…","de":"Ihre Frage…","hu":"Az Ön kérdése…"},"Compară":{"en":"Compare","fr":"Comparer","it":"Confronta","es":"Comparar","pt":"Comparar","de":"Vergleichen","hu":"Összehasonlítás"},"Poziții, acorduri și dezacorduri între surse.":{"en":"Positions, agreements and disagreements between sources.","fr":"Positions, accords et désaccords entre les sources.","it":"Posizioni, accordi e disaccordi tra le fonti.","es":"Posiciones, acuerdos y desacuerdos entre fuentes.","pt":"Posições, acordos e desacordos entre fontes.","de":"Positionen, Übereinstimmungen und Widersprüche zwischen Quellen.","hu":"Álláspontok, egyetértések és nézeteltérések a források között."},"Cum este definit X?":{"en":"How is X defined?","fr":"Comment X est-il défini ?","it":"Come viene definito X?","es":"¿Cómo se define X?","pt":"Como é definido X?","de":"Wie ist X definiert?","hu":"Hogyan határozzák meg X-et?"},"Lacune":{"en":"Gaps","fr":"Lacunes","it":"Lacune","es":"Lagunas","pt":"Lacunas","de":"Lücken","hu":"Hiányosságok"},"Ce e stabilit, ce e slab susținut, ce rămâne fără răspuns.":{"en":"What is established, what is weakly supported, what stays unanswered.","fr":"Ce qui est établi, ce qui est peu étayé, ce qui reste sans réponse.","it":"Cosa è stabilito, cosa è debolmente sostenuto, cosa resta senza risposta.","es":"Qué está establecido, qué está poco respaldado, qué queda sin respuesta.","pt":"O que está estabelecido, o que é pouco sustentado, o que fica sem resposta.","de":"Was gesichert ist, was schwach belegt ist, was offen bleibt.","hu":"Mi bizonyított, mi gyengén alátámasztott, mi marad megválaszolatlan."},"Tema…":{"en":"The topic…","fr":"Le thème…","it":"Il tema…","es":"El tema…","pt":"O tema…","de":"Das Thema…","hu":"A téma…"},"Rezumat":{"en":"Summary","fr":"Résumé","it":"Riassunto","es":"Resumen","pt":"Resumo","de":"Zusammenfassung","hu":"Összefoglaló"},"Rezumatul unui întreg document (map-reduce, lent), cu referințe de pagină.":{"en":"Summary of a whole document (map-reduce, slow), with page references.","fr":"Résumé d’un document entier (map-reduce, lent), avec références de page.","it":"Riassunto di un intero documento (map-reduce, lento), con riferimenti di pagina.","es":"Resumen de un documento completo (map-reduce, lento), con referencias de página.","pt":"Resumo de um documento inteiro (map-reduce, lento), com referências de página.","de":"Zusammenfassung eines ganzen Dokuments (Map-Reduce, langsam), mit Seitenverweisen.","hu":"Egy teljes dokumentum összefoglalója (map-reduce, lassú), oldalhivatkozásokkal."},"Schiță":{"en":"Outline","fr":"Plan","it":"Schema","es":"Esquema","pt":"Esquema","de":"Gliederung","hu":"Vázlat"},"Schelet de capitol; marchează secțiunile fără surse.":{"en":"Chapter skeleton; marks sections without sources.","fr":"Squelette de chapitre ; signale les sections sans sources.","it":"Scheletro di capitolo; segnala le sezioni senza fonti.","es":"Esqueleto de capítulo; marca las secciones sin fuentes.","pt":"Esqueleto de capítulo; assinala as secções sem fontes.","de":"Kapitelgerüst; markiert Abschnitte ohne Quellen.","hu":"Fejezetváz; jelzi a forrás nélküli szakaszokat."},"Titlul capitolului…":{"en":"Chapter title…","fr":"Titre du chapitre…","it":"Titolo del capitolo…","es":"Título del capítulo…","pt":"Título do capítulo…","de":"Kapitelüberschrift…","hu":"A fejezet címe…"},"Redactare":{"en":"Drafting","fr":"Rédaction","it":"Stesura","es":"Redacción","pt":"Redação","de":"Entwurf","hu":"Fogalmazás"},"Redactare din surse, cu citări. Tipul schimbă cerința, nu regulile.":{"en":"Drafting from sources, with citations. The type changes the brief, not the rules.","fr":"Rédaction à partir des sources, avec citations. Le type change la consigne, pas les règles.","it":"Stesura dalle fonti, con citazioni. Il tipo cambia la richiesta, non le regole.","es":"Redacción a partir de las fuentes, con citas. El tipo cambia el encargo, no las reglas.","pt":"Redação a partir das fontes, com citações. O tipo muda o pedido, não as regras.","de":"Entwurf aus den Quellen, mit Zitaten. Der Typ ändert die Aufgabe, nicht die Regeln.","hu":"Fogalmazás a forrásokból, hivatkozásokkal. A típus a feladatot változtatja, a szabályokat nem."},"Titlul secțiunii…":{"en":"Section title…","fr":"Titre de la section…","it":"Titolo della sezione…","es":"Título de la sección…","pt":"Título da secção…","de":"Abschnittsüberschrift…","hu":"A szakasz címe…"},"Audit citări":{"en":"Citation audit","fr":"Audit des citations","it":"Audit delle citazioni","es":"Auditoría de citas","pt":"Auditoria de citações","de":"Zitat-Audit","hu":"Hivatkozások auditja"},"Lipește textul tău cu citări [@cheie, p. 3]. Verifică mecanic dacă pasajul citat acoperă fraza, citatele ad litteram, cifrele, paginile. Necesită „tezaur serve”.":{"en":"Paste your text with citations [@key, p. 3]. Mechanically checks whether the cited passage covers the sentence, verbatim quotes, figures, pages. Requires “tezaur serve”.","fr":"Collez votre texte avec citations [@clé, p. 3]. Vérifie mécaniquement si le passage cité couvre la phrase, les citations littérales, les chiffres, les pages. Nécessite « tezaur serve ».","it":"Incolla il tuo testo con citazioni [@chiave, p. 3]. Verifica meccanicamente se il brano citato copre la frase, le citazioni letterali, le cifre, le pagine. Richiede «tezaur serve».","es":"Pega tu texto con citas [@clave, p. 3]. Comprueba mecánicamente si el pasaje citado cubre la frase, las citas literales, las cifras, las páginas. Requiere «tezaur serve».","pt":"Cole o seu texto com citações [@chave, p. 3]. Verifica mecanicamente se a passagem citada cobre a frase, as citações literais, os números, as páginas. Requer «tezaur serve».","de":"Fügen Sie Ihren Text mit Zitaten [@Schlüssel, S. 3] ein. Prüft mechanisch, ob die zitierte Passage den Satz, wörtliche Zitate, Zahlen und Seiten abdeckt. Benötigt „tezaur serve“.","hu":"Illessze be a szövegét hivatkozásokkal [@kulcs, 3. o.]. Gépiesen ellenőrzi, hogy az idézett szövegrész fedi-e a mondatot, a szó szerinti idézeteket, a számokat, az oldalakat. A „tezaur serve” szükséges hozzá."},"Textul de verificat…":{"en":"Text to check…","fr":"Texte à vérifier…","it":"Testo da verificare…","es":"Texto a comprobar…","pt":"Texto a verificar…","de":"Zu prüfender Text…","hu":"Ellenőrizendő szöveg…"},"Referințe":{"en":"References","fr":"Références","it":"Riferimenti","es":"Referencias","pt":"Referências","de":"Literatur","hu":"Hivatkozások"},"Chei citate care nu există nicăieri, intrări .bib sau documente din bibliotecă necitate. Necesită „tezaur serve”.":{"en":"Cited keys that exist nowhere, .bib entries or library documents never cited. Requires “tezaur serve”.","fr":"Clés citées qui n’existent nulle part, entrées .bib ou documents de la bibliothèque jamais cités. Nécessite « tezaur serve ».","it":"Chiavi citate che non esistono da nessuna parte, voci .bib o documenti della biblioteca mai citati. Richiede «tezaur serve».","es":"Claves citadas que no existen en ningún sitio, entradas .bib o documentos de la biblioteca nunca citados. Requiere «tezaur serve».","pt":"Chaves citadas que não existem em lado nenhum, entradas .bib ou documentos da biblioteca nunca citados. Requer «tezaur serve».","de":"Zitierte Schlüssel, die nirgends existieren, .bib-Einträge oder Bibliotheksdokumente ohne Zitat. Benötigt „tezaur serve“.","hu":"Sehol nem létező hivatkozott kulcsok, soha nem idézett .bib-bejegyzések vagy könyvtári dokumentumok. A „tezaur serve” szükséges hozzá."},"Carduri":{"en":"Flashcards","fr":"Cartes","it":"Schede","es":"Tarjetas","pt":"Cartões","de":"Karteikarten","hu":"Kártyák"},"Carduri de studiu; se păstrează doar cele al căror răspuns citează un pasaj real. Export Anki (.tsv).":{"en":"Study cards; only those whose answer cites a real passage are kept. Anki export (.tsv).","fr":"Cartes d’étude ; seules celles dont la réponse cite un passage réel sont conservées. Export Anki (.tsv).","it":"Schede di studio; si tengono solo quelle la cui risposta cita un brano reale. Esportazione Anki (.tsv).","es":"Tarjetas de estudio; solo se conservan aquellas cuya respuesta cita un pasaje real. Exportación a Anki (.tsv).","pt":"Cartões de estudo; só ficam aqueles cuja resposta cita uma passagem real. Exportação para Anki (.tsv).","de":"Lernkarten; nur solche, deren Antwort eine echte Passage zitiert, bleiben erhalten. Anki-Export (.tsv).","hu":"Tanulókártyák; csak azok maradnak, amelyek válasza valódi szövegrészre hivatkozik. Anki-export (.tsv)."},"Subiectul…":{"en":"The subject…","fr":"Le sujet…","it":"L’argomento…","es":"El tema…","pt":"O assunto…","de":"Das Thema…","hu":"A tárgy…"},"Caută":{"en":"Search","fr":"Chercher","it":"Cerca","es":"Buscar","pt":"Pesquisar","de":"Suchen","hu":"Keresés"},"Alege un model (butonul „Listează”).":{"en":"Pick a model (the “List” button).","fr":"Choisissez un modèle (bouton « Lister »).","it":"Scegli un modello (pulsante «Elenca»).","es":"Elige un modelo (botón «Listar»).","pt":"Escolha um modelo (botão «Listar»).","de":"Wählen Sie ein Modell (Schaltfläche „Auflisten“).","hu":"Válasszon modellt (a „Listázás” gomb)."},"Scrie întrebarea sau tema.":{"en":"Type the question or topic.","fr":"Saisissez la question ou le thème.","it":"Scrivi la domanda o il tema.","es":"Escribe la pregunta o el tema.","pt":"Escreva a pergunta ou o tema.","de":"Geben Sie die Frage oder das Thema ein.","hu":"Írja be a kérdést vagy a témát."},"Adaugă mai întâi documente în bibliotecă.":{"en":"First add documents to the library.","fr":"Ajoutez d’abord des documents à la bibliothèque.","it":"Aggiungi prima dei documenti alla biblioteca.","es":"Primero añade documentos a la biblioteca.","pt":"Primeiro adicione documentos à biblioteca.","de":"Fügen Sie zuerst Dokumente zur Bibliothek hinzu.","hu":"Először adjon dokumentumokat a könyvtárhoz."},"Niciun document nu e bifat.":{"en":"No document is ticked.","fr":"Aucun document n’est coché.","it":"Nessun documento è selezionato.","es":"Ningún documento está marcado.","pt":"Nenhum documento está assinalado.","de":"Kein Dokument ist angehakt.","hu":"Egy dokumentum sincs bejelölve."},"Niciun pasaj relevant în documentele bifate.":{"en":"No relevant passage in the ticked documents.","fr":"Aucun passage pertinent dans les documents cochés.","it":"Nessun brano rilevante nei documenti selezionati.","es":"Ningún pasaje relevante en los documentos marcados.","pt":"Nenhuma passagem relevante nos documentos assinalados.","de":"Keine relevante Passage in den angehakten Dokumenten.","hu":"Nincs releváns szövegrész a bejelölt dokumentumokban."},"nicio citare — nu te baza pe acest text":{"en":"no citation — do not rely on this text","fr":"aucune citation — ne vous fiez pas à ce texte","it":"nessuna citazione — non fare affidamento su questo testo","es":"ninguna cita — no te fíes de este texto","pt":"nenhuma citação — não confie neste texto","de":"kein Zitat — verlassen Sie sich nicht auf diesen Text","hu":"nincs hivatkozás — ne támaszkodjon erre a szövegre"},"Niciun peer. Adaugă unul (adresa unui alt `tezaur serve`).":{"en":"No peer. Add one (the address of another `tezaur serve`).","fr":"Aucun pair. Ajoutez-en un (l’adresse d’un autre `tezaur serve`).","it":"Nessun peer. Aggiungine uno (l’indirizzo di un altro `tezaur serve`).","es":"Ningún par. Añade uno (la dirección de otro `tezaur serve`).","pt":"Nenhum par. Adicione um (o endereço de outro `tezaur serve`).","de":"Kein Peer. Fügen Sie einen hinzu (Adresse eines anderen `tezaur serve`).","hu":"Nincs társ. Adjon hozzá egyet (egy másik `tezaur serve` címét)."},"{n} pasaje găsite.":{"en":"{n} passages found.","fr":"{n} passages trouvés.","it":"{n} brani trovati.","es":"{n} pasajes encontrados.","pt":"{n} passagens encontradas.","de":"{n} Passagen gefunden.","hu":"{n} szövegrész található."},"{n} modele găsite.":{"en":"{n} models found.","fr":"{n} modèles trouvés.","it":"{n} modelli trovati.","es":"{n} modelos encontrados.","pt":"{n} modelos encontrados.","de":"{n} Modelle gefunden.","hu":"{n} modell található."}};
-const UI_LANGS=['ro','en','fr','it','es','pt','de','hu'];
-let UL=ls.get('tezaur.lang','');if(UI_LANGS.indexOf(UL)<0){UL=((navigator.language||'ro').slice(0,2)).toLowerCase();if(UI_LANGS.indexOf(UL)<0)UL='en'}
-const TL=s=>{const e=I18N[s];return UL==='ro'||!e?s:(e[UL]||e.en||s)};
-const RO0=new WeakMap();
-function trTree(root){
-  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentNode&&/^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
-  for(let n;n=w.nextNode();){const raw=RO0.has(n)?RO0.get(n):n.nodeValue,k=raw.trim();if(!k||!I18N[k])continue;RO0.set(n,raw);n.nodeValue=raw.replace(k,TL(k))}
-  root.querySelectorAll('[placeholder],[title],[aria-label]').forEach(e=>['placeholder','title','aria-label'].forEach(a=>{
-    if(!e.hasAttribute(a))return;const key='ro_'+a.replace('-','_');if(e.dataset[key]===undefined)e.dataset[key]=e.getAttribute(a);
-    const ro=e.dataset[key];if(I18N[ro])e.setAttribute(a,TL(ro))}));
-}
-function applyLang(){document.documentElement.lang=UL;trTree(document.body);
-  if(typeof MODES!=='undefined'&&$('tabs')){[...$('tabs').children].forEach(b=>{b.textContent=TL(MODES[b.dataset.m].n)});setMode(mode)}
-  if(typeof renderLib==='function')renderLib();if(typeof bibStat==='function')bibStat()}
 
 /* ---------- prompts (same rules as the Rust version) ---------- */
 const SYSTEM=`You are a careful academic writing assistant helping a researcher write a thesis. You are given numbered SOURCE EXCERPTS from the researcher's own library. Rules:
@@ -226,10 +199,10 @@ let pdfjsP=null;
 function loadPdfjs(){
   if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
   if(pdfjsP)return pdfjsP;
-  const base='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/';
-  pdfjsP=new Promise((ok,no)=>{const s=document.createElement('script');s.src=base+'pdf.min.js';s.integrity='sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e';s.crossOrigin='anonymous';
+  const base='vendor/pdfjs/';
+  pdfjsP=new Promise((ok,no)=>{const s=document.createElement('script');s.src=base+'pdf.min.js';
     s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc=base+'pdf.worker.min.js';ok(pdfjsLib)};
-    s.onerror=()=>{pdfjsP=null;no(new Error('PDF-urile cer biblioteca pdf.js (se încarcă o singură dată de pe internet). Conectează-te sau convertește PDF-ul în .txt/.docx.'))};
+    s.onerror=()=>{pdfjsP=null;no(new Error('PDF-urile cer biblioteca pdf.js (inclusă local, nu s-a putut încărca). Reîncarcă pagina sau convertește PDF-ul în .txt/.docx.'))};
     document.head.appendChild(s)});
   return pdfjsP;
 }
@@ -346,7 +319,7 @@ function checkAnswer(hits,ans){
   const w=[],cited=citedNumbers(ans);
   const bad=[...cited].filter(n=>n<1||n>hits.length);
   if(bad.length)w.push(`modelul a citat pasaje inexistente: ${bad.join(', ')} — consideră afirmațiile din apropiere nesusținute`);
-  if(!cited.size)w.push(TL('nicio citare — nu te baza pe acest text'));
+  if(!cited.size)w.push('nicio citare — nu te baza pe acest text');
   const un=ans.split(/\n\n/).filter(p=>p.length>200&&!citedNumbers(p).size).length;
   if(un)w.push(`${un} paragraf(e) lungi fără citare — verifică sau elimină`);
   return w;
@@ -371,7 +344,7 @@ async function http(path,opt={}){
   return r;
 }
 async function chat(sys,user,onTok){
-  const c=cfg();if(!c.model)throw new Error(TL('Alege un model (butonul „Listează”).'));
+  const c=cfg();if(!c.model)throw new Error('Alege un model (butonul „Listează”).');
   const messages=[{role:'system',content:sys},{role:'user',content:user}];let full='';
   ctrl=new AbortController();
   if(c.api==='ollama'){
@@ -393,11 +366,11 @@ function libDocs(){return S.server?S.srv:S.docs}
 function renderLib(){
   const ul=$('docs');ul.innerHTML='';const L=libDocs();
   L.forEach((d,i)=>{const li=document.createElement('li');
-    li.innerHTML=`<input type="checkbox" aria-label="${esc(d.title)}" ${S.only.has(i)?'checked':''}><span title="${esc(d.path)}">${esc(d.title)}</span><button class="x" title="Șterge" aria-label="${esc(TL('Șterge'))}: ${esc(d.title)}">×</button>`;
+    li.innerHTML=`<input type="checkbox" ${S.only.has(i)?'checked':''}><span title="${esc(d.path)}">${esc(d.title)}</span><button class="x" title="Șterge">×</button>`;
     li.firstChild.onchange=e=>{e.target.checked?S.only.add(i):S.only.delete(i)};
     li.lastChild.onclick=()=>removeDoc(i);ul.appendChild(li)});
   const nch=S.server?L.reduce((a,d)=>a+d.chunks,0):S.chunks.length;
-  $('status').textContent=(S.server?'[server] ':'')+(L.length?`${L.length} documente · ${nch} pasaje`:TL('Biblioteca e goală.'));
+  $('status').textContent=(S.server?'[server] ':'')+(L.length?`${L.length} documente · ${nch} pasaje`:'Biblioteca e goală.');
   $('docSel').innerHTML=L.map((d,i)=>`<option value="${i}">${esc(d.title)}</option>`).join('');
 }
 async function removeDoc(i){
@@ -462,24 +435,21 @@ const MODES={
   summarize:{n:'Rezumat',h:'Rezumatul unui întreg document (map-reduce, lent), cu referințe de pagină.',doc:1},
   outline:{n:'Schiță',h:'Schelet de capitol; marchează secțiunile fără surse.',ph:'Titlul capitolului…'},
   draft:{n:'Redactare',h:'Redactare din surse, cu citări. Tipul schimbă cerința, nu regulile.',ph:'Titlul secțiunii…',kind:1,notes:1,dec:1},
-  audit:{n:'Audit citări',h:'Lipește textul tău cu citări [@cheie, p. 3]. Verifică mecanic dacă pasajul citat acoperă fraza, citatele ad litteram, cifrele, paginile. Necesită „tezaur serve”.',ph:'Textul de verificat…',audit:1},
-  refs:{n:'Referințe',h:'Chei citate care nu există nicăieri, intrări .bib sau documente din bibliotecă necitate. Necesită „tezaur serve”.',ph:'Textul de verificat…',audit:1},
   flashcards:{n:'Carduri',h:'Carduri de studiu; se păstrează doar cele al căror răspuns citează un pasaj real. Export Anki (.tsv).',ph:'Subiectul…'}
 };
 let mode='ask',lastText='',lastTsv='';
 function setMode(m){
   mode=m;const M=MODES[m];
-  [...$('tabs').children].forEach(b=>{b.classList.toggle('on',b.dataset.m===m);b.setAttribute('aria-pressed',b.dataset.m===m?'true':'false')});
-  $('modeHelp').textContent=TL(M.h);$('fInput').hidden=!!M.doc;$('q').placeholder=TL(M.ph||'');
-  $('fSem').hidden=m!=='audit';$('q').rows=M.audit?10:3;
+  [...$('tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  $('modeHelp').textContent=M.h;$('fInput').hidden=!!M.doc;$('q').placeholder=M.ph||'';
   $('fNotes').hidden=!M.notes;$('fKind').hidden=!M.kind;$('fDoc').hidden=!M.doc;$('fDec').hidden=!M.dec;
-  $('run').textContent=TL(m==='search'?'Caută':'Rulează');
+  $('run').textContent=m==='search'?'Caută':'Rulează';
 }
-Object.keys(MODES).forEach(m=>{const b=document.createElement('button');b.textContent=TL(MODES[m].n);b.dataset.m=m;b.onclick=()=>setMode(m);$('tabs').appendChild(b)});
+Object.keys(MODES).forEach(m=>{const b=document.createElement('button');b.textContent=MODES[m].n;b.dataset.m=m;b.onclick=()=>setMode(m);$('tabs').appendChild(b)});
 
 function mdRender(t,n){
   const inl=s=>esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:]|$)/g,'$1<i>$2</i>')
-    .replace(GROUP,(a,g)=>'['+g.split(/[,;]/).map(x=>{x=+x.trim();return `<a class="c${x<1||x>n?' bad':''}" data-n="${x}" role="button" tabindex="0"${x<1||x>n?' aria-label="citare inexistentă '+x+'"':''}>${x}</a>`}).join(',')+']');
+    .replace(GROUP,(a,g)=>'['+g.split(/[,;]/).map(x=>{x=+x.trim();return `<a class="c${x<1||x>n?' bad':''}" data-n="${x}">${x}</a>`}).join(',')+']');
   let h='',list=false;
   for(const raw of t.split('\n')){
     const l=raw.trimEnd();let m;
@@ -491,12 +461,10 @@ function mdRender(t,n){
 }
 function showHits(hits,withScore){
   $('srcCard').hidden=!hits.length;
-  $('src').innerHTML=hits.map((h,i)=>`<div class="ex" id="ex${i+1}"><b>[${i+1}] ${esc(label(h))}</b>${withScore?` <span class="small">· ${(h.cov*100|0)}% termeni</span>`:''}<br>${rich(S.chunks[h.chunk].text)}</div>`).join('');
+  $('src').innerHTML=hits.map((h,i)=>`<div class="ex" id="ex${i+1}"><b>[${i+1}] ${esc(label(h))}</b>${withScore?` <span class="small">· ${(h.cov*100|0)}% termeni</span>`:''}<br>${esc(S.chunks[h.chunk].text)}</div>`).join('');
 }
-function openCite(e){const a=e.target.closest('a.c');if(!a)return;const el=$('ex'+a.dataset.n);if(!el)return;
-  document.querySelectorAll('.ex.hl').forEach(x=>x.classList.remove('hl'));el.classList.add('hl');el.scrollIntoView({behavior:'smooth',block:'center'})}
-$('out').addEventListener('click',openCite);
-$('out').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.closest('a.c')){e.preventDefault();openCite(e)}});
+$('out').addEventListener('click',e=>{const a=e.target.closest('a.c');if(!a)return;const el=$('ex'+a.dataset.n);if(!el)return;
+  document.querySelectorAll('.ex.hl').forEach(x=>x.classList.remove('hl'));el.classList.add('hl');el.scrollIntoView({behavior:'smooth',block:'center'})});
 function refsFor(hits,ans){
   const out=[];for(const n of [...citedNumbers(ans)].sort((a,b)=>a-b)){if(n<1||n>hits.length)continue;const h=hits[n-1],d=S.docs[S.chunks[h.chunk].doc],e=bibFind(d.path);
     out.push(`[${n}] ${label(h)} — ${e?bibRef(e)+'  ['+d.path+']':d.path}`)}
@@ -540,14 +508,7 @@ function parseCards(t){
     if(m&&m[1]&&m[2])out.push([m[1],m[2]]);
   }return out;
 }
-function rich(t){const L=String(t).split('\n');let o='',i=0;
-  while(i<L.length){const l=L[i];
-    if(/^\s*\|.*\|\s*$/.test(l)){const rows=[];while(i<L.length&&/^\s*\|.*\|\s*$/.test(L[i]))rows.push(L[i++].trim().slice(1,-1).split('|').map(c=>c.trim()));
-      const hd=rows.length>1&&rows[1].every(c=>/^:?-{3,}:?$/.test(c));
-      o+='<table>'+rows.filter((r,k)=>!(hd&&k===1)).map((r,k)=>'<tr>'+r.map(c=>hd&&k===0?`<th scope="col">${esc(c)}</th>`:`<td>${esc(c)}</td>`).join('')+'</tr>').join('')+'</table>';continue}
-    o+=esc(l).replace(/\[equation\] \$\$ (.*?) \$\$( \(eq\. [^)]*\))?/g,(_,e,t)=>`<span class="eq">${e}${t||''}</span>`)+(i<L.length-1?'<br>':'');i++}
-  return o}
-function setBusy(b){$('run').disabled=b;$('stop').disabled=!b;if(!b)$('runInfo').textContent='';$('announce').textContent=b?TL('Se lucrează…'):TL('Gata.')}
+function setBusy(b){$('run').disabled=b;$('stop').disabled=!b;if(!b)$('runInfo').textContent=''}
 $('stop').onclick=()=>{if(ctrl)ctrl.abort()};
 
 async function summarize(di){
@@ -569,20 +530,9 @@ async function summarize(di){
   return level[0]||'';
 }
 
-async function runAudit(){
-  const q=$('q').value.trim();if(!q)return alert('Lipește textul de verificat.');
-  if(!S.server){show('Auditul rulează în „tezaur serve” (are acces la indexul complet și la paginile surselor). Pornește serverul și deschide această pagină de acolo.',0);return}
-  try{setBusy(true);$('runInfo').textContent=mode==='audit'&&$('sem').checked?'verific cu modelul…':'verific…';$('srcCard').hidden=true;
-    const r=await srvFetch('/api/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:q,semantic:mode==='audit'&&$('sem').checked?'1':'0'})});
-    const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);
-    show(j.markdown,0);
-    warnBox(mode==='audit'?[(j.problems?j.problems+' locuri de deschis la sursă. ':'Nimic găsit de acest test. ')+'Verificarea e mecanică (suprapunere de termeni'+(j.semantic?' + opinia modelului '+j.semantic.model:'')+'), nu o dovadă.']:[]);
-  }catch(e){show('Eroare: '+e.message,0)}finally{setBusy(false)}
-}
 async function run(){
-  if(MODES[mode].audit)return runAudit();
-  if(!(S.server?S.srv.length:S.chunks.length))return alert(TL('Adaugă mai întâi documente în bibliotecă.'));
-  if(!S.only.size)return alert(TL('Niciun document nu e bifat.'));
+  if(!(S.server?S.srv.length:S.chunks.length))return alert('Adaugă mai întâi documente în bibliotecă.');
+  if(!S.only.size)return alert('Niciun document nu e bifat.');
   const q=$('q').value.trim(),k=Math.max(1,+$('k').value||8),lang=$('lang').value.trim();
   $('dlTsv').hidden=true;$('refs').textContent='';warnBox([]);
   try{
@@ -597,13 +547,13 @@ async function run(){
       warnBox(bad.length?[`pagini citate care nu există în document: ${[...new Set(bad)].join(', ')}`]:[]);
       return;
     }
-    if(!q)return alert(TL('Scrie întrebarea sau tema.'));
+    if(!q)return alert('Scrie întrebarea sau tema.');
     if(mode==='search'){
-      const hits=await retrieve([q],k);show(hits.length?TL('{n} pasaje găsite.').replace('{n}',hits.length):'Niciun pasaj potrivit.',0);showHits(hits,true);return;
+      const hits=await retrieve([q],k);show(hits.length?`${hits.length} pasaje găsite.`:'Niciun pasaj potrivit.',0);showHits(hits,true);return;
     }
     const queries=await queriesFor(q,$('dec').checked&&!$('fDec').hidden);
     const hits=await retrieve(queries,k);
-    if(!hits.length){show(TL('Niciun pasaj relevant în documentele bifate.'),0);$('srcCard').hidden=true;return}
+    if(!hits.length){show('Niciun pasaj relevant în documentele bifate.',0);$('srcCard').hidden=true;return}
     showHits(hits,true);
     const ws=[];if(Math.max(...hits.map(h=>h.cov))<.4)ws.push('potrivire slabă: cel mai bun pasaj conține sub 40% din termenii interogării — răspunsul poate fi superficial');
     let task;
@@ -615,7 +565,7 @@ async function run(){
       const cards=parseCards(ans),labels=hits.map(label);let drop=0;const keep=[];
       for(const [f,b] of cards){const nums=[...citedNumbers(b)];if(nums.length&&nums.every(n=>n>=1&&n<=hits.length))keep.push([f,rewriteCites(b,labels)]);else drop++}
       lastTsv='#separator:tab\n#html:false\n'+keep.map(([f,b])=>[f,b].map(x=>x.replace(/[\t\r\n]+/g,' ')).join('\t')).join('\n')+'\n';
-      $('resCard').hidden=false;$('out').innerHTML=keep.length?'<table><tr><th scope="col">Față</th><th scope="col">Verso (cu sursă)</th></tr>'+keep.map(([f,b])=>`<tr><td>${esc(f)}</td><td>${esc(b)}</td></tr>`).join('')+'</table>':'<p>Niciun card valid.</p>';
+      $('resCard').hidden=false;$('out').innerHTML=keep.length?'<table><tr><th>Față</th><th>Verso (cu sursă)</th></tr>'+keep.map(([f,b])=>`<tr><td>${esc(f)}</td><td>${esc(b)}</td></tr>`).join('')+'</table>':'<p>Niciun card valid.</p>';
       lastText=keep.map(([f,b])=>`Q: ${f}\nA: ${b}`).join('\n\n');
       if(drop)ws.push(`${drop} card(uri) eliminate: răspuns fără citare sau cu citare inexistentă`);
       $('dlTsv').hidden=!keep.length;warnBox(ws);return;
@@ -685,7 +635,7 @@ async function detectServer(){
   if(!r.ok)return;const j=await r.json();if(!j.server)return;
   S.server=true;
   const aside=document.querySelector('aside'),h2=[...aside.querySelectorAll('h2')][0];
-  h2.insertAdjacentHTML('beforebegin','<h2>Spațiu de lucru (server)</h2><div class="row"><select id="ws" aria-label="Spațiu de lucru"></select><button class="alt" id="wsNew">Nou</button></div><div class="small">PDF-urile se citesc pe server (cu OCR dacă e instalat'+(j.ocr?'':' — lipsește acum')+')'+(j.embeddings?', căutare și cu embeddings':'')+'. Modelul se apelează prin server, fără CORS.</div>');
+  h2.insertAdjacentHTML('beforebegin','<h2>Spațiu de lucru (server)</h2><div class="row"><select id="ws"></select><button class="alt" id="wsNew">Nou</button></div><div class="small">PDF-urile se citesc pe server (cu OCR dacă e instalat'+(j.ocr?'':' — lipsește acum')+')'+(j.embeddings?', căutare și cu embeddings':'')+'. Modelul se apelează prin server, fără CORS.</div>');
   const fill=()=>{$('ws').innerHTML=j.workspaces.map(w=>`<option${w===S.ws?' selected':''}>${esc(w)}</option>`).join('')};fill();
   $('ws').onchange=async()=>{S.ws=$('ws').value;await loadServerLib()};
   $('wsNew').onclick=async()=>{const n=(prompt('Numele spațiului (litere, cifre, - _):')||'').replace(/[^A-Za-z0-9_-]/g,'');if(!n)return;
@@ -806,7 +756,7 @@ $('fTzb').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)r
 /* server mode: peers live in the server (`tezaur serve`), which also answers federated queries */
 async function meshServerUI(){
   $('mSrv').hidden=false;
-  const refresh=async()=>{try{const j=await(await srvFetch('/api/mesh/peers')).json();$('mPeers').textContent=j.peers.length?'Peers: '+j.peers.map(p=>p.name).join(', '):TL('Niciun peer. Adaugă unul (adresa unui alt `tezaur serve`).')}catch(e){}};
+  const refresh=async()=>{try{const j=await(await srvFetch('/api/mesh/peers')).json();$('mPeers').textContent=j.peers.length?'Peers: '+j.peers.map(p=>p.name).join(', '):'Niciun peer. Adaugă unul (adresa unui alt `tezaur serve`).'}catch(e){}};
   $('mAddPeer').onclick=async()=>{const name=(prompt('Nume peer:')||'').trim(),url=(prompt('Adresa lui (ex. http://192.168.1.20:8787 sau http://xxxx.onion):')||'').trim();if(!name||!url)return;
     const token=prompt('Token (gol dacă nu are):')||null;const r=await srvFetch('/api/mesh/peers',{method:'POST',body:JSON.stringify({name,url,token})});
     if(!r.ok)alert((await r.json()).error);refresh()};
@@ -826,26 +776,6 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
   const u=new SpeechSynthesisUtterance(lastText||''),lg=($('lang').value.trim()||navigator.language).slice(0,2).toLowerCase();
   const v=s.getVoices().find(v=>v.localService&&v.lang.toLowerCase().startsWith(lg));if(v){u.voice=v;u.lang=v.lang}s.speak(u)};
 
-/* local dictation: Whisper (transformers.js) runs inside the page; the audio never leaves the machine. The model (~40 MB) is downloaded once and cached by the browser. */
-(()=>{const b=$('mic2');if(!b||!navigator.mediaDevices||!window.MediaRecorder)return;b.hidden=false;
-  const LN={ro:'romanian',en:'english',fr:'french',de:'german',es:'spanish',it:'italian',hu:'hungarian',pt:'portuguese',nl:'dutch',pl:'polish'};
-  let rec=null,chunks=[],asr=null,timer=null;
-  const say=t=>{const e=$('dictst');if(e)e.textContent=t};
-  async function load(){if(asr)return asr;say('se încarcă modelul Whisper (o singură dată)…');
-    const {pipeline,env}=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');env.allowLocalModels=false;
-    asr=await pipeline('automatic-speech-recognition',window.__whisperModel||'Xenova/whisper-tiny');return asr}
-  async function finish(){clearTimeout(timer);b.textContent='🎙️';say('se transcrie local…');
-    try{const blob=new Blob(chunks,{type:rec.mimeType}),ab=await blob.arrayBuffer(),ctx=new AudioContext({sampleRate:16000}),au=await ctx.decodeAudioData(ab);
-      const a=await load(),lg=LN[($('lang').value.trim()||navigator.language).slice(0,2).toLowerCase()];
-      const o=await a(au.getChannelData(0),Object.assign({max_new_tokens:96,no_repeat_ngram_size:3,chunk_length_s:30},lg?{language:lg,task:'transcribe'}:{}));
-      const t=(o.text||'').trim();if(t)$('q').value=(($('q').value?$('q').value+' ':'')+t).trim();say(t?'gata':'nu s-a auzit nimic')}
-    catch(e){say('dictare locală indisponibilă: '+e.message)}}
-  b.onclick=async()=>{if(rec&&rec.state==='recording'){rec.stop();return}
-    try{const st=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];rec=new MediaRecorder(st);
-      rec.ondataavailable=e=>chunks.push(e.data);rec.onstop=()=>{st.getTracks().forEach(t=>t.stop());finish()};
-      rec.start();b.textContent='⏹';say('înregistrez… apasă din nou pentru a opri');timer=setTimeout(()=>rec.state==='recording'&&rec.stop(),15000)}
-    catch(e){say('microfon indisponibil: '+e.message)}}})();
-
 /* ---------- opened from a share sheet / link: ?q= or ?text= (PWA share target) ---------- */
 (()=>{try{const u=new URL(location.href),p=u.searchParams,q=p.get('q')||p.get('text');if(!q)return;
   $('q').value=[p.get('title'),q,p.get('url')].filter(Boolean).join('\n').trim();
@@ -856,7 +786,6 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
   loadCfg();setMode('ask');
   try{const d=await DB.get('index');if(d){S.docs=d.docs||[];S.chunks=d.chunks||[];S.bibText=d.bib||[];S.bib=S.bibText.flatMap(parseBib);S.only=new Set(S.docs.map((_,i)=>i));build()}}catch(e){}
   renderLib();bibStat();
-  $('uiLang').value=UL;$('uiLang').onchange=()=>{UL=$('uiLang').value;ls.set('tezaur.lang',UL);applyLang()};applyLang();
   detectServer();
 })();
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});

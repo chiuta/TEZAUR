@@ -179,7 +179,7 @@ Generated from `cargo metadata` on 2026-11-09. Lists name, version, declared SPD
 
 | Component | Where | Licence | Status |
 |---|---|---|---|
-| pdf.js 3.11.174 | bundled in `pwa/`, `variants/extension/app/`, `variants/yunohost/sources/` (licence text next to the files); loaded from jsDelivr by `tezaur.html` | Apache-2.0 | verified from the npm package |
+| pdf.js 3.11.174 | bundled in `pwa/vendor/pdfjs/` (used by the PWA and copied into the extension by `build-extension.sh`), `variants/extension/app/vendor/pdfjs/` and `variants/yunohost/sources/vendor/pdfjs/` (licence text next to the files); loaded from jsDelivr by the single-file `tezaur.html` and by wrappers built without `--local-pdfjs` | Apache-2.0 | verified from the npm package |
 | `Xenova/whisper-tiny` (ONNX conversion of `openai/whisper-tiny`) | downloaded at run time from Hugging Face by the browser variants, not bundled | Apache-2.0 per the model page (checked 2026-11-09) | model card only; no licence file read |
 | transformers.js 3.0.2 | loaded from jsDelivr by `tezaur.html`, not bundled | Apache-2.0 | declared by the package; not re-checked here |
 | `Romanian.isl` (Inno Setup unofficial translation) | downloaded by the release workflow from the Inno Setup repository and used to build the Windows installer | **not verified**: the file header could not be read in the sandbox | check the header and the Inno Setup licence before redistributing the installer |

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Regenerates pwa/index.html from tezaur.html (manifest link, theme colour, service worker registration) and bumps the
 service-worker cache name from a hash of the page, so installed copies update. Run after every change to tezaur.html."""
-import hashlib, pathlib, re
+import hashlib, pathlib, re, sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import pdfjs_local
 root = pathlib.Path(__file__).resolve().parent.parent
-html = (root / 'tezaur.html').read_text(encoding='utf-8')
+html = pdfjs_local.localize((root / 'tezaur.html').read_text(encoding='utf-8'))
 head = '<link rel="manifest" href="manifest.webmanifest">\n<meta name="theme-color" content="#8a4b14">\n<link rel="icon" href="icon-192.png">\n'
 html = html.replace('<title>TEZAUR</title>', '<title>TEZAUR</title>\n' + head, 1)
 reg = "if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});\n"
