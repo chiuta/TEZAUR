@@ -43,7 +43,7 @@ components:
         references: { type: string }
         warnings: { type: array, items: { type: string } }
         excerpts: { type: array, items: { type: object } }
-        receipt: { type: object, description: "tezaur-receipt/1: SHA-256 of question, model, answer and excerpts" }
+        receipt: { type: object, description: "tezaur-receipt/1 (tezaur-receipt/2 when TEZAUR_RECEIPT_FORMAT=2): SHA-256 of question, model, answer and excerpts" }
 paths:
   /api/health:
     get: { summary: "Server, model and index status", responses: { "200": { description: ok } } }

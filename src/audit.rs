@@ -1421,8 +1421,7 @@ fn receipt_key() -> Option<String> {
         .filter(|k| !k.is_empty())
 }
 
-/// v1 procedure (kept for verification, and for tests that need a v1 receipt).
-#[cfg(test)]
+/// v1 procedure (the default receipt format; also used to verify v1 receipts).
 fn seal_v1(mut body: Value) -> Value {
     let digest = sha256_hex(serde_json::to_string(&body).unwrap().as_bytes());
     body["digest"] = json!(digest);
@@ -1449,6 +1448,14 @@ pub fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
+/// True when `TEZAUR_RECEIPT_FORMAT=2` asks for the opt-in v2 receipt (RFC 8785 digest, SHA-256 document identity).
+pub fn receipt_v2_requested() -> bool {
+    std::env::var("TEZAUR_RECEIPT_FORMAT")
+        .map(|v| v.trim() == "2")
+        .unwrap_or(false)
+}
+
+/// Make a receipt. The default is the original `tezaur-receipt/1`; `TEZAUR_RECEIPT_FORMAT=2` opts in to v2.
 pub fn make_receipt(
     store: &Store,
     model: &str,
@@ -1457,7 +1464,26 @@ pub fn make_receipt(
     hit_chunks: &[usize],
     answer: &str,
 ) -> Result<Value> {
-    let mut weak = 0usize;
+    make_receipt_fmt(
+        store,
+        model,
+        mode,
+        question,
+        hit_chunks,
+        answer,
+        receipt_v2_requested(),
+    )
+}
+
+pub fn make_receipt_fmt(
+    store: &Store,
+    model: &str,
+    mode: &str,
+    question: &str,
+    hit_chunks: &[usize],
+    answer: &str,
+    v2: bool,
+) -> Result<Value> {
     let ex: Vec<Value> = hit_chunks
         .iter()
         .enumerate()
@@ -1465,21 +1491,25 @@ pub fn make_receipt(
             let ch = &store.chunks[c];
             let d = &store.docs[ch.doc];
             let mut e = json!({"n": i + 1, "path": d.path, "title": d.title, "doc_hash": format!("{:016x}", d.hash), "page": ch.page, "chunk_sha256": sha256_hex(ch.text.as_bytes())});
-            match store.doc_sha256(ch.doc) {
-                Some(s) => e["doc_sha256"] = json!(s),
-                None => {
-                    weak += 1;
-                    e["doc_identity"] = json!("weak (64-bit, non-cryptographic)");
+            if v2 {
+                match store.doc_sha256(ch.doc) {
+                    Some(s) => e["doc_sha256"] = json!(s),
+                    None => e["doc_identity"] = json!("weak (64-bit, non-cryptographic)"),
                 }
             }
             e
         })
         .collect();
     let mut body = json!({
-        "format": "tezaur-receipt/2", "created": now_secs(), "tool": format!("tezaur {}", env!("CARGO_PKG_VERSION")),
+        "format": if v2 { "tezaur-receipt/2" } else { "tezaur-receipt/1" },
+        "created": now_secs(), "tool": format!("tezaur {}", env!("CARGO_PKG_VERSION")),
         "model": model, "mode": mode, "question": question, "answer_sha256": sha256_hex(answer.as_bytes()),
         "excerpts": ex,
     });
+    if !v2 {
+        body["index"] = json!(index_fingerprint(store));
+        return Ok(seal_v1(body));
+    }
     match index_fingerprint_v2(store) {
         Some(f) => body["index"] = json!(f),
         None => {
@@ -1488,7 +1518,6 @@ pub fn make_receipt(
             )
         }
     }
-    let _ = weak;
     seal(body)
 }
 
@@ -1872,7 +1901,7 @@ mod tests {
     #[test]
     fn receipts_detect_tampering() {
         let store = st();
-        let r = make_receipt(&store, "m", "ask", "q?", &[0, 2], "answer [1]").unwrap();
+        let r = make_receipt_fmt(&store, "m", "ask", "q?", &[0, 2], "answer [1]", false).unwrap();
         let (ok, l) = verify_receipt(Some(&store), &r, Some("answer [1]"));
         assert!(ok, "{l:?}");
         let (ok2, _) = verify_receipt(Some(&store), &r, Some("answer [1] edited"));
@@ -1917,7 +1946,7 @@ mod tests {
     fn v2_survives_reformatting_and_detects_edits() {
         with_key(None, || {
             let store = st_sha();
-            let r = make_receipt(&store, "m", "ask", "q?", &[0, 2], "answer [1]").unwrap();
+            let r = make_receipt_fmt(&store, "m", "ask", "q?", &[0, 2], "answer [1]", true).unwrap();
             assert_eq!(r["format"], "tezaur-receipt/2");
             assert!(r["index"].is_string() && r["excerpts"][0]["doc_sha256"].is_string());
             // reformatted: indented, keys reversed
@@ -1976,7 +2005,7 @@ mod tests {
     fn v2_hmac_cases() {
         let store = st_sha();
         let r = with_key(Some("secret"), || {
-            make_receipt(&store, "m", "ask", "q", &[0], "a").unwrap()
+            make_receipt_fmt(&store, "m", "ask", "q", &[0], "a", true).unwrap()
         });
         assert_eq!(r["hmac"].as_str().unwrap().len(), 64);
         assert_eq!(r["digest"].as_str().unwrap().len(), 64);
@@ -1988,6 +2017,25 @@ mod tests {
         assert!(ok && l.iter().any(|x| x.contains("not checked")));
         let (ok, _) = with_key(Some(""), || verify_receipt(None, &r, None));
         assert!(ok);
+    }
+
+    #[test]
+    fn default_receipt_is_v1_and_env_opts_in_to_v2() {
+        let store = st_sha();
+        with_key(None, || {
+            let r = make_receipt_fmt(&store, "m", "ask", "q", &[0], "a", false).unwrap();
+            assert_eq!(r["format"], "tezaur-receipt/1");
+            assert!(r["excerpts"][0].get("doc_sha256").is_none());
+            assert!(verify_receipt(Some(&store), &r, Some("a")).0);
+            unsafe { std::env::remove_var("TEZAUR_RECEIPT_FORMAT") };
+            let d = make_receipt(&store, "m", "ask", "q", &[0], "a").unwrap();
+            assert_eq!(d["format"], "tezaur-receipt/1");
+            unsafe { std::env::set_var("TEZAUR_RECEIPT_FORMAT", "2") };
+            let v2 = make_receipt(&store, "m", "ask", "q", &[0], "a").unwrap();
+            unsafe { std::env::remove_var("TEZAUR_RECEIPT_FORMAT") };
+            assert_eq!(v2["format"], "tezaur-receipt/2");
+            assert!(verify_receipt(Some(&store), &v2, Some("a")).0);
+        });
     }
 
     #[test]
@@ -2011,7 +2059,7 @@ mod tests {
         with_key(None, || {
             let mut store = st_sha();
             store.sha.remove(&store.docs[0].path.clone());
-            let r = make_receipt(&store, "m", "ask", "q", &[0, 2], "a").unwrap();
+            let r = make_receipt_fmt(&store, "m", "ask", "q", &[0, 2], "a", true).unwrap();
             assert!(r.get("index").is_none() && r["index_omitted"].is_string());
             assert!(r["excerpts"][0].get("doc_sha256").is_none());
             assert!(

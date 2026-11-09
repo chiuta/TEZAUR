@@ -113,7 +113,7 @@
           },
           "receipt": {
             "type": "object",
-            "description": "tezaur-receipt/1: SHA-256 of question, model, answer and excerpts"
+            "description": "tezaur-receipt/1 (tezaur-receipt/2 when TEZAUR_RECEIPT_FORMAT=2): SHA-256 of question, model, answer and excerpts"
           }
         }
       }

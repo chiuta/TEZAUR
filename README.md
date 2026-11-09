@@ -130,10 +130,11 @@ Bibliography input and queries (all offline unless stated):
 - **Locators** in `audit`: `[@key, p. 3]`, `pp. 3-5`, `p. 12 ff.`, Roman numerals, `ch.`/`sec.` labels; a range
   is checked against every page it names (`page-out-of-range`, `bad-range`).
 - **EPUB**: printed page numbers (page-list / `epub:type="pagebreak"`) are used as page numbers when the book has them.
-- **Receipts**: `ask --receipt` writes `tezaur-receipt/2`: the digest and the optional HMAC (`TEZAUR_RECEIPT_KEY`)
-  are over the RFC 8785 canonical form, so reformatting the file does not matter. Documents are named by SHA-256
+- **Receipts**: `ask --receipt` writes `tezaur-receipt/1`, as before. Set `TEZAUR_RECEIPT_FORMAT=2` to write
+  `tezaur-receipt/2` instead (CLI, HTTP API and MCP alike): the digest and the optional HMAC (`TEZAUR_RECEIPT_KEY`)
+  are then over the RFC 8785 canonical form, so reformatting the file does not matter. Documents are named by SHA-256
   (recorded at ingestion in `<index>.sha256`); documents ingested earlier are marked "weak identity" until re-ingested
-  with `--force`. `tezaur-receipt/1` receipts still verify as before.
+  with `--force`. Both receipt versions verify, whichever format is currently selected.
 - **Crossref politeness** (`refs --online`, `lit`): `--mailto you@example.org` (or `TEZAUR_MAILTO`) puts your address
   in the User-Agent for Crossref's polite pool; requests follow the server's rate headers, back off on 429, stop on 403,
   and answers are cached on disk (30 days for hits, 1 day for misses); `--refresh-online` bypasses the cache.
