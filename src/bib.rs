@@ -20,6 +20,17 @@ pub struct Entry {
     pub file: String,
     pub note: String,
     pub url: String,
+    pub editor: String,
+    pub publisher: String,
+    pub volume: String,
+    pub number: String,
+    pub pages: String,
+    pub address: String,
+    pub edition: String,
+    pub month: String,
+    pub isbn: String,
+    pub issn: String,
+    pub howpublished: String,
     /// Entry type as read, with the format it came from (kept so exports can reproduce it).
     pub origin: Option<(Format, String)>,
     pub genre: Option<Genre>,
@@ -55,150 +66,69 @@ pub(crate) fn clean(s: &str) -> String {
     out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn parse_entry(body: &str, typ: &str) -> Option<Entry> {
-    let (key, rest) = body.split_once(',')?;
-    let c: Vec<char> = rest.chars().collect();
+fn to_entry(r: &crate::bibtex::RawEntry) -> Entry {
     let mut e = Entry {
-        key: key.trim().to_string(),
-        origin: Some((Format::Bibtex, typ.to_string())),
-        genre: kinds::to_csl(Format::Bibtex, typ).1,
+        key: r.key.clone(),
+        origin: Some((Format::Bibtex, r.typ.clone())),
+        genre: kinds::to_csl(Format::Bibtex, &r.typ).1,
         ..Default::default()
     };
-    let mut i = 0;
-    while i < c.len() {
-        while i < c.len() && (c[i].is_whitespace() || c[i] == ',') {
-            i += 1;
-        }
-        let ns = i;
-        while i < c.len() && (c[i].is_alphanumeric() || c[i] == '-' || c[i] == '_') {
-            i += 1;
-        }
-        if i == ns {
-            i += 1;
-            continue;
-        }
-        let name: String = c[ns..i].iter().collect::<String>().to_lowercase();
-        while i < c.len() && c[i].is_whitespace() {
-            i += 1;
-        }
-        if i >= c.len() || c[i] != '=' {
-            continue;
-        }
-        i += 1;
-        while i < c.len() && c[i].is_whitespace() {
-            i += 1;
-        }
-        let mut val = String::new();
-        if i < c.len() && c[i] == '{' {
-            let mut d = 0;
-            while i < c.len() {
-                match c[i] {
-                    '{' => d += 1,
-                    '}' => d -= 1,
-                    _ => {}
-                }
-                if d == 0 {
-                    i += 1;
-                    break;
-                }
-                val.push(c[i]);
-                i += 1;
-            }
-            if !val.is_empty() {
-                val.remove(0); // drop the opening brace
-            }
-        } else if i < c.len() && c[i] == '"' {
-            i += 1;
-            let mut d = 0;
-            while i < c.len() && !(c[i] == '"' && d == 0) {
-                match c[i] {
-                    '{' => d += 1,
-                    '}' => d -= 1,
-                    _ => {}
-                }
-                val.push(c[i]);
-                i += 1;
-            }
-            i += 1;
-        } else {
-            while i < c.len() && c[i] != ',' {
-                val.push(c[i]);
-                i += 1;
-            }
-        }
-        let v = clean(val.trim());
-        match name.as_str() {
-            "author" => {
-                e.author = v;
-                e.raw_author = val.trim().to_string();
-            }
-            "editor" if e.author.is_empty() => {
-                e.author = v;
-                e.raw_author = val.trim().to_string();
-            }
-            "year" => e.year = v,
-            "date" if e.year.is_empty() => e.year = v.chars().take(4).collect(),
-            "title" => e.title = v,
-            "journal" | "journaltitle" | "booktitle" => e.container = v,
-            "publisher" | "school" | "institution" if e.container.is_empty() => e.container = v,
-            "doi" => e.doi = v,
-            "note" => e.note = v,
-            "type" => {
-                if let Some(g) = kinds::genre_from_text(&v) {
-                    e.genre = Some(g);
-                }
-            }
-            "url" => e.url = v,
-            "file" => e.file = val.trim().to_string(), // raw: Windows paths must not be LaTeX-cleaned
-            _ => {}
+    let g = |n: &str| r.get(n).map(|v| v.trim()).filter(|v| !v.is_empty());
+    let c = |n: &str| g(n).map(clean).unwrap_or_default();
+    if let Some(a) = g("author") {
+        e.author = clean(a);
+        e.raw_author = a.to_string();
+    }
+    if let Some(ed) = g("editor") {
+        e.editor = clean(ed);
+        if e.author.is_empty() {
+            e.author = e.editor.clone();
+            e.raw_author = ed.to_string();
         }
     }
-    Some(e)
+    e.year = if let Some(y) = g("year") {
+        clean(y)
+    } else {
+        c("date").chars().take(4).collect()
+    };
+    e.title = c("title");
+    e.container = ["journal", "journaltitle", "booktitle"]
+        .iter()
+        .find_map(|n| g(n).map(clean))
+        .or_else(|| {
+            ["publisher", "school", "institution"]
+                .iter()
+                .find_map(|n| g(n).map(clean))
+        })
+        .unwrap_or_default();
+    e.publisher = ["publisher", "school", "institution", "organization"]
+        .iter()
+        .find_map(|n| g(n).map(clean))
+        .unwrap_or_default();
+    e.doi = c("doi");
+    e.note = c("note");
+    e.url = c("url");
+    e.file = g("file").unwrap_or("").to_string(); // raw: Windows paths must not be LaTeX-cleaned
+    (e.volume, e.number, e.pages) = (c("volume"), c("number"), c("pages"));
+    (e.address, e.edition, e.month) = (c("address"), c("edition"), c("month"));
+    (e.isbn, e.issn, e.howpublished) = (c("isbn"), c("issn"), c("howpublished"));
+    if let Some(t) = g("type")
+        && let Some(gn) = kinds::genre_from_text(t)
+    {
+        e.genre = Some(gn);
+    }
+    e
+}
+
+/// Parses a `.bib` text; also returns reader warnings (undefined abbreviation, dangling
+/// crossref, duplicate key, ...).
+pub fn parse_with_warnings(text: &str) -> (Vec<Entry>, Vec<String>) {
+    let f = crate::bibtex::read(text);
+    (f.entries.iter().map(to_entry).collect(), f.warnings)
 }
 
 pub fn parse(text: &str) -> Vec<Entry> {
-    let c: Vec<char> = text.chars().collect();
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < c.len() {
-        if c[i] != '@' {
-            i += 1;
-            continue;
-        }
-        i += 1;
-        let ts = i;
-        while i < c.len() && c[i].is_alphanumeric() {
-            i += 1;
-        }
-        let typ: String = c[ts..i].iter().collect::<String>().to_lowercase();
-        while i < c.len() && c[i].is_whitespace() {
-            i += 1;
-        }
-        if i >= c.len() || c[i] != '{' {
-            continue;
-        }
-        let start = i + 1;
-        let mut depth = 0;
-        while i < c.len() {
-            match c[i] {
-                '{' => depth += 1,
-                '}' => depth -= 1,
-                _ => {}
-            }
-            i += 1;
-            if depth == 0 {
-                break;
-            }
-        }
-        if matches!(typ.as_str(), "comment" | "string" | "preamble") || i < start + 1 {
-            continue;
-        }
-        let body: String = c[start..i - 1].iter().collect();
-        if let Some(e) = parse_entry(&body, &typ) {
-            out.push(e);
-        }
-    }
-    out
+    parse_with_warnings(text).0
 }
 
 /// Words that mark an unbraced, comma-less name as an institution ("Council of Europe").
@@ -388,6 +318,8 @@ impl Entry {
 #[derive(Default)]
 pub struct BibMap {
     pub entries: Vec<Entry>,
+    /// Reader warnings, `file: message`.
+    pub warnings: Vec<String>,
 }
 
 impl BibMap {
@@ -413,13 +345,22 @@ impl BibMap {
         paths.sort();
         paths.dedup();
         let mut entries = Vec::new();
+        let mut warnings = Vec::new();
         for p in paths {
             match std::fs::read(&p) {
-                Ok(b) => entries.extend(parse(&String::from_utf8_lossy(&b))),
+                Ok(b) => {
+                    let (es, ws) = parse_with_warnings(&String::from_utf8_lossy(&b));
+                    entries.extend(es);
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned());
+                    warnings.extend(
+                        ws.into_iter()
+                            .map(|w| format!("{}: {w}", name.as_deref().unwrap_or("?"))),
+                    );
+                }
                 Err(e) => eprintln!("warning: cannot read {}: {e}", p.display()),
             }
         }
-        BibMap { entries }
+        BibMap { entries, warnings }
     }
 
     /// Match by citation key == file name (without extension), or by the BibTeX `file` field.
@@ -502,6 +443,7 @@ mod tests {
     fn matches_by_key_or_file_field() {
         let m = BibMap {
             entries: parse(SAMPLE),
+            ..Default::default()
         };
         assert_eq!(m.find("Library/sub/Lisbon97.pdf").unwrap().key, "lisbon97");
         assert_eq!(m.find("Library/smith_review.pdf").unwrap().key, "smith2019");
@@ -559,5 +501,20 @@ mod tests {
         let b = &parse("@misc{q, author={{Barnes and Noble, Inc}}, year={2001}}")[0];
         assert_eq!(b.cite(), "Barnes and Noble, Inc (2001)");
         assert_eq!(b.to_csl()["author"][0]["literal"], "Barnes and Noble, Inc");
+    }
+
+    #[test]
+    fn full_reader_feeds_entries() {
+        let (e, w) = parse_with_warnings(
+            "@string{tl = \"Law Review\"}\n@inproceedings{c, crossref = {p1}, title = {T}, author={A, B}}\n@proceedings{p1, booktitle = {Proc. X}, year = 2005}\n@article{a, journal = tl # \" II\", pages={1--5}, month = jul, editor={E, F}}\n@misc{z, journal = zzz}",
+        );
+        assert_eq!(e[0].container, "Proc. X");
+        assert_eq!(e[0].year, "2005");
+        assert_eq!(e[0].origin.as_ref().unwrap().1, "inproceedings");
+        assert_eq!(e[2].container, "Law Review II");
+        assert_eq!((e[2].pages.as_str(), e[2].month.as_str()), ("1--5", "July"));
+        assert_eq!(e[2].editor, "E, F");
+        assert_eq!(e[3].container, "zzz");
+        assert!(w.iter().any(|x| x.contains("zzz")));
     }
 }

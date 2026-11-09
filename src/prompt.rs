@@ -266,6 +266,7 @@ mod tests {
             entries: crate::bib::parse(
                 "@article{smith2019, author={Smith, J. and Doe, A.}, year={2019}, title={On recognition}, journal={JoE}}",
             ),
+            ..Default::default()
         };
         let hits = vec![Hit {
             chunk: 0,

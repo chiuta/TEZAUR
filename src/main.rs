@@ -9,6 +9,7 @@
 
 mod audit;
 mod bib;
+mod bibtex;
 mod eval;
 mod export;
 mod fff;
@@ -1139,6 +1140,9 @@ fn run(ctx: &Ctx, cmd: &Cmd) -> Result<()> {
             let bib = ctx.load_bib();
             let to = if fff_out.is_some() { BibTo::Fff } else { *to };
             let output = fff_out.as_ref().or(output.as_ref());
+            for w in &bib.warnings {
+                eprintln!("warning: {w}");
+            }
             if bib.entries.is_empty() {
                 bail!("no .bib entries found next to the index or via --bib");
             }
