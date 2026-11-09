@@ -162,7 +162,7 @@ fn looks_scanned(pages: &[String]) -> bool {
     chars < 25 * pages.len().max(1)
 }
 
-fn strip_html(s: &str) -> String {
+pub(crate) fn strip_html(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let lower = s.to_ascii_lowercase(); // ASCII-only: keeps byte offsets identical to `s`
     let mut i = 0;
@@ -339,7 +339,7 @@ fn docx_text(path: &Path) -> Result<String> {
 }
 
 /// Value of `name="…"` (or single-quoted) inside one opening tag.
-fn attr(tag: &str, name: &str) -> Option<String> {
+pub(crate) fn attr(tag: &str, name: &str) -> Option<String> {
     for q in ['"', '\''] {
         let pat = format!("{name}={q}");
         if let Some(i) = tag.find(&pat) {
@@ -353,7 +353,7 @@ fn attr(tag: &str, name: &str) -> Option<String> {
 }
 
 /// Text between `<name` and `>` for every opening tag called `name` (also `opf:name`).
-fn open_tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
+pub(crate) fn open_tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
     let mut out = Vec::new();
     for open in [format!("<{name}"), format!("<opf:{name}")] {
         let mut rest = xml;
@@ -372,7 +372,7 @@ fn open_tags<'a>(xml: &'a str, name: &str) -> Vec<&'a str> {
     out
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;
@@ -395,7 +395,7 @@ fn percent_decode(s: &str) -> String {
 }
 
 /// Joins `dir` and `href`, resolving `.` / `..` and dropping any `#fragment`.
-fn resolve_href(dir: &str, href: &str) -> String {
+pub(crate) fn resolve_href(dir: &str, href: &str) -> String {
     let href = percent_decode(href.split('#').next().unwrap_or(""));
     let mut parts: Vec<&str> = dir.split('/').filter(|p| !p.is_empty()).collect();
     for seg in href.split('/') {
@@ -410,7 +410,7 @@ fn resolve_href(dir: &str, href: &str) -> String {
     parts.join("/")
 }
 
-fn zip_read(z: &mut zip::ZipArchive<std::fs::File>, name: &str) -> Option<String> {
+pub(crate) fn zip_read(z: &mut zip::ZipArchive<std::fs::File>, name: &str) -> Option<String> {
     let mut s = String::new();
     read_capped(&mut z.by_name(name).ok()?, &mut s).ok()?;
     Some(s)
@@ -520,6 +520,10 @@ pub fn read_pages(path: &Path) -> Result<Vec<(usize, String)>> {
         return Ok(vec![(0, docx_text(path)?)]);
     }
     if ext == "epub" {
+        // printed page numbers declared by the book itself (page-list / pagebreak), when it has them
+        if let Some(pages) = crate::epubpages::read(path) {
+            return Ok(pages);
+        }
         return Ok(vec![(0, epub_text(path)?)]);
     }
     let raw = std::fs::read(path)?;
@@ -640,8 +644,10 @@ pub fn ingest_file(store: &mut Store, path: &Path, base: &Path, force: bool) -> 
     }
 
     let pages = read_pages(path)?;
+    // PDF-like: pages are 1..n. Formats without pages: 0. An EPUB with declared pages starts with an
+    // unpaged front part, and its page count is the largest printed number found.
     let npages = if pages.first().map(|p| p.0).unwrap_or(0) == 0 {
-        0
+        pages.iter().map(|p| p.0).max().unwrap_or(0)
     } else {
         pages.len()
     };

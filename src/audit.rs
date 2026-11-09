@@ -893,6 +893,8 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                     .fold((0.0, 0), |a, b| if b.0 > a.0 { b } else { a })
             };
             let (sup, _) = best(cpage);
+            // EPUB page numbers are the book's declared print pagination, not file positions (spec 11).
+            let epub_note = cpage.is_some() && doc.path.to_lowercase().ends_with(".epub");
             // the passage the sentence matches best (on the cited page if given): used for the figure check
             let top = store
                 .chunks
@@ -968,6 +970,13 @@ pub fn audit(store: &Store, bib: &BibMap, text: &str) -> Vec<Finding> {
                     continue;
                 }
             }
+            let note = if epub_note {
+                format!(
+                    "{note} (EPUB: the page is the one declared by the book's print edition, not a position in the file)"
+                )
+            } else {
+                note
+            };
             let mut fin = f(verdict, sup, note);
             fin.passage = top.map(|t| t.chars().take(1500).collect());
             out.push(fin);

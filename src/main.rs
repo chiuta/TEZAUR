@@ -13,6 +13,7 @@ mod bibtex;
 mod crossref;
 mod csljson;
 mod dedup;
+mod epubpages;
 mod eval;
 mod export;
 mod fff;
