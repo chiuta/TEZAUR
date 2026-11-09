@@ -298,8 +298,9 @@ pub fn read(text: &str) -> RawFile {
     }
     // second pass: abbreviations are all known now
     let mut entries: Vec<RawEntry> = Vec::new();
+    let mut seen_keys: std::collections::HashSet<String> = std::collections::HashSet::new();
     for (typ, key, fields) in pending {
-        if entries.iter().any(|e| e.key.eq_ignore_ascii_case(&key)) {
+        if !seen_keys.insert(key.to_ascii_lowercase()) {
             warnings.push(format!("duplicate key `{key}`; the first entry is kept"));
             continue;
         }
@@ -312,11 +313,15 @@ pub fn read(text: &str) -> RawFile {
     }
     // crossref: inherit fields the entry lacks, one level, order in the file irrelevant
     let snapshot = entries.clone();
+    let mut by_key: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (i, p) in snapshot.iter().enumerate() {
+        by_key.entry(p.key.to_lowercase()).or_insert(i);
+    }
     for e in &mut entries {
         let Some(target) = e.get("crossref").map(|s| s.trim().to_lowercase()) else {
             continue;
         };
-        match snapshot.iter().find(|p| p.key.to_lowercase() == target) {
+        match by_key.get(&target).map(|&i| &snapshot[i]) {
             Some(parent) => {
                 for (n, v) in &parent.fields {
                     if n != "crossref" && e.get(n).is_none() {
@@ -345,6 +350,24 @@ pub fn read(text: &str) -> RawFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn large_files_load_in_linear_time() {
+        // duplicate-key and crossref lookups used to scan all earlier entries for each entry
+        let n = 30_000;
+        let mut text = String::new();
+        for i in 0..n {
+            text.push_str(&format!(
+                "@article{{k{i}, author={{A, B}}, title={{T {i}}}, journal={{J}}, year={{2000}}, crossref={{k0}}}}\n"
+            ));
+        }
+        text.push_str("@article{K5, title={dup}}\n");
+        let t = std::time::Instant::now();
+        let f = read(&text);
+        assert_eq!(f.entries.len(), n);
+        assert!(f.warnings.iter().any(|w| w.contains("duplicate key `K5`")));
+        assert!(t.elapsed().as_secs_f32() < 3.0, "{:?}", t.elapsed());
+    }
 
     fn one(src: &str) -> RawEntry {
         read(src).entries.remove(0)
