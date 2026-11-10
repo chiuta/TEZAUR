@@ -258,21 +258,24 @@ impl Entry {
     pub fn to_ris(&self) -> String {
         let mut s = String::new();
         s.push_str(&format!("TY  - {}\n", self.out_type(Format::Ris)));
-        s.push_str(&format!("ID  - {}\n", self.key));
+        s.push_str(&format!("ID  - {}\n", crate::sanitize::key(&self.key)));
         for p in &self.people().people {
-            s.push_str(&format!("AU  - {}\n", p.inverted()));
+            s.push_str(&format!("AU  - {}\n", crate::sanitize::line(&p.inverted())));
         }
         if !self.title.is_empty() {
-            s.push_str(&format!("TI  - {}\n", self.title));
+            s.push_str(&format!("TI  - {}\n", crate::sanitize::line(&self.title)));
         }
         if !self.container.is_empty() {
-            s.push_str(&format!("T2  - {}\n", self.container));
+            s.push_str(&format!(
+                "T2  - {}\n",
+                crate::sanitize::line(&self.container)
+            ));
         }
         if !self.year.is_empty() {
-            s.push_str(&format!("PY  - {}\n", self.year));
+            s.push_str(&format!("PY  - {}\n", crate::sanitize::line(&self.year)));
         }
         if !self.doi.is_empty() {
-            s.push_str(&format!("DO  - {}\n", self.doi));
+            s.push_str(&format!("DO  - {}\n", crate::sanitize::line(&self.doi)));
         }
         s.push_str("ER  - \n");
         s
@@ -324,8 +327,9 @@ impl Entry {
     /// uses: journal, booktitle, school, institution or publisher.
     pub fn to_bibtex(&self) -> String {
         let kind = self.out_type(Format::Bibtex);
-        let mut s = format!("@{kind}{{{},\n", self.key);
+        let mut s = format!("@{kind}{{{},\n", crate::sanitize::key(&self.key));
         let mut f = |k: &str, v: &str| {
+            let v = crate::sanitize::bib_value(v);
             if !v.is_empty() {
                 s.push_str(&format!("  {k} = {{{v}}},\n"));
             }
@@ -434,10 +438,9 @@ impl BibMap {
                         e
                     }));
                     let name = p.file_name().map(|n| n.to_string_lossy().into_owned());
-                    warnings.extend(
-                        ws.into_iter()
-                            .map(|w| format!("{}: {w}", name.as_deref().unwrap_or("?"))),
-                    );
+                    warnings.extend(ws.into_iter().map(|w| {
+                        crate::sanitize::term(&format!("{}: {w}", name.as_deref().unwrap_or("?")))
+                    }));
                 }
                 Err(e) => eprintln!("warning: cannot read {}: {e}", p.display()),
             }

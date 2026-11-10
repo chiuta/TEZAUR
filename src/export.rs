@@ -178,9 +178,20 @@ fn tex_spans(v: &[Span], cited: &mut bool) -> String {
                             None => (x.clone(), String::new()),
                         })
                         .collect();
-                    let keys: Vec<&str> = split.iter().map(|(a, _)| a.as_str()).collect();
-                    if split.len() == 1 && !split[0].1.is_empty() {
-                        format!("\\cite[{}]{{{}}}", split[0].1, keys[0])
+                    // keys and locators come from the draft: nothing in them may become a LaTeX command
+                    let keys: Vec<String> = split
+                        .iter()
+                        .map(|(a, _)| crate::sanitize::key(a))
+                        .filter(|k| !k.is_empty())
+                        .collect();
+                    if keys.is_empty() {
+                        String::new()
+                    } else if split.len() == 1 && !split[0].1.is_empty() {
+                        format!(
+                            "\\cite[{}]{{{}}}",
+                            tex_escape(&crate::sanitize::line(&split[0].1)),
+                            keys[0]
+                        )
                     } else {
                         format!("\\cite{{{}}}", keys.join(","))
                     }
@@ -470,6 +481,22 @@ mod tests {
             2
         );
         assert!(b.iter().any(|x| matches!(x, Block::Quote(_))));
+    }
+
+    #[test]
+    fn latex_citations_cannot_inject_commands() {
+        let t = to_tex(
+            "x [@a}\\write18{id}{, p. 1] y [@evil, p. \\immediate\\write18{x}] z [@k, p. \\input{/etc/passwd}]",
+            None,
+            None,
+        );
+        // no backslash command survives from a key or a locator; braces in them are escaped or removed
+        assert!(!t.contains("\\write18{"), "{t}");
+        assert!(!t.contains("\\immediate\\write18"), "{t}");
+        assert!(!t.contains("\\input{"), "{t}");
+        assert!(t.contains("\\cite[p. \\textbackslash{}immediate"), "{t}");
+        // an honest citation is unchanged
+        assert!(to_tex("x [@a, p. 3] y", None, None).contains("\\cite[p. 3]{a}"));
     }
 
     #[test]

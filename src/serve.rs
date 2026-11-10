@@ -83,17 +83,22 @@ fn json_resp(code: u16, v: Value) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(v.to_string().into_bytes())
         .with_status_code(StatusCode(code))
         .with_header(hdr("Content-Type", "application/json; charset=utf-8"))
+        .with_header(hdr("X-Content-Type-Options", "nosniff"))
+        .with_header(hdr("Referrer-Policy", "no-referrer"))
 }
 
 /// (index file, library base folder) for a workspace; the default workspace is the CLI's own index.
-fn workspace(ctx: &Ctx, o: &Opts, ws: Option<&str>) -> Result<(PathBuf, PathBuf)> {
+fn workspace(ctx: &Ctx, o: &Opts, ws: Option<&str>, create: bool) -> Result<(PathBuf, PathBuf)> {
     match (
         ws.map(safe_name)
             .filter(|w| !w.is_empty() && w != "default"),
         &o.workspaces,
     ) {
         (Some(w), Some(dir)) => {
-            std::fs::create_dir_all(dir.join(&w))?;
+            // a read must not leave directories behind: any client could otherwise create them without limit
+            if create {
+                std::fs::create_dir_all(dir.join(&w))?;
+            }
             Ok((dir.join(format!("{w}.idx")), dir.join(&w)))
         }
         (Some(_), None) => bail!("this server was started without --workspaces"),
@@ -224,7 +229,7 @@ fn api(
     params: &[(String, String)],
     req: &mut Request,
 ) -> Result<Response<std::io::Cursor<Vec<u8>>>> {
-    let (index, base) = workspace(ctx, o, get(params, "ws"))?;
+    let (index, base) = workspace(ctx, o, get(params, "ws"), *method != Method::Get)?;
     match (method, path) {
         (Method::Get, "/api/health") => {
             let store = Store::load(&index)?;
@@ -678,7 +683,9 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
         if method == Method::Get && (path == "/" || path == "/index.html") {
             let _ = req.respond(
                 Response::from_string(HTML)
-                    .with_header(hdr("Content-Type", "text/html; charset=utf-8")),
+                    .with_header(hdr("Content-Type", "text/html; charset=utf-8"))
+                    .with_header(hdr("X-Content-Type-Options", "nosniff"))
+                    .with_header(hdr("Referrer-Policy", "no-referrer")),
             );
             continue;
         }
@@ -747,25 +754,27 @@ pub fn serve(ctx: &Ctx, o: &Opts) -> Result<()> {
             continue;
         }
         if path == "/api/index" && (method == Method::Get || method == Method::Put) {
-            let r = workspace(ctx, o, get(&params, "ws")).and_then(|(index, _)| {
-                if method == Method::Get {
-                    Ok(Response::from_data(std::fs::read(&index)?)
-                        .with_header(hdr("Content-Type", "application/octet-stream")))
-                } else {
-                    let mut b = Vec::new();
-                    std::io::Read::take(req.as_reader(), MAX_UPLOAD).read_to_end(&mut b)?;
-                    // Refuse anything that is not a loadable index before overwriting the real one.
-                    let tmp = index.with_extension("incoming");
-                    std::fs::write(&tmp, &b)?;
-                    if let Err(e) = Store::load(&tmp) {
-                        let _ = std::fs::remove_file(&tmp);
-                        bail!("not a valid TEZAUR index: {e}");
+            let r = workspace(ctx, o, get(&params, "ws"), method != Method::Get).and_then(
+                |(index, _)| {
+                    if method == Method::Get {
+                        Ok(Response::from_data(std::fs::read(&index)?)
+                            .with_header(hdr("Content-Type", "application/octet-stream")))
+                    } else {
+                        let mut b = Vec::new();
+                        std::io::Read::take(req.as_reader(), MAX_UPLOAD).read_to_end(&mut b)?;
+                        // Refuse anything that is not a loadable index before overwriting the real one.
+                        let tmp = index.with_extension("incoming");
+                        std::fs::write(&tmp, &b)?;
+                        if let Err(e) = Store::load(&tmp) {
+                            let _ = std::fs::remove_file(&tmp);
+                            bail!("not a valid TEZAUR index: {e}");
+                        }
+                        std::fs::rename(&tmp, &index)?;
+                        Ok(Response::from_data(b"{\"ok\":true}".to_vec())
+                            .with_header(hdr("Content-Type", "application/json")))
                     }
-                    std::fs::rename(&tmp, &index)?;
-                    Ok(Response::from_data(b"{\"ok\":true}".to_vec())
-                        .with_header(hdr("Content-Type", "application/json")))
-                }
-            });
+                },
+            );
             match r {
                 Ok(resp) => {
                     let _ = req.respond(resp);

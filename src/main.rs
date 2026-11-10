@@ -34,6 +34,7 @@ mod phrase;
 mod portable;
 mod prompt;
 mod ris;
+mod sanitize;
 mod serve;
 mod sha256;
 mod unitext;
