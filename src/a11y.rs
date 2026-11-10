@@ -147,7 +147,11 @@ mod tests {
 
     #[test]
     fn delete_button_target_and_focus_style() {
-        assert!(PAGE.contains(".x{") && PAGE.contains("min-width:24px;min-height:24px"));
+        // 24 CSS px at least (WCAG 2.5.8) even when the page is zoomed out below 100%: max(24px, 1.6rem)
+        assert!(
+            PAGE.contains(".x{")
+                && PAGE.contains("min-width:max(24px,1.6rem);min-height:max(24px,1.6rem)")
+        );
         assert!(PAGE.contains(":focus-visible{outline:2px solid var(--acc)"));
         assert!(!PAGE.contains("outline:none") && !PAGE.contains("outline:0"));
     }
@@ -224,7 +228,7 @@ mod tests {
             }
         }
         // inputs actually use the stronger edge colour
-        assert!(PAGE.contains("border:1px solid var(--edge);border-radius:6px"));
+        assert!(PAGE.contains("border:1px solid var(--edge);border-radius:0.4rem"));
     }
 
     #[test]
