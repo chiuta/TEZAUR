@@ -1,6 +1,6 @@
 [package]
 name = "tezaur"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2024"
 description = "Local, citation-grounded research assistant for writing a thesis"
 license = "MIT"
@@ -48,3 +48,7 @@ assets = [
 ]
 [package.metadata.generate-rpm.requires]
 poppler-utils = "*"
+
+# tiny_http 0.12.0 with one fix (unbounded allocation on an unread request body); see vendor/tiny_http/PATCHES.md
+[patch.crates-io]
+tiny_http = { path = "vendor/tiny_http" }

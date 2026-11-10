@@ -68,6 +68,86 @@ struct Http {
 }
 
 const MIN_GAP: Duration = Duration::from_secs(1);
+const TOTAL_TIMEOUT: Duration = Duration::from_secs(300);
+const MAX_REDIRECTS: usize = 3;
+
+/// (scheme, host, port, rest) of an http(s) URL; None for anything else or for a URL with credentials.
+fn url_parts(u: &str) -> Option<(&str, String, u16, &str)> {
+    let (scheme, r) = u.split_once("://")?;
+    let default = match scheme {
+        "http" => 80,
+        "https" => 443,
+        _ => return None,
+    };
+    let end = r.find(['/', '?', '#']).unwrap_or(r.len());
+    let (auth, rest) = r.split_at(end);
+    if auth.is_empty() || auth.contains('@') {
+        return None;
+    }
+    let (host, port) = if let Some(v6) = auth.strip_prefix('[') {
+        let (h, after) = v6.split_once(']')?;
+        match after.strip_prefix(':') {
+            Some(p) => (h, p.parse().ok()?),
+            None if after.is_empty() => (h, default),
+            None => return None,
+        }
+    } else {
+        match auth.rsplit_once(':') {
+            Some((h, p)) => (h, p.parse().ok()?),
+            None => (auth, default),
+        }
+    };
+    Some((scheme, host.to_ascii_lowercase(), port, rest))
+}
+
+/// Where a `Location` header may lead: the same host (scheme upgrade http to https allowed, never the reverse).
+/// A redirect to another host, another port on the same scheme, or a downgrade is refused: the command contacts
+/// "only the archive you name".
+pub(crate) fn redirect_target(base: &str, location: &str) -> Option<String> {
+    let (bs, bh, bp, brest) = url_parts(base)?;
+    let location = location.trim();
+    if location.is_empty() || location.bytes().any(|b| b < 0x20 || b == 0x7f) {
+        return None;
+    }
+    // `scheme:` before any `/` means an absolute URI of another kind (javascript:, data:, mailto:…): never a path
+    if let Some(i) = location.find([':', '/', '?', '#'])
+        && location[i..].starts_with(':')
+        && location[..i]
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic())
+        && !location.starts_with("http://")
+        && !location.starts_with("https://")
+    {
+        return None;
+    }
+    let target = if location.starts_with("//") {
+        format!("{bs}:{location}")
+    } else if location.contains("://") {
+        location.to_string()
+    } else if location.starts_with('/') {
+        format!(
+            "{bs}://{}{location}",
+            base[bs.len() + 3..].split(['/', '?', '#']).next()?
+        )
+    } else {
+        let dir = brest.split(['?', '#']).next().unwrap_or("");
+        let dir = &dir[..dir.rfind('/').map(|i| i + 1).unwrap_or(0)];
+        format!(
+            "{bs}://{}{}{location}",
+            base[bs.len() + 3..].split(['/', '?', '#']).next()?,
+            if dir.is_empty() { "/" } else { dir }
+        )
+    };
+    let (ts, th, tp, _) = url_parts(&target)?;
+    let ok = th == bh
+        && match (bs, ts) {
+            (a, b) if a == b => tp == bp,
+            ("http", "https") => true,
+            _ => false,
+        };
+    ok.then_some(target)
+}
 const RETRY_DEFAULT_SECS: u64 = 10;
 
 impl Http {
@@ -75,7 +155,10 @@ impl Http {
         let agent = ureq::AgentBuilder::new()
             .timeout_connect(Duration::from_secs(8))
             .timeout_read(Duration::from_secs(60))
-            .redirects(3)
+            // a server sending one byte a second resets the read timeout forever: bound the whole request too
+            .timeout(TOTAL_TIMEOUT)
+            // redirects are followed by hand (see `redirect_target`): only to the archive that was named
+            .redirects(0)
             .build();
         for attempt in 0..4 {
             if let Some(l) = self.last {
@@ -87,12 +170,39 @@ impl Http {
             }
             self.last = Some(self.clock.now());
             self.requests += 1;
-            let res = agent
-                .get(url)
-                .set("User-Agent", &self.ua)
-                .set("Accept", "text/xml, application/xml")
-                .set("Accept-Encoding", "identity")
-                .call();
+            // ureq's own error type is large; the closure only forwards it
+            #[allow(clippy::result_large_err)]
+            let get = |u: &str| {
+                agent
+                    .get(u)
+                    .set("User-Agent", &self.ua)
+                    .set("Accept", "text/xml, application/xml")
+                    .set("Accept-Encoding", "identity")
+                    .call()
+            };
+            let mut cur = url.to_string();
+            let mut res = get(&cur);
+            let mut hops = 0;
+            while let Ok(r) = &res {
+                if !(300..400).contains(&r.status()) {
+                    break;
+                }
+                hops += 1;
+                let next = r.header("Location").and_then(|l| redirect_target(&cur, l));
+                match next {
+                    Some(n) if hops <= MAX_REDIRECTS => {
+                        self.clock.sleep(MIN_GAP);
+                        self.requests += 1;
+                        cur = n;
+                        res = get(&cur);
+                    }
+                    _ => {
+                        return Err(Fail::Net(
+                            "the archive redirected somewhere other than itself (or too often); refused".into(),
+                        ));
+                    }
+                }
+            }
             match res {
                 Ok(resp) => {
                     let mut buf = Vec::new();
@@ -592,6 +702,54 @@ pub fn save_state(path: &Path, st: &HashMap<String, String>) -> std::io::Result<
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn redirects_stay_on_the_named_archive() {
+        let b = "https://repo.example.org/oai/request?verb=ListRecords";
+        // same host: absolute, root-relative, relative
+        assert_eq!(
+            redirect_target(b, "https://repo.example.org/new").as_deref(),
+            Some("https://repo.example.org/new")
+        );
+        assert_eq!(
+            redirect_target(b, "/other?x=1").as_deref(),
+            Some("https://repo.example.org/other?x=1")
+        );
+        assert_eq!(
+            redirect_target(b, "page2").as_deref(),
+            Some("https://repo.example.org/oai/page2")
+        );
+        assert_eq!(
+            redirect_target(b, "//REPO.example.org/z").as_deref(),
+            Some("https://REPO.example.org/z")
+        );
+        // http to https on the same host is an upgrade: fine
+        assert!(
+            redirect_target(
+                "http://repo.example.org/oai",
+                "https://repo.example.org/oai"
+            )
+            .is_some()
+        );
+        // everything else is refused
+        for bad in [
+            "http://repo.example.org/oai",              // downgrade
+            "https://evil.example.com/",                // other host
+            "https://repo.example.org.evil.com/",       // look-alike host
+            "https://repo.example.org:8443/",           // other port, same scheme
+            "http://169.254.169.254/latest/meta-data/", // metadata service
+            "http://127.0.0.1:11434/api",               // local model server
+            "https://user:pw@repo.example.org/",        // credentials in the URL
+            "https://repo.example.org@evil.com/",       // userinfo trick
+            "file:///etc/passwd",
+            "ftp://repo.example.org/",
+            "javascript:alert(1)",
+            "",
+            "/ok\r\nX: y",
+        ] {
+            assert!(redirect_target(b, bad).is_none(), "{bad:?} must be refused");
+        }
+    }
+
     use super::*;
     use std::sync::{Arc, Mutex};
 
