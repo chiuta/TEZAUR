@@ -1,4 +1,4 @@
-const C='tezaur-f76bcfa4',F=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./vendor/pdfjs/pdf.min.js','./vendor/pdfjs/pdf.worker.min.js'];
+const C='tezaur-de641ab4',F=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./vendor/pdfjs/pdf.min.js','./vendor/pdfjs/pdf.worker.min.js'];
 self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(F)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==C).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
 // Only the app shell is cached; requests to the model server and CDNs go straight to the network.

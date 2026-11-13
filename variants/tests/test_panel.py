@@ -20,7 +20,7 @@ procs = [subprocess.Popen([sys.executable, os.path.join(HERE, "mock_judge.py"), 
 try:
     time.sleep(1.5)
     with sync_playwright() as pw:
-        b = pw.chromium.launch(); pg = b.new_page(); errs = []
+        b = pw.chromium.launch(); pg = b.new_context(locale="ro-RO").new_page(); errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto("http://127.0.0.1:8815/"); pg.wait_for_timeout(1200)
         pg.click("#tabs button[data-m=audit]")
