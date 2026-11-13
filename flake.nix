@@ -9,7 +9,7 @@
       packages = forAll (pkgs: rec {
         tezaur = pkgs.rustPlatform.buildRustPackage {
           pname = "tezaur";
-          version = "0.5.1";
+          version = "0.5.2";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
           cargoBuildFlags = [ "--bin" "tezaur" ];
