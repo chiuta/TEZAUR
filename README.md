@@ -2,6 +2,8 @@
 
 **English** · [Română](README.ro.md) · [Français](README.fr.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [Magyar](README.hu.md)
 
+Version: 0.5.2 · Last updated: 2026-11-14
+
 A local, citation-grounded research assistant for writing a thesis. One Rust binary.
 Your books and articles stay on your machine: nothing is sent anywhere unless you run one of the opt-in online commands (see "Network use").
 
@@ -304,3 +306,7 @@ Reading it: wrong sources, unrelated sentences and changed figures are caught; n
 ## Network use and external tools
 
 pdf.js 3.11.174 (Apache-2.0) is bundled locally in the PWA (`pwa/vendor/pdfjs`, cached by its service worker), in the browser extension (`variants/build-extension.sh` copies it and `build-web.py --local-pdfjs` points the page at it) and in the YunoHost variant; the single-file `tezaur.html`, and the other wrappers built with `build-web.py`, load it from jsDelivr with a Subresource Integrity hash (the PDF worker is not integrity-checked). transformers.js (jsDelivr, dynamic import, no SRI possible) and the Whisper tiny model (Hugging Face) are still fetched from the internet; bots forward messages through third-party services. "Local" therefore applies to your documents and the retrieval index, not to every variant at all times. PDF and OCR features need `pdftotext`, `pdftoppm` and `tesseract` installed. Recommended models (`llama3.1:8b`, `bge-m3`) are not bundled and carry their own licences (Llama 3.1 has its own community licence with use restrictions). Provenance: `docs/clean-room/PROVENANCE.md`.
+
+## Support
+
+Trade-free: no tracking, no ads. If it is useful to you, you can support the author: https://buymeacoffee.com/echo.of.the.strings
