@@ -1008,6 +1008,7 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
  * fibre, iluminat cu hartă de normale din înălțime (Lambert + Blinn–Phong + ocluzie ambientală) și mulțimile Julia/Mandelbrot cu capcane de orbită.
  * Rezultatul e un strat translucid (alfa) pus pe fundalul paginii și pe suprafețele mari (carduri, panouri, antete, butoane): culorile aplicației
  * rămân ale ei, se adaugă doar materialul. Plăcile sunt periodice (se repetă fără cusătură); la rezoluție mare se văd fibre, pori, granule, zgârieturi.
+ * Panourile ascunse la încărcare (file inactive, <dialog> închis, <details> pliat, modale cu visibility:hidden) primesc textura când devin vizibile (1.1.2).
  * Reguli: nu rulează în browsere automatizate (navigator.webdriver; se forțează cu ?fffx=1), în iframe, cu contrast ridicat / culori forțate /
  * economie de date / transparență redusă, nici la imprimare; se oprește cu ?notex=1, <meta name="fff-texturi" content="off"> sau din dialogul „Transparență”.
  * Imaginile sunt `data:` (CSP-ul aplicațiilor nu permite `blob:`); stilul se pune prin CSSOM (adoptedStyleSheets), deci nu intră în DOM-ul serializat.
@@ -1021,7 +1022,7 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
   }
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function (root) {
   'use strict';
-  var VERSION = '1.1.1';
+  var VERSION = '1.1.2';
   var DOC = root.document || null;
 
   /* ================= 1. PRESETE DE MATERIALE ================= */
@@ -1449,23 +1450,107 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
     clearTimeout(S.ptimer); S.ptimer = 0;
     try { if (S.mq && S.mq.removeEventListener) S.mq.removeEventListener('change', S.mqgo); } catch (e) { /* inert */ } S.mq = null;
   }
+  // Ce elemente intră în discuție (aceleași reguli la scanarea inițială, la panourile ascunse care se deschid și la cele care redevin vizibile).
+  function eligible(el) {
+    if (el === DOC.body || el === DOC.documentElement || el.nodeType !== 1 || el.namespaceURI !== 'http://www.w3.org/1999/xhtml' || SKIP[el.tagName] || el.hasAttribute('data-fffx')) return false;
+    return !(el.tagName === 'INPUT' && NOINPUT.test(el.type));
+  }
+  // Suprafață potrivită acum → {el, area, big}; potrivită, dar invizibilă deocamdată (visibility:hidden sau opacitate sub 0,3: modal, sertar, notificare) → 'later'; altfel null.
+  function judge(el, st, vw, r) {
+    var area = r.width * r.height;
+    if (area < (st.minArea || 3000) || r.height < 28) return null;
+    var cs = root.getComputedStyle(el), inc = st.inc || '', force = inc && el.matches(inc);
+    if (cs.display === 'none' || cs.backgroundImage !== 'none') return null;
+    if (!force && alphaOf(cs.backgroundColor) < 0.55) return null;
+    if (el.matches(st.exc || EXC_DEF)) return null;
+    if (cs.position === 'fixed' && r.width >= vw * 0.95 && r.height >= (root.innerHeight || 700) * 0.9) return null;
+    if (cs.visibility === 'hidden' || parseFloat(cs.opacity) < 0.3) return 'later';
+    return {el: el, area: area, big: area >= 30000 || (r.width >= vw * 0.5 && r.height >= 64)};
+  }
+  function mark(cand) {
+    recount();
+    var room = Math.max(0, S.st.max - S.st.count), seen = root.Set ? new root.Set() : null, uniq = [];
+    cand.sort(function (a, b) { return b.area - a.area; });
+    cand.forEach(function (c) { if (seen) { if (seen.has(c.el)) return; seen.add(c.el); } uniq.push(c); });
+    uniq.slice(0, room).forEach(function (c) { c.el.setAttribute('data-fffx', c.big ? 'p' : 'c'); });
+    S.st.count += Math.min(room, uniq.length);
+  }
+  /* Panouri ascunse la încărcare (display:none, filă inactivă, <dialog> închis, <details> pliat, secțiune cu height:0): scanarea lor nu găsește nicio dimensiune, deci se urmăresc
+     cu ResizeObserver și primesc textura la prima dimensiune stabilă (350 ms după ultima schimbare, ca animațiile de deschidere să se termine). Plafon: 600 de elemente urmărite. */
+  function rob() {
+    if (S.ro) return S.ro;
+    S.ro = new root.ResizeObserver(function (es) {
+      for (var i = 0; i < es.length; i++) { var t = es[i].target, r = t.getBoundingClientRect(); if (r.width && r.height) S.awake.push(t); }
+      if (S.awake.length && S.on) { clearTimeout(S.wtimer); S.wtimer = setTimeout(settle, 350); }
+    });
+    return S.ro;
+  }
+  function hideout(el, st) {
+    if (!root.ResizeObserver || !root.Set) return;
+    var D = S.dorm || (S.dorm = new root.Set());
+    if (D.has(el)) return;
+    if (D.size >= 600) { D.forEach(function (x) { if (!DOC.contains(x)) { D.delete(x); if (S.ro) S.ro.unobserve(x); } }); if (D.size >= 600) return; }
+    var cs = root.getComputedStyle(el), inc = st.inc || '';
+    if (cs.backgroundImage !== 'none' || (!(inc && el.matches(inc)) && alphaOf(cs.backgroundColor) < 0.55) || el.matches(st.exc || EXC_DEF)) return;
+    D.add(el); if (S.on) rob().observe(el);
+  }
+  function settle() {
+    S.wtimer = 0;
+    var list = S.awake; S.awake = [];
+    if (!S.on || !S.st) return;
+    var vw = root.innerWidth || 1024, cand = [];
+    list.forEach(function (el) {
+      if (S.dorm) S.dorm.delete(el);
+      if (S.ro) S.ro.unobserve(el);
+      if (!DOC.contains(el) || !eligible(el)) return;
+      var j = judge(el, S.st, vw, el.getBoundingClientRect());
+      if (j === 'later') later(el); else if (j) cand.push(j);
+    });
+    if (cand.length) mark(cand);
+  }
+  /* Potrivit, dar invizibil deocamdată (visibility:hidden / opacitate aproape zero): ResizeObserver nu vede schimbarea, deci se verifică la ~0,5 s cât timp există astfel de elemente (≤ 300). */
+  function later(el) {
+    var V = S.vis || (S.vis = new root.Set());
+    if (V.has(el) || V.size >= 300) return;
+    V.add(el); armVis();
+  }
+  function armVis() { if (!S.vtimer && S.on && S.vis && S.vis.size) S.vtimer = setInterval(vcheck, 450); }
+  function vcheck() {
+    if (!S.on || !S.vis || !S.vis.size || !S.st) { clearInterval(S.vtimer); S.vtimer = 0; return; }
+    if (DOC.hidden) return;
+    var vw = root.innerWidth || 1024, cand = [];
+    S.vis.forEach(function (el) {
+      if (!DOC.contains(el) || el.hasAttribute('data-fffx')) { S.vis.delete(el); return; }
+      var r = el.getBoundingClientRect();
+      if (!(r.width && r.height)) { S.vis.delete(el); hideout(el, S.st); return; }
+      var j = judge(el, S.st, vw, r);
+      if (j === 'later') return;
+      S.vis.delete(el); if (j) cand.push(j);
+    });
+    if (cand.length) mark(cand);
+    if (!S.vis.size) { clearInterval(S.vtimer); S.vtimer = 0; }
+  }
+  function unwake() {
+    clearTimeout(S.wtimer); S.wtimer = 0; S.awake = [];
+    if (S.ro) { S.ro.disconnect(); S.ro = null; }
+    clearInterval(S.vtimer); S.vtimer = 0;
+  }
+  function rewake() {
+    if (S.dorm && root.ResizeObserver) { var o = rob(); S.dorm.forEach(function (el) { if (DOC.contains(el)) o.observe(el); else S.dorm.delete(el); }); }
+    armVis();
+  }
   // Parcurge elementele (în felii), alege suprafețele mari cu fundal plin și fără imagine și le marchează cu data-fffx="p|c".
   function scan(rootEl, st, done) {
-    var all = [rootEl].concat([].slice.call(rootEl.getElementsByTagName('*'), 0, 14000)), i = 0, cand = [], vw = root.innerWidth || 1024, exc = st.exc || EXC_DEF, inc = st.inc || '';
+    var all = [rootEl].concat([].slice.call(rootEl.getElementsByTagName('*'), 0, 14000)), i = 0, cand = [], vw = root.innerWidth || 1024, hb = 1500;
     function slice() {
       var t0 = now();
       while (i < all.length && now() - t0 < 10) {
         var el = all[i++];
-        if (el === DOC.body || el === DOC.documentElement || el.nodeType !== 1 || el.namespaceURI !== 'http://www.w3.org/1999/xhtml' || SKIP[el.tagName] || el.hasAttribute('data-fffx')) continue;
-        if (el.tagName === 'INPUT' && NOINPUT.test(el.type)) continue;
-        var r = el.getBoundingClientRect(), area = r.width * r.height;
-        if (area < (st.minArea || 3000) || r.height < 28) continue;
-        var cs = root.getComputedStyle(el), force = inc && el.matches(inc);
-        if (cs.display === 'none' || cs.visibility === 'hidden' || cs.backgroundImage !== 'none' || parseFloat(cs.opacity) < 0.3) continue;
-        if (!force && alphaOf(cs.backgroundColor) < 0.55) continue;
-        if (el.matches(exc)) continue;
-        if (cs.position === 'fixed' && r.width >= vw * 0.95 && r.height >= (root.innerHeight || 700) * 0.9) continue;
-        cand.push({el: el, area: area, big: area >= 30000 || (r.width >= vw * 0.5 && r.height >= 64)});
+        if (!eligible(el)) continue;
+        var r = el.getBoundingClientRect();
+        if (!(r.width && r.height)) { if (hb > 0) { hb--; hideout(el, st); } continue; }
+        var j = judge(el, st, vw, r);
+        if (j === 'later') later(el); else if (j) cand.push(j);
       }
       if (i < all.length) return setTimeout(slice, 0);
       cand.sort(function (a, b) { return b.area - a.area; });
@@ -1500,7 +1585,8 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
 
   /* ================= 9. CONFIGURARE, PORNIRE, INTERFAȚĂ ================= */
   var CFG = {m: 'parchment', p: '', a: 1, seed: 7, size: 0, hero: null, inc: '', exc: '', max: 220, minArea: 3000, over: null, pover: null, low: null};
-  var S = {on: false, started: false, booted: false, tex: null, st: null, obs: null, timer: 0, info: null, force: false, bd: false, pobs: null, ptimer: 0, mq: null, mqgo: null};
+  var S = {on: false, started: false, booted: false, tex: null, st: null, obs: null, timer: 0, info: null, force: false, bd: false, pobs: null, ptimer: 0, mq: null, mqgo: null,
+    dorm: null, ro: null, awake: [], wtimer: 0, vis: null, vtimer: 0};
   function lang() { try { var l = (root.FFF && root.FFF.lang && root.FFF.lang()) || DOC.documentElement.lang || 'en'; l = String(l).slice(0, 2).toLowerCase(); return TXT[l] ? l : 'en'; } catch (e) { return 'en'; } }
   function TT(k) { return (TXT[lang()] || TXT.en)[k]; }
   function mq(q) { try { return !!(root.matchMedia && root.matchMedia(q).matches); } catch (e) { return false; } }
@@ -1527,7 +1613,7 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
   function cspWatch(e) {
     if (!/^img-src/.test(String(e && e.violatedDirective || '')) || !/^data/.test(String(e && e.blockedURI || ''))) return;
     DOC.removeEventListener('securitypolicyviolation', cspWatch);
-    S.on = false; removeCSS(); removeBackdrop(); unwatchPage();
+    S.on = false; removeCSS(); removeBackdrop(); unwatchPage(); unwake();
     if (S.obs) { S.obs.disconnect(); S.obs = null; }
     DOC.documentElement.removeAttribute('data-fffx-on'); S.info = {on: false, reason: 'csp-img-src'};
   }
@@ -1622,11 +1708,13 @@ $('speak').onclick=()=>{const s=speechSynthesis;if(s.speaking){s.cancel();return
     presets: PRESETS, resolve: resolve, _makeH: makeH, makeTexture: makeTexture, cpuRender: cpuRender, overlayize: overlayize, hasGL: function () { return !!DOC && hasGL(); },
     configure: function (c) { if (c) for (var k in c) if (k in CFG && c[k] !== undefined) CFG[k] = c[k]; return CFG; },
     start: start, info: function () { return S.info; }, get: function () { return S.on; },
+    // Câte panouri ascunse (display:none, închise, pliate) și câte invizibile (visibility:hidden / opacitate ~0) așteaptă să fie texturate când apar.
+    pending: function () { return {hidden: S.dorm ? S.dorm.size : 0, later: S.vis ? S.vis.size : 0}; },
     set: function (on) {
       on = !!on;
       try { var F = root.FFF; if (F && F.store && F.store.set) F.store.set('texturi', on ? 'on' : 'off'); else root.localStorage.setItem('fff.texturi', on ? 'on' : 'off'); } catch (e) { /* inert */ }
-      if (on) { S.on = true; if (!S.started) start(); else if (S.tex) { installCSS(cssText(S.tex)); DOC.documentElement.setAttribute('data-fffx-on', ''); applyPage(); watchPage(); watch(); } }
-      else { S.on = false; removeCSS(); removeBackdrop(); unwatchPage(); DOC.documentElement.removeAttribute('data-fffx-on'); if (S.obs) { S.obs.disconnect(); S.obs = null; } }
+      if (on) { S.on = true; if (!S.started) start(); else if (S.tex) { installCSS(cssText(S.tex)); DOC.documentElement.setAttribute('data-fffx-on', ''); applyPage(); watchPage(); watch(); rewake(); } }
+      else { S.on = false; removeCSS(); removeBackdrop(); unwatchPage(); unwake(); DOC.documentElement.removeAttribute('data-fffx-on'); if (S.obs) { S.obs.disconnect(); S.obs = null; } }
       return S.on;
     },
     _boot: boot
