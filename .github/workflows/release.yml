@@ -53,6 +53,42 @@ jobs:
           files=(out/*.tar.gz out/*.zip out/*.deb out/SHA256SUMS-*.txt)
           ls -la "${files[@]}"
           gh release upload "${{ needs.release.outputs.tag }}" "${files[@]}" --clobber -R "${{ github.repository }}"
+  linux-static:
+    # For older Linux: fully static musl binaries (no glibc, any kernel from 3.2) as tar.gz and as a .deb, x86_64 and arm64.
+    needs: release
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-26.04, target: x86_64-unknown-linux-musl, name: linux-x86_64-static }
+          - { os: ubuntu-26.04-arm, target: aarch64-unknown-linux-musl, name: linux-aarch64-static }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
+      - run: rustup target add ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }}
+      - name: Check that it is static and runs on an old system
+        run: |
+          B=target/${{ matrix.target }}/release/tezaur
+          file "$B"; file "$B" | grep -Eq 'statically linked|static-pie linked'
+          "$B" --version
+          if [ "${{ matrix.os }}" = ubuntu-26.04 ]; then
+            for img in ubuntu:14.04 centos:7 debian:8; do docker run --rm -v "$PWD/$B":/t:ro $img /t --version; done
+          fi
+      - name: Package
+        run: |
+          B=target/${{ matrix.target }}/release/tezaur
+          mkdir -p out/tezaur-${{ matrix.name }}
+          cp LICENSE README.md THIRD-PARTY-NOTICES.md out/tezaur-${{ matrix.name }}/
+          cp "$B" out/tezaur-${{ matrix.name }}/tezaur
+          tar -C out -czf out/tezaur-${{ needs.release.outputs.tag }}-${{ matrix.name }}.tar.gz tezaur-${{ matrix.name }}
+          DEB_ARCH=$([ "${{ matrix.target }}" = x86_64-unknown-linux-musl ] && echo amd64 || echo arm64) BIN="$B" STATIC=1 ./variants/build-deb.sh && cp dist/*_static.deb out/
+          cd out && : > SHA256SUMS-${{ matrix.name }}.txt && for f in *.tar.gz *.deb; do sha256sum "$f" >> SHA256SUMS-${{ matrix.name }}.txt; done
+      - uses: actions/attest-build-provenance@v2
+        with: { subject-path: 'out/*.tar.gz, out/*.deb' }
+      - name: Upload to the release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release upload "${{ needs.release.outputs.tag }}" out/*.tar.gz out/*.deb out/SHA256SUMS-*.txt --clobber -R "${{ github.repository }}"
   cli:
     strategy:
       matrix:
