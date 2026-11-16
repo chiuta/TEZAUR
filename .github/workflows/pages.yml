@@ -13,7 +13,7 @@ on:
 permissions: { contents: read, pages: write, id-token: write }
 jobs:
   apt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: repo-apt, path: repo }
   rpm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -63,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: repo-rpm, path: repo }
   flatpak:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y flatpak flatpak-builder
@@ -92,7 +92,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: repo-flatpak, path: repo }
   fdroid:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -117,7 +117,7 @@ jobs:
         with: { name: repo-fdroid, path: out }
   deploy:
     needs: [apt, rpm, flatpak, fdroid]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       url: ${{ steps.dep.outputs.page_url }}
     environment:
@@ -141,7 +141,7 @@ jobs:
   verify-live:
     # the published URLs, not a local copy: install from the real Pages site in clean containers
     needs: deploy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - name: apt (Debian), dnf (Fedora)

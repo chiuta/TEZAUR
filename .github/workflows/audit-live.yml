@@ -4,13 +4,13 @@ on: { workflow_dispatch: { inputs: { host: { default: tezaur.chiuta.ro } } } }
 permissions: { contents: read }
 jobs:
   http:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - run: python3 scripts/audit/live_audit.py "${{ inputs.host }}"
   browsers:
     strategy: { fail-fast: false, matrix: { browser: [chromium, firefox, webkit] } }
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - run: pip install playwright && python -m playwright install --with-deps ${{ matrix.browser }}
