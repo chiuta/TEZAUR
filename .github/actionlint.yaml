@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Alexio <alexio@trom.tf>
+# SPDX-License-Identifier: MIT
+# GitHub-hosted labels that the bundled actionlint does not know yet (Ubuntu 26.04 is GA since Sept 2026).
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
+    - ubuntu-26.04-arm
