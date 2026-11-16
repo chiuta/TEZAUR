@@ -2,7 +2,7 @@
 
 [English](README.md) · [Română](README.ro.md) · **Français** · [Italiano](README.it.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [Magyar](README.hu.md)
 
-Version : 0.5.2 · Dernière mise à jour : 2026-11-14
+Version : 0.5.3 · Dernière mise à jour : 2026-11-16
 
 Un assistant de recherche local, fondé sur les citations, pour rédiger une thèse. Un seul binaire Rust.
 Vos livres et articles restent sur votre machine : rien n’est envoyé nulle part, sauf si vous lancez l’une des commandes en ligne facultatives (voir « Utilisation du réseau »).

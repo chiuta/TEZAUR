@@ -5,14 +5,14 @@ on:
   workflow_dispatch:
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - run: cargo fmt --check
       - run: cargo clippy --release --all-targets -- -D warnings
       - run: cargo install cargo-audit --locked && cargo audit
   html:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - name: W3C Nu HTML checker on every HTML file
@@ -21,7 +21,7 @@ jobs:
           find . -name '*.html' -not -path './target/*' -not -path './scripts/tutorials/out/*' -print0 \
             | xargs -0 java -jar /tmp/vnu/node_modules/vnu-jar/build/dist/vnu.jar --errors-only --format text
   repo:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v4
       - run: pip install reuse actionlint-py webvtt-py
