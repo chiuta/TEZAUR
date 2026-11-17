@@ -2,7 +2,7 @@
 
 [English](README.md) · **Română** · [Français](README.fr.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [Magyar](README.hu.md)
 
-Versiune: 0.5.3 · Ultima actualizare: 2026-11-16
+Versiune: 0.5.4 · Ultima actualizare: 2026-11-17
 
 Un asistent de cercetare local, ancorat în citări, pentru scrierea unei teze. Un singur binar Rust.
 Cărțile și articolele tale rămân pe calculatorul tău: nimic nu este trimis nicăieri decât dacă rulezi una dintre comenzile online opționale (vezi „Utilizarea rețelei”).

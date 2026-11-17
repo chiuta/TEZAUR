@@ -1,8 +1,8 @@
 class Tezaur < Formula
   desc "Local, citation-grounded research assistant for writing a thesis"
   homepage "https://trom.tf"
-  url "https://github.com/chiuta/TEZAUR/archive/refs/tags/v0.4.0.tar.gz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000" # replace with the tarball sum when tagging
+  url "https://github.com/chiuta/TEZAUR/archive/refs/tags/v0.5.3.tar.gz"
+  sha256 "580019b3a2d2fb252319401aab64c03e747503328c025e03d37bb31d353adcaf"
   license "MIT"
   head "https://github.com/chiuta/TEZAUR.git", branch: "main"
 

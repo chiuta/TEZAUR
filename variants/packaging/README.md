@@ -1,7 +1,6 @@
 # Package-manager manifests
 
-These need a **published release** before they can work: the repository owner is already set to `chiuta`; replace the version,
-and every `SHA256-OF-…` value (`sha256sum file`). They were written from the packaging formats' documentation and have **not**
+Scoop, winget and Homebrew point at the published release 0.5.3 with its real checksums (computed from the downloaded assets). For a newer release, change the version and the checksum (`sha256sum file`, or the `SHA256SUMS-*.txt` attached to each release); Scoop's `autoupdate` does this by itself. They were written from the packaging formats' documentation and have **not**
 been run through the managers' own linters/builders — treat each as a starting point.
 
 | Manager | File | Builds from |

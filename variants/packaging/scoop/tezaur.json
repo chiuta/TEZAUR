@@ -1,12 +1,15 @@
 {
-  "version": "0.4.0",
+  "version": "0.5.3",
   "description": "Local, citation-grounded research assistant for writing a thesis",
-  "homepage": "https://trom.tf",
+  "homepage": "https://tezaur.chiuta.ro",
   "license": "MIT",
-  "url": "https://github.com/chiuta/TEZAUR/releases/download/v0.4.0/tezaur-windows.zip",
-  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "url": "https://github.com/chiuta/TEZAUR/releases/download/v0.5.3/tezaur-v0.5.3-windows-x86_64.zip",
+  "hash": "8c176ef9608502a5e90b0d40598e784908104cca75430ee59c8274582243aaaf",
+  "extract_dir": "tezaur-windows-x86_64",
   "bin": "tezaur.exe",
-  "shortcuts": [["TezaurPortable.exe", "TEZAUR"]],
   "checkver": "github",
-  "autoupdate": { "url": "https://github.com/chiuta/TEZAUR/releases/download/v$version/tezaur-windows.zip" }
+  "autoupdate": {
+    "url": "https://github.com/chiuta/TEZAUR/releases/download/v$version/tezaur-v$version-windows-x86_64.zip",
+    "hash": { "url": "https://github.com/chiuta/TEZAUR/releases/download/v$version/SHA256SUMS-windows-x86_64.txt", "regex": "$sha256\\s+$basename" }
+  }
 }
