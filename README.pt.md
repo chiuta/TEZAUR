@@ -2,7 +2,7 @@
 
 [English](README.md) · [Română](README.ro.md) · [Français](README.fr.md) · [Italiano](README.it.md) · [Español](README.es.md) · **Português** · [Deutsch](README.de.md) · [Magyar](README.hu.md)
 
-Versão: 0.5.3 · Última atualização: 2026-11-16
+Versão: 0.5.4 · Última atualização: 2026-11-17
 
 Um assistente de investigação local, baseado em citações, para escrever uma tese. Um único binário Rust.
 Os seus livros e artigos ficam no seu computador: nada é enviado para lado nenhum, a não ser que execute um dos comandos online opcionais (veja «Utilização da rede»).

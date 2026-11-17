@@ -1,13 +1,13 @@
 PackageIdentifier: trom.Tezaur
-PackageVersion: 0.4.0
+PackageVersion: 0.5.3
 InstallerType: zip
 NestedInstallerType: portable
 NestedInstallerFiles:
-  - RelativeFilePath: tezaur.exe
+  - RelativeFilePath: tezaur-windows-x86_64\tezaur.exe
     PortableCommandAlias: tezaur
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/chiuta/TEZAUR/releases/download/v0.4.0/tezaur-windows.zip
-    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    InstallerUrl: https://github.com/chiuta/TEZAUR/releases/download/v0.5.3/tezaur-v0.5.3-windows-x86_64.zip
+    InstallerSha256: 8C176EF9608502A5E90B0D40598E784908104CCA75430EE59C8274582243AAAF
 ManifestType: installer
 ManifestVersion: 1.6.0

@@ -2,7 +2,7 @@
 
 [English](README.md) · [Română](README.ro.md) · [Français](README.fr.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Português](README.pt.md) · **Deutsch** · [Magyar](README.hu.md)
 
-Version: 0.5.3 · Letzte Aktualisierung: 2026-11-16
+Version: 0.5.4 · Letzte Aktualisierung: 2026-11-17
 
 Ein lokaler, zitatgestützter Recherche-Assistent zum Schreiben einer Abschlussarbeit. Eine einzige Rust-Binärdatei.
 Deine Bücher und Artikel bleiben auf deinem Rechner: Nichts wird irgendwohin gesendet, es sei denn, du führst einen der optionalen Online-Befehle aus (siehe „Netzwerknutzung“).
