@@ -201,7 +201,7 @@ jobs:
           mkdir -p ~/.config/kate/lspclient
           sed "s#TEZAUR_TOOLS#$PWD/tools#" variants/editors/latex/lsp-configs/kate-lspclient.json > ~/.config/kate/lspclient/settings.json
           printf '[Kate Plugins]\nlspclientplugin=true\n' >> ~/.config/katerc
-          export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" dbus-run-session -- bash -c 'kate --version >kate.log 2>&1; kate -n doc.md >>kate.log 2>&1 & sleep 25; pgrep -a kate >>kate.log; import -window root kate-shot.png; pkill kate' || true
+          export EDITOR_NAME=kate; xvfb-run -a -s "-screen 0 1280x800x24" dbus-run-session -- bash -c 'kate --version >kate.log 2>&1; kate -n doc.md >>kate.log 2>&1 & sleep 12; import -window root kate-dialog.png; xdotool key Return; sleep 13; pgrep -a kate >>kate.log; import -window root kate-shot.png; pkill kate' || true
           bash .github/annotate.sh bash -c 'echo KATELOG; tail -8 kate.log; echo OCR; tesseract kate-shot.png - 2>/dev/null | grep -v "^$" | head -25; echo SPAWN; cat /tmp/lsp-spawn.log; grep -q "kate spawned" /tmp/lsp-spawn.log'
       - name: TeXstudio (user command from the shipped instructions, run through its Tools menu)
         run: |
@@ -218,6 +218,7 @@ jobs:
           name: gui-editor-shots
           path: |
             *-shot.png
+            kate-dialog.png
             tex-menu.png
             kate.log
           if-no-files-found: warn
