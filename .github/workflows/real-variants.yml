@@ -208,8 +208,9 @@ jobs:
           try {
             Invoke-RestMethod get.scoop.sh -outfile i.ps1; .\i.ps1 -RunAsAdmin
             $env:PATH += ";$HOME\scoop\shims"
-            New-Item -ItemType Directory pz | Out-Null
-            Copy-Item target/release/tezaur.exe pz/tezaur.exe; Copy-Item target/release/tezaur.exe pz/TezaurPortable.exe
+            # arhiva reală are fișierele într-un dosar (manifestul are extract_dir), deci și cea de test
+            New-Item -ItemType Directory pz/tezaur-windows-x86_64 -Force | Out-Null
+            Copy-Item target/release/tezaur.exe pz/tezaur-windows-x86_64/tezaur.exe; Copy-Item target/release/tezaur.exe pz/tezaur-windows-x86_64/TezaurPortable.exe
             Compress-Archive -Path pz/* -DestinationPath tezaur-windows.zip
             $h = (Get-FileHash tezaur-windows.zip -Algorithm SHA256).Hash.ToLower()
             $j = Get-Content variants/packaging/scoop/tezaur.json | ConvertFrom-Json
