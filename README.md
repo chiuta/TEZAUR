@@ -2,7 +2,7 @@
 
 **English** · [Română](README.ro.md) · [Français](README.fr.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · [Magyar](README.hu.md)
 
-Version: 0.6.0 · Last updated: 2026-11-19
+Version: 0.6.0 · Last updated: 2026-11-22
 
 A local, citation-grounded research assistant for writing a thesis. One Rust binary.
 Your books and articles stay on your machine: nothing is sent anywhere unless you run one of the opt-in online commands (see "Network use").
