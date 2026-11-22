@@ -2,7 +2,7 @@
 
 [English](README.md) · [Română](README.ro.md) · [Français](README.fr.md) · [Italiano](README.it.md) · [Español](README.es.md) · [Português](README.pt.md) · [Deutsch](README.de.md) · **Magyar**
 
-Verzió: 0.6.0 · Utolsó frissítés: 2026-11-19
+Verzió: 0.6.0 · Utolsó frissítés: 2026-11-22
 
 Helyi, idézetekre épülő kutatási asszisztens szakdolgozat vagy disszertáció írásához. Egyetlen Rust bináris.
 A könyveid és cikkeid a gépeden maradnak: semmi nem megy sehová, hacsak nem futtatod valamelyik opcionális online parancsot (lásd „Hálózathasználat”).
